@@ -47,118 +47,6 @@ import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
 import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
 
 
-// Sample initial orders with timestamps across today, week, month, and year
-const sampleInitialOrders = [
-  {
-    id: 'ord-101',
-    customer_name: 'أحمد هشام',
-    customer_phone: '01012345678',
-    order_type: 'delivery',
-    delivery_zone: 'سنهور المدينة',
-    delivery_address: 'شارع المحطة - بجوار صيدلية الشعب',
-    building_notes: 'الدور الثاني - شقة 4',
-    special_notes: 'شطة زيادة وتقلية مقرمشة',
-    payment_method: 'cash',
-    items_count: 3,
-    subtotal: 125,
-    delivery_fee: 10,
-    discount_amount: 0,
-    total_amount: 135,
-    status: 'pending',
-    created_at: new Date(Date.now() - 1000 * 60 * 35).toISOString() // اليوم (منذ 35 دقيقة)
-  },
-  {
-    id: 'ord-102',
-    customer_name: 'محمد عبد الرحمن',
-    customer_phone: '01122334455',
-    order_type: 'delivery',
-    delivery_zone: 'سنهور القبلية',
-    delivery_address: 'أمام مسجد التقوى',
-    building_notes: '',
-    special_notes: 'دقة زيادة لو سمحت',
-    payment_method: 'vodafone_cash',
-    items_count: 2,
-    subtotal: 90,
-    delivery_fee: 15,
-    discount_amount: 0,
-    total_amount: 105,
-    status: 'preparing',
-    created_at: new Date(Date.now() - 1000 * 60 * 180).toISOString() // اليوم (منذ 3 ساعات)
-  },
-  {
-    id: 'ord-103',
-    customer_name: 'محمود الفيلالي',
-    customer_phone: '01299887766',
-    order_type: 'delivery',
-    delivery_zone: 'بحيرة قارون والمنتجعات',
-    delivery_address: 'طريق الكورنيش - فيلا الفيلالي',
-    building_notes: 'البوابة الرئيسية',
-    special_notes: 'طواجن سخنة مولعة',
-    payment_method: 'instapay',
-    items_count: 5,
-    subtotal: 240,
-    delivery_fee: 25,
-    discount_amount: 20,
-    total_amount: 245,
-    status: 'completed',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() // هذا الأسبوع (منذ يومين)
-  },
-  {
-    id: 'ord-104',
-    customer_name: 'أحمد هشام', // عميل متكرر لتوضيح حساب كام شخص
-    customer_phone: '01012345678',
-    order_type: 'takeaway',
-    delivery_zone: 'استلام من المطعم',
-    delivery_address: 'طلب استلام فوري',
-    building_notes: '',
-    special_notes: 'بدون شطة',
-    payment_method: 'cash',
-    items_count: 2,
-    subtotal: 70,
-    delivery_fee: 0,
-    discount_amount: 0,
-    total_amount: 70,
-    status: 'completed',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString() // هذا الأسبوع (منذ 5 أيام)
-  },
-  {
-    id: 'ord-105',
-    customer_name: 'كريم الباسل',
-    customer_phone: '01566778899',
-    order_type: 'delivery',
-    delivery_zone: 'منشأة سكران وعزبة قاسم',
-    delivery_address: 'الشارع الغربي',
-    building_notes: 'منزل الحاج كريم',
-    special_notes: 'بدون بصل',
-    payment_method: 'cash',
-    items_count: 4,
-    subtotal: 180,
-    delivery_fee: 20,
-    discount_amount: 0,
-    total_amount: 200,
-    status: 'completed',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 16).toISOString() // هذا الشهر (منذ 16 يوم)
-  },
-  {
-    id: 'ord-106',
-    customer_name: 'طارق الديب',
-    customer_phone: '01099988811',
-    order_type: 'delivery',
-    delivery_zone: 'سنهور المدينة',
-    delivery_address: 'خلف مدرسة سنهور الثانوية',
-    building_notes: '',
-    special_notes: '',
-    payment_method: 'cash',
-    items_count: 6,
-    subtotal: 310,
-    delivery_fee: 10,
-    discount_amount: 30,
-    total_amount: 290,
-    status: 'completed',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 50).toISOString() // هذه السنة (منذ 50 يوم)
-  }
-];
-
 export default function AdminPortal() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -584,17 +472,10 @@ export default function AdminPortal() {
     setOrdersLoading(true);
     try {
       const data = await fetchOrdersFromDatabase();
-      if (data && data.length > 0) {
-        setOrders(data);
-      } else {
-        setOrders(sampleInitialOrders);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('loloat_sanhour_admin_orders', JSON.stringify(sampleInitialOrders));
-        }
-      }
+      setOrders(data || []);
     } catch (e) {
       console.error(e);
-      setOrders(sampleInitialOrders);
+      setOrders([]);
     } finally {
       setOrdersLoading(false);
     }
