@@ -1,0 +1,23 @@
+{
+  "name": "لؤلؤة سنهور - كشري وطواجن",
+  "short_name": "لؤلؤة سنهور",
+  "description": "المنيو الإلكتروني الفاخر لمطعم لؤلؤة سنهور",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0708",
+  "theme_color": "#e11d48",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

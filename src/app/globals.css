@@ -1,26 +1,368 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-cairo: 'Cairo', sans-serif;
+  --font-tajawal: 'Tajawal', sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #fff9fa;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(254, 226, 226, 0.7) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(255, 228, 230, 0.6) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(255, 241, 242, 0.5) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(254, 242, 242, 0.7) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(255, 228, 230, 0.6) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: #0f172a;
+  font-family: var(--font-cairo), system-ui, -apple-system, sans-serif;
+  direction: rtl;
+  text-align: right;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* Subtle luxury pattern layer */
+.luxury-pattern-overlay {
+  background-image: radial-gradient(rgba(225, 29, 72, 0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* Custom Luxury Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fff1f2;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #fecdd3;
+  border-radius: 9999px;
+  border: 2px solid #fff1f2;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e11d48;
+}
+
+/* Luxury 3D Elevated Cards with Multi-layered Shadows & Translucent Rose-Pearl Glass */
+.elevated-card-3d {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 1.75rem;
+  border: 1px solid rgba(254, 205, 211, 0.85);
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.02),
+    0 12px 24px -4px rgba(225, 29, 72, 0.08),
+    0 24px 44px -8px rgba(15, 23, 42, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.95) inset;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.elevated-card-3d:hover {
+  transform: translateY(-8px);
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(225, 29, 72, 0.4);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.03),
+    0 25px 50px -12px rgba(225, 29, 72, 0.16),
+    0 35px 65px -15px rgba(15, 23, 42, 0.1),
+    0 1px 0 rgba(255, 255, 255, 1) inset;
+}
+
+/* Super Prominent Elevated Container */
+.elevated-stage-3d {
+  background: linear-gradient(145deg, #ffffff 0%, #fffbfc 50%, #fff3f5 100%);
+  border: 1px solid rgba(254, 205, 211, 0.85);
+  box-shadow: 
+    0 20px 40px -10px rgba(225, 29, 72, 0.1),
+    0 35px 70px -15px rgba(15, 23, 42, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+}
+
+/* Rich, Deep & Vivid Royal Ruby Red Card Styling */
+.elevated-stage-ruby {
+  background: linear-gradient(140deg, #991b1b 0%, #b91c1c 30%, #dc2626 65%, #881337 100%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 25px 60px -10px rgba(153, 27, 27, 0.45),
+    0 40px 90px -15px rgba(15, 23, 42, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+.ruby-button-shadow {
+  box-shadow: 0 8px 25px -4px rgba(225, 29, 72, 0.4);
+}
+
+.ruby-button-shadow:hover {
+  box-shadow: 0 14px 32px -4px rgba(225, 29, 72, 0.55);
+}
+
+/* ========================================================== */
+/* Dynamic Fluid Background & Steam Wave Keyframes */
+/* ========================================================== */
+@keyframes floatSlow1 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(140px, -90px) scale(1.22) rotate(15deg);
+  }
+  66% {
+    transform: translate(-90px, 80px) scale(0.88) rotate(-10deg);
+  }
+}
+
+@keyframes floatSlow2 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(-120px, 110px) scale(1.18) rotate(-15deg);
+  }
+  66% {
+    transform: translate(100px, -80px) scale(0.9) rotate(10deg);
+  }
+}
+
+@keyframes floatSlow3 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(110px, 120px) scale(1.25);
+  }
+}
+
+@keyframes waveFlow1 {
+  0% {
+    transform: translateX(-80px) translateY(0px) scaleY(1);
+  }
+  50% {
+    transform: translateX(80px) translateY(-35px) scaleY(1.15);
+  }
+  100% {
+    transform: translateX(-80px) translateY(0px) scaleY(1);
+  }
+}
+
+@keyframes waveFlow2 {
+  0% {
+    transform: translateX(70px) translateY(0px) scaleY(1);
+  }
+  50% {
+    transform: translateX(-70px) translateY(45px) scaleY(0.9);
+  }
+  100% {
+    transform: translateX(70px) translateY(0px) scaleY(1);
+  }
+}
+
+@keyframes waveFlow3 {
+  0% {
+    transform: translateX(-60px) translateY(0px);
+  }
+  50% {
+    transform: translateX(60px) translateY(-35px);
+  }
+  100% {
+    transform: translateX(-60px) translateY(0px);
+  }
+}
+
+@keyframes shimmerWave {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.04);
+  }
+}
+
+.animate-float-slow-1 {
+  animation: floatSlow1 12s ease-in-out infinite;
+}
+
+.animate-float-slow-2 {
+  animation: floatSlow2 15s ease-in-out infinite;
+}
+
+.animate-float-slow-3 {
+  animation: floatSlow3 18s ease-in-out infinite;
+}
+
+@keyframes logoWatermarkFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-15px) scale(1.04) rotate(1.5deg);
+  }
+}
+
+.animate-logo-watermark {
+  animation: logoWatermarkFloat 10s ease-in-out infinite;
+}
+
+/* ========================================================== */
+/* Marquee Infinite Scrolling Banner */
+/* ========================================================== */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: 200%;
+  animation: marquee 25s linear infinite;
+}
+
+/* Hide scrollbar for category horizontal scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ========================================================== */
+/* Luxury Flying Dish To Cart Animation (Direct & Continuous) */
+/* ========================================================== */
+.flying-dish-capsule {
+  position: fixed;
+  left: var(--start-x);
+  top: var(--start-y);
+  width: var(--start-w);
+  height: var(--start-h);
+  margin-left: calc(var(--start-w) * -0.5);
+  margin-top: calc(var(--start-h) * -0.5);
+  pointer-events: none;
+  z-index: 999999;
+  animation: directFlyToCart 0.95s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* حركة طيران انسيابية واضحة ومستمرة دون وقفات */
+@keyframes directFlyToCart {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    /* طيران مستمر إلى السلة وتصغير تدريجي واضح */
+    transform: translate3d(var(--delta-x), var(--delta-y), 0) scale(0.25) rotate(15deg);
+    opacity: 0.2;
+  }
+}
+
+/* Luxury Bumping / Pulse reaction on Cart Icon when dish enters */
+@keyframes cartBumpPop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-cart-bump {
+  animation: cartBumpPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  will-change: transform;
+}
+
+/* ========================================================== */
+/* Luxury Return From Cart Animation (Direct & Continuous)    */
+/* ========================================================== */
+.returning-dish-capsule {
+  position: fixed;
+  left: var(--start-x);
+  top: var(--start-y);
+  width: var(--target-w);
+  height: var(--target-h);
+  margin-left: calc(var(--target-w) * -0.5);
+  margin-top: calc(var(--target-h) * -0.5);
+  pointer-events: none;
+  z-index: 999999;
+  animation: directReturnToCard 1s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* حركة رجوع مستمرة وواضحة من السلة إلى الكارت */
+@keyframes directReturnToCard {
+  0% {
+    /* يبدأ من السلة بحجم مرئي ومكرمش */
+    transform: translate3d(0, 0, 0) scale(0.28) rotate(-20deg);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    /* يصل مفروداً وبحجمه الطبيعي إلى الكارت */
+    transform: translate3d(var(--delta-x), var(--delta-y), 0) scale(1) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+/* Internal crumple-unfold mesh - مستمر ومتصل مع زمن الطيران */
+@keyframes crumpleUnfoldMesh {
+  0% {
+    border-radius: 30% 70% 70% 30% / 30% 40% 60% 70%;
+    transform: scale(0.8);
+  }
+  100% {
+    border-radius: 50%;
+    transform: scale(1);
+  }
+}
+
+.animate-crumple-unfold {
+  animation: crumpleUnfoldMesh 1s ease-out forwards;
+  will-change: transform, border-radius;
+}
+
+/* Card reception bounce when the item lands back */
+@keyframes cardReceiveBounce {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-card-receive {
+  animation: cardReceiveBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  will-change: transform;
+}
+
+
