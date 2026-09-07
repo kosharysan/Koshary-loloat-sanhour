@@ -55,6 +55,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
   const categories = mounted && storeCategories && storeCategories.length > 0 ? storeCategories : defaultCategories;
   const sortedCategories = [...categories].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
   const items = mounted && storeItems && storeItems.length > 0 ? storeItems : defaultMenuItems;
+  const availableItems = items.filter(i => i.isAvailable !== false);
 
   return (
     <div className="sticky top-[69px] z-30 w-full py-3 luxury-glass-nav">
@@ -75,13 +76,13 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
               activeCategory === 'all' ? 'bg-white/20 text-white' : 'bg-rose-50 text-rose-800 border border-rose-100'
             }`}>
-              {items.length}
+              {availableItems.length}
             </span>
           </button>
 
           {/* Categories */}
           {sortedCategories.map((cat) => {
-            const count = items.filter(i => i.categoryId === cat.id).length;
+            const count = availableItems.filter(i => i.categoryId === cat.id).length;
             const isActive = activeCategory === cat.id;
             const iconComponent = (cat.icon && iconMap[cat.icon]) || <Utensils className="w-4 h-4" />;
 

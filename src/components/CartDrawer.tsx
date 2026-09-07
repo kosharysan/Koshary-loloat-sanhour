@@ -130,10 +130,10 @@ export const CartDrawer: React.FC = () => {
   const realExtrasItems = (menuStoreItems || []).filter(
     item => extrasCategoryIds.includes(item.categoryId) && item.isAvailable !== false
   );
-  // Fallback to smartUpsellItems only if no items found in extras categories, ensuring no deleted items appear
-  const availableItemsMap = new Set((menuStoreItems || []).map(m => m.id));
+  // Fallback to smartUpsellItems only if no items found in extras categories, ensuring no deleted or disabled items appear
+  const availableItemsMap = new Set((menuStoreItems || []).filter(m => m.isAvailable !== false).map(m => m.id));
   const displayedUpsellItems = (realExtrasItems.length > 0 ? realExtrasItems : smartUpsellItems).filter(
-    item => availableItemsMap.has(item.id)
+    item => availableItemsMap.has(item.id) && item.isAvailable !== false
   );
 
   const [couponInput, setCouponInput] = useState('');

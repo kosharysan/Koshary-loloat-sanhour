@@ -23,22 +23,27 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
   const { addItem, setIsCartOpen } = useCartStore();
   const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings } = useMenuStore();
 
-  // Resolve featured dishes from heroFeaturedItemIds (1 to 4 dishes)
+  // Filter out any dishes that are disabled / unavailable
+  const availableItems = items.filter(i => i.isAvailable !== false);
+
+  // Resolve featured dishes from heroFeaturedItemIds (1 to 4 dishes) that are currently available
   const resolvedFeaturedDishes = (heroFeaturedItemIds && heroFeaturedItemIds.length > 0)
-    ? (heroFeaturedItemIds.map(id => items.find(i => i.id === id)).filter(Boolean) as typeof items)
+    ? (heroFeaturedItemIds.map(id => availableItems.find(i => i.id === id)).filter(Boolean) as typeof items)
     : [];
 
   const featuredDishes = resolvedFeaturedDishes.length > 0
     ? resolvedFeaturedDishes
     : [
-        items.find(i => i.id === heroFeaturedItemId) || items.find(i => i.id === 'box-special') || items[0],
-        items.find(i => i.id === 'tagine-royal-mix'),
-        items.find(i => i.id === 'tagine-meat')
+        availableItems.find(i => i.id === heroFeaturedItemId),
+        availableItems.find(i => i.id === 'box-special'),
+        availableItems.find(i => i.id === 'tagine-royal-mix'),
+        availableItems.find(i => i.id === 'tagine-meat'),
+        availableItems[0]
       ].filter(Boolean) as typeof items;
 
   const [activeIndex, setActiveIndex] = useState(0);
   const safeActiveIndex = activeIndex >= featuredDishes.length ? 0 : activeIndex;
-  const activeDish = featuredDishes[safeActiveIndex] || featuredDishes[0] || items[0];
+  const activeDish = featuredDishes[safeActiveIndex] || featuredDishes[0] || availableItems[0] || items[0];
 
   const { flyToCart } = useFlyToCart();
   const heroImageRef = useRef<HTMLDivElement>(null);

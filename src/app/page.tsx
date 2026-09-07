@@ -72,6 +72,11 @@ export default function Home() {
     const validCategoryIds = new Set(categories.map((c) => c.id));
 
     return menuItems.filter((item) => {
+      // Exclude disabled / unavailable items
+      if (item.isAvailable === false) {
+        return false;
+      }
+
       // Must belong to an active, non-deleted category
       if (!validCategoryIds.has(item.categoryId)) {
         return false;
