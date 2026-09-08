@@ -22,6 +22,7 @@ import {
   Unlock,
   AlertCircle,
   BookmarkCheck,
+  Globe,
   Plus,
   FolderPlus,
   Utensils,
@@ -89,7 +90,12 @@ export const MenuManagementTab: React.FC = () => {
     moveDishBuilderItem,
     reorderDishBuilderItemToPosition,
     saveAsNewDefault,
-    resetToDefault
+    resetToDefault,
+    syncWithServer,
+    saveToServer,
+    isServerSyncing,
+    serverSyncError,
+    lastServerSyncTime
   } = useMenuStore();
   
   // Hero Dishes Customization State (1 to 4 dishes)
@@ -165,8 +171,19 @@ export const MenuManagementTab: React.FC = () => {
       return;
     }
     setHeroFeaturedDishes(selectedHeroItems, selectedHeroBadge);
+    saveToServer();
     setHeroSaveSuccess(true);
     setTimeout(() => setHeroSaveSuccess(false), 3500);
+  };
+
+  const handleManualSync = async () => {
+    const res = await saveToServer();
+    if (res.success) {
+      setShowSuccessToast('✓ تم مزامنة وحفظ المنيو بالكامل مع السيرفر بنجاح!');
+    } else {
+      setShowSuccessToast('⚠️ تعذر الحفظ: ' + (res.error || 'يرجى التحقق من اتصال الإنترنت'));
+    }
+    setTimeout(() => setShowSuccessToast(null), 3500);
   };
 
   // Dish Builder Management State
@@ -534,7 +551,8 @@ export const MenuManagementTab: React.FC = () => {
 
     setIsConfirmSaveModalOpen(false);
     setIsEditMode(false);
-    setShowSuccessToast('✓ تم حفظ وتطبيق جميع تعديلات الأسعار بنجاح!');
+    saveToServer();
+    setShowSuccessToast('✓ تم حفظ وتطبيق جميع تعديلات الأسعار بنجاح ومزامنتها مع السيرفر!');
     setTimeout(() => setShowSuccessToast(null), 3500);
   };
 
@@ -542,6 +560,7 @@ export const MenuManagementTab: React.FC = () => {
   const handleConfirmDeleteItem = () => {
     if (!itemToDelete) return;
     deleteItem(itemToDelete.id);
+    saveToServer();
     setShowSuccessToast(`تم حذف صنف "${itemToDelete.name}" من المنيو نهائياً`);
     setItemToDelete(null);
     setTimeout(() => setShowSuccessToast(null), 3000);
@@ -823,6 +842,8 @@ export const MenuManagementTab: React.FC = () => {
     };
 
     updateItem(fullEditingItem.id, updates);
+    saveToServer();
+
     setDraftPrices((prev) => ({
       ...prev,
       [fullEditingItem.id]: priceNum,
@@ -837,6 +858,7 @@ export const MenuManagementTab: React.FC = () => {
   const handleToggleAvailability = (item: MenuItem) => {
     const updatedStatus = !item.isAvailable;
     updateItem(item.id, { isAvailable: updatedStatus });
+    saveToServer();
     setShowSuccessToast(
       updatedStatus
         ? `صنف "${item.name}" أصبح متوفراً الآن 🟢`
@@ -915,8 +937,22 @@ export const MenuManagementTab: React.FC = () => {
                 <span>التحكم المالي وقائمة الأسعار</span>
               </div>
 
-              {/* Top-Left Controls: الدايرة بتاع وضع العرض المحمي + اعتماد كافتراضي */}
-              <div className="flex items-center gap-2">
+              {/* Top-Left Controls: الدايرة بتاع وضع العرض المحمي + اعتماد كافتراضي + مزامنة السيرفر */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleManualSync}
+                  disabled={isServerSyncing}
+                  className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 text-white text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                  title="مزامنة فورية للمنيو مع السيرفر لكي تظهر التعديلات على الموبايل"
+                >
+                  <Globe className={`w-3.5 h-3.5 ${isServerSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isServerSyncing ? 'جاري المزامنة...' : 'مزامنة السيرفر 🌐'}</span>
+                  {lastServerSyncTime && (
+                    <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full font-mono">{lastServerSyncTime}</span>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsSaveDefaultModalOpen(true)}

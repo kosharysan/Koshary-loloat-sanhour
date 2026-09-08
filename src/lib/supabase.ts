@@ -84,3 +84,45 @@ export async function updateOrderStatusInDb(orderId: string, newStatus: string) 
     } catch {}
   }
 }
+
+export async function fetchRestaurantSettingsFromDb(): Promise<any | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('restaurant_settings')
+      .select('data, updated_at')
+      .eq('id', 'main')
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[Supabase] Could not fetch restaurant settings:', error.message);
+      return null;
+    }
+    return data ? data.data : null;
+  } catch (err: any) {
+    console.warn('[Supabase Settings Fetch Error]:', err.message);
+    return null;
+  }
+}
+
+export async function saveRestaurantSettingsToDb(menuData: any): Promise<{ success: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { success: false, error: 'Supabase not configured' };
+  }
+  try {
+    const { error } = await supabase
+      .from('restaurant_settings')
+      .upsert({
+        id: 'main',
+        data: menuData,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Supabase Settings Save Error]:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+

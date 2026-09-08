@@ -20,12 +20,13 @@ import { MenuItem } from '@/types';
 import { Sparkles, UtensilsCrossed, Utensils, Crown, Flame, Sandwich, PlusCircle } from 'lucide-react';
 
 export default function Home() {
-  const { items: storeItems, categories: storeCategories, dishBuilderSettings } = useMenuStore();
+  const { items: storeItems, categories: storeCategories, dishBuilderSettings, syncWithServer } = useMenuStore();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
-  }, []);
+    syncWithServer();
+  }, [syncWithServer]);
 
   const menuItems = mounted && storeItems ? storeItems : fallbackMenuItems;
   const categories = mounted && storeCategories ? storeCategories : fallbackCategories;

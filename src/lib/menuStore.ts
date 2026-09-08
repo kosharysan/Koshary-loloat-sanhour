@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, Coupon, CartIncentiveSettings, DeliveryZone, StoreScheduleSettings, StoreStatusResult } from '@/types';
 import { menuItems as defaultMenuItems, categories as defaultCategories, restaurantInfo, deliveryZones as defaultDeliveryZones } from '@/data/mockData';
+import { fetchRestaurantSettingsFromDb, saveRestaurantSettingsToDb } from '@/lib/supabase';
 
 export const defaultStoreScheduleSettings: StoreScheduleSettings = {
   mode: 'manual',
@@ -258,11 +259,19 @@ interface MenuStore {
   saveAsNewDefault: () => void;
   resetToDefault: () => void;
   resetToFactoryOriginal: () => void;
+  isServerSyncing: boolean;
+  serverSyncError: string | null;
+  lastServerSyncTime: string | null;
+  syncWithServer: () => Promise<void>;
+  saveToServer: () => Promise<{ success: boolean; error?: string }>;
 }
 
 export const useMenuStore = create<MenuStore>()(
   persist(
     (set, get) => ({
+      isServerSyncing: false,
+      serverSyncError: null,
+      lastServerSyncTime: null,
       items: defaultMenuItems,
       categories: defaultCategories,
       marketingFilters: defaultMarketingFilters,
@@ -583,6 +592,106 @@ export const useMenuStore = create<MenuStore>()(
           customBaselineDishBuilderSettings: JSON.parse(JSON.stringify(get().dishBuilderSettings)),
           customBaselineKosharyCustomOptions: JSON.parse(JSON.stringify(get().kosharyCustomOptions)),
         });
+        get().saveToServer();
+      },
+      syncWithServer: async () => {
+        set({ isServerSyncing: true, serverSyncError: null });
+        try {
+          const remoteData = await fetchRestaurantSettingsFromDb();
+          if (remoteData && remoteData.items && Array.isArray(remoteData.items) && remoteData.items.length > 0) {
+            set({
+              items: remoteData.items,
+              categories: (remoteData.categories && remoteData.categories.length > 0) ? remoteData.categories : get().categories,
+              marketingFilters: remoteData.marketingFilters || get().marketingFilters,
+              dishBuilderSettings: remoteData.dishBuilderSettings || get().dishBuilderSettings,
+              deliveryZones: (remoteData.deliveryZones && remoteData.deliveryZones.length > 0) ? remoteData.deliveryZones : get().deliveryZones,
+              coupons: remoteData.coupons || get().coupons,
+              storeScheduleSettings: remoteData.storeScheduleSettings || get().storeScheduleSettings,
+              heroFeaturedItemIds: remoteData.heroFeaturedItemIds || get().heroFeaturedItemIds,
+              heroFeaturedItemId: remoteData.heroFeaturedItemId || get().heroFeaturedItemId,
+              heroBadgeText: remoteData.heroBadgeText || get().heroBadgeText,
+              isWalletPaymentEnabled: typeof remoteData.isWalletPaymentEnabled === 'boolean' ? remoteData.isWalletPaymentEnabled : get().isWalletPaymentEnabled,
+              isInstapayPaymentEnabled: typeof remoteData.isInstapayPaymentEnabled === 'boolean' ? remoteData.isInstapayPaymentEnabled : get().isInstapayPaymentEnabled,
+              walletPhoneNumber: remoteData.walletPhoneNumber || get().walletPhoneNumber,
+              instapayHandle: remoteData.instapayHandle || get().instapayHandle,
+              cartIncentiveSettings: remoteData.cartIncentiveSettings || get().cartIncentiveSettings,
+              kosharyCustomOptions: remoteData.kosharyCustomOptions || get().kosharyCustomOptions,
+              isCouponsEnabled: typeof remoteData.isCouponsEnabled === 'boolean' ? remoteData.isCouponsEnabled : get().isCouponsEnabled,
+              isMinOrderEnabled: typeof remoteData.isMinOrderEnabled === 'boolean' ? remoteData.isMinOrderEnabled : get().isMinOrderEnabled,
+              isServerSyncing: false,
+              lastServerSyncTime: new Date().toLocaleTimeString('ar-EG'),
+            });
+          } else {
+            // First time seeding Supabase from current laptop state
+            const currentPayload = {
+              items: get().items,
+              categories: get().categories,
+              marketingFilters: get().marketingFilters,
+              dishBuilderSettings: get().dishBuilderSettings,
+              deliveryZones: get().deliveryZones,
+              coupons: get().coupons,
+              storeScheduleSettings: get().storeScheduleSettings,
+              heroFeaturedItemIds: get().heroFeaturedItemIds,
+              heroFeaturedItemId: get().heroFeaturedItemId,
+              heroBadgeText: get().heroBadgeText,
+              isWalletPaymentEnabled: get().isWalletPaymentEnabled,
+              isInstapayPaymentEnabled: get().isInstapayPaymentEnabled,
+              walletPhoneNumber: get().walletPhoneNumber,
+              instapayHandle: get().instapayHandle,
+              cartIncentiveSettings: get().cartIncentiveSettings,
+              kosharyCustomOptions: get().kosharyCustomOptions,
+              isCouponsEnabled: get().isCouponsEnabled,
+              isMinOrderEnabled: get().isMinOrderEnabled,
+            };
+            const res = await saveRestaurantSettingsToDb(currentPayload);
+            set({
+              isServerSyncing: false,
+              lastServerSyncTime: res.success ? new Date().toLocaleTimeString('ar-EG') : null,
+              serverSyncError: res.error || null,
+            });
+          }
+        } catch (err: any) {
+          set({ isServerSyncing: false, serverSyncError: err.message });
+        }
+      },
+      saveToServer: async () => {
+        set({ isServerSyncing: true, serverSyncError: null });
+        try {
+          const payload = {
+            items: get().items,
+            categories: get().categories,
+            marketingFilters: get().marketingFilters,
+            dishBuilderSettings: get().dishBuilderSettings,
+            deliveryZones: get().deliveryZones,
+            coupons: get().coupons,
+            storeScheduleSettings: get().storeScheduleSettings,
+            heroFeaturedItemIds: get().heroFeaturedItemIds,
+            heroFeaturedItemId: get().heroFeaturedItemId,
+            heroBadgeText: get().heroBadgeText,
+            isWalletPaymentEnabled: get().isWalletPaymentEnabled,
+            isInstapayPaymentEnabled: get().isInstapayPaymentEnabled,
+            walletPhoneNumber: get().walletPhoneNumber,
+            instapayHandle: get().instapayHandle,
+            cartIncentiveSettings: get().cartIncentiveSettings,
+            kosharyCustomOptions: get().kosharyCustomOptions,
+            isCouponsEnabled: get().isCouponsEnabled,
+            isMinOrderEnabled: get().isMinOrderEnabled,
+          };
+          const res = await saveRestaurantSettingsToDb(payload);
+          if (res.success) {
+            set({
+              isServerSyncing: false,
+              lastServerSyncTime: new Date().toLocaleTimeString('ar-EG'),
+            });
+            return { success: true };
+          } else {
+            set({ isServerSyncing: false, serverSyncError: res.error || 'تعذر الحفظ في السيرفر' });
+            return { success: false, error: res.error };
+          }
+        } catch (err: any) {
+          set({ isServerSyncing: false, serverSyncError: err.message });
+          return { success: false, error: err.message };
+        }
       },
       resetToDefault: () => {
         const baselineItems = get().customBaselineItems;
