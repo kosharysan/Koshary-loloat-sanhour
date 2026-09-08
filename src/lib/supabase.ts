@@ -85,6 +85,25 @@ export async function updateOrderStatusInDb(orderId: string, newStatus: string) 
   }
 }
 
+export async function deleteOrderFromDatabase(orderId: string) {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (error) throw error;
+    } catch (e: any) {
+      console.warn('Failed to delete order from Supabase:', e.message);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const orders = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
+      const updated = orders.filter((o: any) => o.id !== orderId);
+      localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
+    } catch {}
+  }
+}
+
 export async function fetchRestaurantSettingsFromDb(): Promise<any | null> {
   if (!isSupabaseConfigured || !supabase) return null;
   try {

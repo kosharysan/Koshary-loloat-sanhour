@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { Coupon, DeliveryZone, StoreScheduleSettings } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
-import { fetchOrdersFromDatabase, updateOrderStatusInDb } from '@/lib/supabase';
+import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase } from '@/lib/supabase';
 import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
 import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
 
@@ -528,14 +528,9 @@ export default function AdminPortal() {
     setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: newStatus } : o)));
   };
 
-  const confirmDeleteOrder = (orderId: string) => {
-    setOrders(prev => {
-      const updated = prev.filter(o => o.id !== orderId);
-      try {
-        localStorage.setItem('loloat_sanhour_admin_orders', JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
+  const confirmDeleteOrder = async (orderId: string) => {
+    await deleteOrderFromDatabase(orderId);
+    setOrders(prev => prev.filter(o => o.id !== orderId));
     setOrderToDelete(null);
     setDeleteNotice('تم حذف الطلب بنجاح من السجل');
     setTimeout(() => setDeleteNotice(null), 3000);
