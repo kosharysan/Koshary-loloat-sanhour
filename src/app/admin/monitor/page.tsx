@@ -809,27 +809,27 @@ export default function OrderMonitorPage() {
 
                       {/* Phone with Fast Call & WhatsApp */}
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-300 font-mono bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800 flex-1 flex items-center justify-between">
+                        <span className="text-xs sm:text-sm font-bold text-slate-200 font-mono bg-slate-950/90 px-3 py-2 rounded-xl border border-slate-800 flex-1 flex items-center justify-between shadow-inner">
                           <span>{order.customer_phone}</span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[10px] text-slate-400 bg-slate-800/60 px-1.5 py-0.5 rounded-md">
                             {order.payment_method === 'vodafone_cash' ? 'محفظة' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش'}
                           </span>
                         </span>
                         <a
                           href={`tel:${order.customer_phone}`}
-                          className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/40 transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs"
                           title="اتصال بالعميل"
                         >
-                          <Phone className="w-3.5 h-3.5" />
+                          <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
                         </a>
                         <a
                           href={`https://wa.me/2${String(order.customer_phone).replace(/^0/, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs"
                           title="محادثة واتساب"
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
+                          <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                         </a>
                       </div>
 
