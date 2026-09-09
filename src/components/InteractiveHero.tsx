@@ -100,12 +100,44 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
           <div className="pt-2">
             <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-white/95 border-2 border-rose-200/90 shadow-[0_8px_25px_rgba(225,29,72,0.15)] text-rose-700 text-xs sm:text-sm font-black backdrop-blur-md">
               <span className="relative flex items-center justify-center shrink-0">
-                <span className="absolute -inset-0.5 bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 rounded-full blur-xs opacity-75 animate-pulse"></span>
-                <span className="relative w-6 h-6 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 p-0.5 shadow-sm flex items-center justify-center border border-amber-200">
-                  <span className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center">
-                    <Crown className="w-3.5 h-3.5 text-amber-300 fill-amber-300 drop-shadow-xs" />
-                  </span>
-                </span>
+                <span className="absolute -inset-1 bg-amber-400/40 rounded-full blur-xs animate-pulse pointer-events-none"></span>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="relative w-5 h-5 sm:w-5.5 sm:h-5.5 drop-shadow-[0_2px_6px_rgba(217,119,6,0.65)]"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <defs>
+                    <linearGradient id="luxuryGoldSparkleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#FFF7D6" />
+                      <stop offset="25%" stopColor="#FFDF00" />
+                      <stop offset="55%" stopColor="#F59E0B" />
+                      <stop offset="85%" stopColor="#D97706" />
+                      <stop offset="100%" stopColor="#B45309" />
+                    </linearGradient>
+                  </defs>
+                  {/* النجمة الكبرى المركزية */}
+                  <path
+                    d="M12 1.5C12.3 6.8 16.2 10.7 21.5 11C16.2 11.3 12.3 15.2 12 20.5C11.7 15.2 7.8 11.3 2.5 11C7.8 10.7 11.7 6.8 12 1.5Z"
+                    fill="url(#luxuryGoldSparkleGrad)"
+                    stroke="#FFFBEB"
+                    strokeWidth="0.4"
+                  />
+                  {/* النجمة الجانبية العلوية */}
+                  <path
+                    d="M19 13.5C19.2 15.8 20.7 17.3 23 17.5C20.7 17.7 19.2 19.2 19 21.5C18.8 19.2 17.3 17.7 15 17.5C17.3 17.3 18.8 15.8 19 13.5Z"
+                    fill="url(#luxuryGoldSparkleGrad)"
+                    stroke="#FFFBEB"
+                    strokeWidth="0.3"
+                  />
+                  {/* النجمة الصغيرة السفلية */}
+                  <path
+                    d="M4.5 3.5C4.65 5.2 5.8 6.35 7.5 6.5C5.8 6.65 4.65 7.8 4.5 9.5C4.35 7.8 3.2 6.65 1.5 6.5C3.2 6.35 4.35 5.2 4.5 3.5Z"
+                    fill="url(#luxuryGoldSparkleGrad)"
+                    stroke="#FFFBEB"
+                    strokeWidth="0.25"
+                  />
+                </svg>
               </span>
               <span>كشري وطواجن زمان على أصولها</span>
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
