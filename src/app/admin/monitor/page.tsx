@@ -294,6 +294,31 @@ export default function OrderMonitorPage() {
     return { items: itemsList, notes: notesPart };
   };
 
+  // Helper to parse each item line and extract the item name and trailing price
+  const parseItemLine = (itemStr: string) => {
+    let clean = itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '').trim();
+
+    // Match price at the end of the line (e.g. "— 90 ج.م", "- 90 ج.م", "| 90 ج.م", "(90 ج.م)", "90 ج.م")
+    const priceRegex = /(?:[—–\-]|\||\:|\()?\s*(\d+(?:\.\d+)?)\s*(?:ج\.م|جنيه)\)?\s*$/i;
+    const match = clean.match(priceRegex);
+
+    if (match && match[1]) {
+      const priceVal = match[1];
+      const nameWithoutPrice = clean.slice(0, match.index).replace(/[\(—–\-|:]\s*$/, '').trim();
+      if (nameWithoutPrice) {
+        return {
+          name: nameWithoutPrice,
+          price: `${priceVal} ج.م`
+        };
+      }
+    }
+
+    return {
+      name: clean,
+      price: null
+    };
+  };
+
   // Render Loading Screen
   if (isAuthenticated === null) {
     return (
@@ -749,22 +774,32 @@ export default function OrderMonitorPage() {
                               </span>
                             </div>
 
-                            {/* قائمة الأصناف - كل طلب في سطر مستقل مع رقم الصنف والتفاصيل */}
+                            {/* قائمة الأصناف - كل طلب في سطر مستقل مع رقم الصنف والتفاصيل والسعر في نهاية السطر */}
                             {parsed.items.length > 0 ? (
                               <div className="space-y-1.5 pt-0.5">
-                                {parsed.items.map((itemStr, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="flex items-start gap-2 text-xs font-bold text-slate-100 bg-slate-900/95 hover:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-800/90 leading-relaxed shadow-xs"
-                                  >
-                                    <span className="w-4.5 h-4.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
-                                      {idx + 1}
-                                    </span>
-                                    <span className="flex-1 font-bold text-slate-100">
-                                      {itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '')}
-                                    </span>
-                                  </div>
-                                ))}
+                                {parsed.items.map((itemStr, idx) => {
+                                  const itemInfo = parseItemLine(itemStr);
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="flex items-center justify-between gap-2.5 text-xs font-bold text-slate-100 bg-slate-900/95 hover:bg-slate-900 px-2.5 py-2 rounded-xl border border-slate-800/90 leading-relaxed shadow-xs"
+                                    >
+                                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                                        <span className="w-5 h-5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
+                                          {idx + 1}
+                                        </span>
+                                        <span className="font-bold text-slate-100 leading-relaxed break-words">
+                                          {itemInfo.name}
+                                        </span>
+                                      </div>
+                                      {itemInfo.price && (
+                                        <span className="px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-[11px] whitespace-nowrap shrink-0 shadow-xs">
+                                          {itemInfo.price}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             ) : (
                               <div className="text-xs text-slate-400 py-1 font-medium bg-slate-900/50 px-2.5 rounded-xl">

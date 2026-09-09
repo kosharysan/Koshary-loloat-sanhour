@@ -252,6 +252,8 @@ export const CartDrawer: React.FC = () => {
         if (details.length > 0) {
           text += ` [${details.join(' • ')}]`;
         }
+        const itemTotal = item.price * item.quantity;
+        text += ` — ${itemTotal} ج.م`;
         return text;
       });
 
