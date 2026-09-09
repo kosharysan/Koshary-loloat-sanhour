@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Sparkles, Flame, Star, ShoppingBag, ArrowLeft, ShieldCheck, Heart, Utensils, Wand2 } from 'lucide-react';
+import { Sparkles, Flame, Star, ShoppingBag, ArrowLeft, ShieldCheck, Heart, Utensils, Wand2, Crown } from 'lucide-react';
 import { menuItems, restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
 import { useMenuStore } from '@/lib/menuStore';
@@ -98,8 +98,15 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
           </div>
 
           <div className="pt-2">
-            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/95 border-2 border-rose-200 shadow-[0_8px_25px_rgba(225,29,72,0.15)] text-rose-700 text-xs sm:text-sm font-black backdrop-blur-md">
-              <Star className="w-4.5 h-4.5 text-amber-500 fill-amber-400 drop-shadow-[0_2px_6px_rgba(245,158,11,0.5)]" />
+            <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-white/95 border-2 border-rose-200/90 shadow-[0_8px_25px_rgba(225,29,72,0.15)] text-rose-700 text-xs sm:text-sm font-black backdrop-blur-md">
+              <span className="relative flex items-center justify-center shrink-0">
+                <span className="absolute -inset-0.5 bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 rounded-full blur-xs opacity-75 animate-pulse"></span>
+                <span className="relative w-6 h-6 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 p-0.5 shadow-sm flex items-center justify-center border border-amber-200">
+                  <span className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center">
+                    <Crown className="w-3.5 h-3.5 text-amber-300 fill-amber-300 drop-shadow-xs" />
+                  </span>
+                </span>
+              </span>
               <span>كشري وطواجن زمان على أصولها</span>
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
               <span className="text-slate-800">سنهور القبلية - الفيوم</span>
