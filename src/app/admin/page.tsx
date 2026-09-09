@@ -86,7 +86,7 @@ function parseOrderDetails(specialNotes?: string) {
   return { items: itemsList, notes: notesPart };
 }
 
-// تحليل سطر الصنف المنفرد لاستخراج الاسم والكمية والحجم والسعر
+// تحليل سطر الصنف المنفرد لاستخراج الاسم والكمية والحجم والسعر وتفاصيل الطاجن المخصوص
 function parseItemLine(itemStr: string) {
   const clean = itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '').trim();
   let nameAndDetails = clean;
@@ -108,18 +108,103 @@ function parseItemLine(itemStr: string) {
     quantity = qtyMatch[1];
     nameAndDetails = nameAndDetails.replace(/[×xX]\s*\d+/, '').trim();
   }
+
+  const isCustom = nameAndDetails.includes('طاجن') || detailsStr.includes('الأساس:') || detailsStr.includes('أساس:') || detailsStr.includes('البروتين:') || detailsStr.includes('بروتين:');
+
   let size: string | undefined = undefined;
+  let proteinFromTitle: string | undefined = undefined;
   const parenMatch = nameAndDetails.match(/\(([^)]+)\)/);
   if (parenMatch) {
-    size = parenMatch[1].trim();
+    const inside = parenMatch[1].trim();
+    if (isCustom && !detailsStr.includes('البروتين') && !detailsStr.includes('بروتين')) {
+      proteinFromTitle = inside;
+    } else {
+      size = inside;
+    }
     nameAndDetails = nameAndDetails.replace(/\([^)]+\)/, '').trim();
   }
+
+  const name = isCustom && (nameAndDetails.includes('طاجن مبتكر') || nameAndDetails === '') ? 'طاجن مبتكر خاص' : nameAndDetails.trim();
+
+  let base: string | undefined = undefined;
+  let without: string | undefined = undefined;
+  let protein: string | undefined = proteinFromTitle;
+  let spice: string | undefined = undefined;
+  let extras: string | undefined = undefined;
+  let notes: string | undefined = undefined;
+
+  const withoutSet = new Set<string>();
+  const notesSet = new Set<string>();
+
+  if (detailsStr) {
+    const segments = detailsStr.split(/[|•]/).map(s => s.trim()).filter(Boolean);
+    for (const seg of segments) {
+      if (seg.startsWith('الأساس:') || seg.startsWith('أساس:')) {
+        base = seg.replace(/^(الأساس|أساس):\s*/, '').trim();
+      } else if (seg.startsWith('البروتين:') || seg.startsWith('بروتين:')) {
+        protein = seg.replace(/^(البروتين|بروتين):\s*/, '').trim();
+      } else if (seg.startsWith('الشطة:') || seg.startsWith('شطة:')) {
+        spice = seg.replace(/^(الشطة|شطة):\s*/, '').trim();
+      } else if (seg.startsWith('إضافات:') || seg.startsWith('الإضافات:')) {
+        extras = seg.replace(/^(إضافات|الإضافات):\s*/, '').trim();
+      } else if (seg.startsWith('ملاحظات:') || seg.startsWith('ملاحظة:')) {
+        const rawList = seg.replace(/^(ملاحظات|ملاحظة):\s*/, '').split(/[،,]/);
+        rawList.forEach(item => {
+          const cleanItem = item.replace(/^(ملاحظات|ملاحظة):?\s*/, '').replace(/[:،]/g, '').trim();
+          if (cleanItem) notesSet.add(cleanItem);
+        });
+      } else if (seg.startsWith('بدون:')) {
+        const rawList = seg.replace(/^بدون:\s*/, '').split(/[،,]/);
+        rawList.forEach(item => {
+          const cleanItem = item.replace(/بدون/g, '').replace(/[:،]/g, '').trim();
+          if (cleanItem) withoutSet.add(cleanItem);
+        });
+      } else if (seg.includes('بدون')) {
+        const rawList = seg.split(/[،,]/);
+        rawList.forEach(item => {
+          if (item.includes('بدون')) {
+            const cleanItem = item.replace(/بدون/g, '').replace(/[:،]/g, '').trim();
+            if (cleanItem) withoutSet.add(cleanItem);
+          } else {
+            const cleanItem = item.trim();
+            if (cleanItem) notesSet.add(cleanItem);
+          }
+        });
+      } else {
+        const rawList = seg.split(/[،,]/);
+        rawList.forEach(item => {
+          const cleanItem = item.trim();
+          if (cleanItem) notesSet.add(cleanItem);
+        });
+      }
+    }
+  }
+
+  if (withoutSet.size > 0) {
+    without = Array.from(withoutSet).join('، ');
+  }
+  if (notesSet.size > 0) {
+    notes = Array.from(notesSet).join('، ');
+  }
+
+  const extrasList = extras
+    ? extras.split(/[،,•]/).map(s => s.trim()).filter(Boolean)
+    : [];
+
   return {
-    name: nameAndDetails.trim(),
+    name,
     quantity,
     size,
     price,
-    details: detailsStr
+    details: detailsStr,
+    isCustom,
+    base,
+    without,
+    protein,
+    spice,
+    extras,
+    extrasList,
+    notes
   };
 }
 
@@ -920,8 +1005,33 @@ export default function AdminPortal() {
     }
     const parsed = parseOrderDetails(order.special_notes);
     const itemsToPrint: string[] = (Array.isArray(order.items) && order.items.length > 0)
-      ? order.items.map((it: any) => `${it.quantity || 1}x ${it.name || it.item_name || 'صنف'} ${it.total_price || it.price ? `— ${(it.total_price || it.price)} ج.م` : ''}`)
-      : parsed.items;
+      ? order.items.map((it: any) => {
+          let line = `${it.quantity || 1}x ${it.name || it.item_name || 'صنف'} ${it.total_price || it.price ? `— ${(it.total_price || it.price)} ج.م` : ''}`;
+          if (it.customDishDetails) {
+            const parts: string[] = [];
+            if (it.customDishDetails.base) parts.push(`الأساس: ${it.customDishDetails.base}`);
+            if (it.customDishDetails.meat) parts.push(`البروتين: ${it.customDishDetails.meat}`);
+            if (it.customDishDetails.spice) parts.push(`الشطة: ${it.customDishDetails.spice}`);
+            if (it.customDishDetails.noOptions?.length) parts.push(`بدون: ${it.customDishDetails.noOptions.join('، ')}`);
+            if (it.customDishDetails.toppings?.length) parts.push(`الإضافات: ${it.customDishDetails.toppings.join('، ')}`);
+            if (parts.length > 0) line += `<br/><small style="color:#64748b; font-size:11px;">[${parts.join(' | ')}]</small>`;
+          }
+          return line;
+        })
+      : parsed.items.map((itemStr: string) => {
+          const pi = parseItemLine(itemStr);
+          if (pi.isCustom || pi.base || pi.protein) {
+            const parts: string[] = [];
+            if (pi.base) parts.push(`الأساس: ${pi.base}`);
+            if (pi.protein) parts.push(`البروتين: ${pi.protein}`);
+            if (pi.spice) parts.push(`الشطة: ${pi.spice}`);
+            if (pi.without) parts.push(`بدون: ${pi.without}`);
+            if (pi.extras) parts.push(`الإضافات: ${pi.extras}`);
+            if (pi.notes) parts.push(`ملاحظات: ${pi.notes}`);
+            return `${pi.name} × ${pi.quantity} ${pi.price ? `— ${pi.price}` : ''}<br/><small style="color:#64748b; font-size:11px;">[${parts.join(' | ')}]</small>`;
+          }
+          return itemStr;
+        });
 
     const html = `
       <!DOCTYPE html>
@@ -2054,7 +2164,7 @@ export default function AdminPortal() {
                                 <span className="text-xl sm:text-2xl font-black text-rose-400 block">{s.cancelledOrders || 0} طلب ملغي</span>
                               </div>
                               <span className="text-xs font-bold text-rose-300/80 block">
-                                خسائر: {(s.totalCancelledRevenue || 0).toLocaleString()} ج.م
+                                مبلغ: {(s.totalCancelledRevenue || 0).toLocaleString()} ج.م
                               </span>
                             </div>
                           </div>
@@ -3093,22 +3203,24 @@ export default function AdminPortal() {
                     </span>
                   </div>
 
-                  <div className="space-y-2">
+                    <div className="space-y-2">
                     {itemsList.length === 0 ? (
                       <p className="text-xs text-slate-400 py-3 text-center">لا توجد تفاصيل أصناف مسجلة لهذا الطلب.</p>
                     ) : typeof itemsList[0] === 'string' ? (
                       itemsList.map((itemStr: string, idx: number) => {
                         const parsedItem = parseItemLine(itemStr);
+                        const isCasserole = parsedItem.isCustom || Boolean(parsedItem.base) || Boolean(parsedItem.protein);
+
                         return (
                           <div
                             key={idx}
-                            className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3"
+                            className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-start justify-between gap-3"
                           >
-                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                              <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-xs font-black shrink-0">
+                            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                              <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-xs font-black shrink-0 mt-0.5">
                                 {idx + 1}
                               </span>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-black text-white">{parsedItem.name}</span>
                                   {parsedItem.size && (
@@ -3120,16 +3232,82 @@ export default function AdminPortal() {
                                     × {parsedItem.quantity}
                                   </span>
                                 </div>
-                                {parsedItem.details && (
-                                  <p className="text-[11px] text-slate-400 mt-1">
-                                    [{parsedItem.details}]
-                                  </p>
+
+                                {/* تفاصيل الطاجن بالترتيب المطلوب: الأساس -> البروتين -> الشطة -> بدون -> الإضافات -> ملاحظات */}
+                                {isCasserole ? (
+                                  <div className="mt-2.5 pt-2.5 border-t border-slate-800/80 space-y-1.5 text-xs">
+                                    {/* 1. الأساس */}
+                                    {parsedItem.base && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">🍲 الأساس:</span>
+                                        <span className="font-bold text-slate-100">{parsedItem.base}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 2. البروتين */}
+                                    {parsedItem.protein && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">🥩 البروتين:</span>
+                                        <span className="font-bold text-slate-100">{parsedItem.protein}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 3. الشطة */}
+                                    {parsedItem.spice && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">🌶️ الشطة:</span>
+                                        <span className="font-bold text-amber-300">{parsedItem.spice}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 4. بدون (مستبعدات) */}
+                                    {parsedItem.without && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200">
+                                        <span className="font-black text-rose-400 min-w-[75px] shrink-0 flex items-center gap-1">
+                                          <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                          <span>🚫 بدون:</span>
+                                        </span>
+                                        <span className="font-black tracking-wide text-rose-100">{parsedItem.without}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 5. الإضافات والمقرمشات */}
+                                    {parsedItem.extrasList && parsedItem.extrasList.length > 0 && (
+                                      <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                                        <div className="flex items-center gap-1.5 font-black text-emerald-400">
+                                          <Sparkles className="w-3.5 h-3.5" />
+                                          <span>✨ الإضافات والمقرمشات ({parsedItem.extrasList.length}):</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                          {parsedItem.extrasList.map((extraItem, eIdx) => (
+                                            <span key={eIdx} className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-[11px] font-bold">
+                                              {extraItem}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* 6. ملاحظات خاصة بالصنف */}
+                                    {parsedItem.notes && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">💬 ملاحظات:</span>
+                                        <span className="font-bold text-white">{parsedItem.notes}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  parsedItem.details && (
+                                    <p className="text-[11px] text-slate-400 mt-1">
+                                      [{parsedItem.details}]
+                                    </p>
+                                  )
                                 )}
                               </div>
                             </div>
 
                             {parsedItem.price && (
-                              <span className="text-sm font-black text-amber-300 shrink-0">
+                              <span className="text-sm font-black text-amber-300 shrink-0 mt-0.5">
                                 {parsedItem.price}
                               </span>
                             )}
@@ -3137,38 +3315,115 @@ export default function AdminPortal() {
                         );
                       })
                     ) : (
-                      itemsList.map((it: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-xs font-black shrink-0">
-                              {idx + 1}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-black text-white">{it.name || it.item_name || 'صنف'}</span>
-                                {it.selectedSize && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
-                                    {it.selectedSize}
-                                  </span>
-                                )}
-                                <span className="text-xs font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25">
-                                  × {it.quantity || 1}
-                                </span>
-                              </div>
-                              {it.notes && (
-                                <p className="text-[11px] text-slate-400 mt-1">ملاحظة: {it.notes}</p>
-                              )}
-                            </div>
-                          </div>
+                      itemsList.map((it: any, idx: number) => {
+                        const hasCustomDish = Boolean(it.customDishDetails);
 
-                          <span className="text-sm font-black text-amber-300 shrink-0">
-                            {(it.total_price || it.price || 0)} ج.م
-                          </span>
-                        </div>
-                      ))
+                        return (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-start justify-between gap-3"
+                          >
+                            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                              <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-xs font-black shrink-0 mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-black text-white">{it.name || it.item_name || 'صنف'}</span>
+                                  {it.selectedSize && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                                      {it.selectedSize}
+                                    </span>
+                                  )}
+                                  <span className="text-xs font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                                    × {it.quantity || 1}
+                                  </span>
+                                </div>
+
+                                {/* تفاصيل الطاجن المخصوص المخزن كـ Object */}
+                                {hasCustomDish ? (
+                                  <div className="mt-2.5 pt-2.5 border-t border-slate-800/80 space-y-1.5 text-xs">
+                                    {/* 1. الأساس */}
+                                    {it.customDishDetails.base && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">🍲 الأساس:</span>
+                                        <span className="font-bold text-slate-100">{it.customDishDetails.base}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 2. البروتين */}
+                                    {it.customDishDetails.meat && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">🥩 البروتين:</span>
+                                        <span className="font-bold text-slate-100">{it.customDishDetails.meat}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 3. الشطة */}
+                                    {it.customDishDetails.spice && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">🌶️ الشطة:</span>
+                                        <span className="font-bold text-amber-300">{it.customDishDetails.spice}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 4. بدون */}
+                                    {it.customDishDetails.noOptions && it.customDishDetails.noOptions.length > 0 && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200">
+                                        <span className="font-black text-rose-400 min-w-[75px] shrink-0 flex items-center gap-1">
+                                          <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                          <span>🚫 بدون:</span>
+                                        </span>
+                                        <span className="font-black tracking-wide text-rose-100">{it.customDishDetails.noOptions.join('، ')}</span>
+                                      </div>
+                                    )}
+
+                                    {/* 5. الإضافات */}
+                                    {((it.customDishDetails.toppings && it.customDishDetails.toppings.length > 0) || (it.extras && it.extras.length > 0)) && (
+                                      <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                                        <div className="flex items-center gap-1.5 font-black text-emerald-400">
+                                          <Sparkles className="w-3.5 h-3.5" />
+                                          <span>✨ الإضافات والمقرمشات:</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                          {it.customDishDetails.toppings?.map((topping: string, tIdx: number) => (
+                                            <span key={tIdx} className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-[11px] font-bold">
+                                              {topping}
+                                            </span>
+                                          ))}
+                                          {it.extras?.map((extra: any, eIdx: number) => (
+                                            <span key={`ex-${eIdx}`} className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-[11px] font-bold">
+                                              {extra.name} {extra.price ? `(+${extra.price} ج)` : ''}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* 6. ملاحظات */}
+                                    {((it.customDishDetails.customNotes && it.customDishDetails.customNotes.length > 0) || it.notes) && (
+                                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200">
+                                        <span className="font-black text-amber-400 min-w-[75px] shrink-0">💬 ملاحظات:</span>
+                                        <span className="font-bold text-white">
+                                          {[...(it.customDishDetails.customNotes || []), it.notes].filter(Boolean).join('، ')}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  it.notes && (
+                                    <p className="text-[11px] text-slate-400 mt-1">ملاحظة: {it.notes}</p>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            <span className="text-sm font-black text-amber-300 shrink-0 mt-0.5">
+                              {(it.total_price || it.price || 0)} ج.م
+                            </span>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
