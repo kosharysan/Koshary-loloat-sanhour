@@ -1159,17 +1159,17 @@ export default function OrderMonitorPage() {
                 >
                   {/* ختم الطلب الملغي: يظهر كختم رسمي مائل ومميز على كارت الطلب */}
                   {isCancelled && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 pointer-events-none select-none z-20 animate-fadeIn">
-                      <div className={`px-4 sm:px-6 py-1.5 sm:py-2 rounded-2xl border-[3.5px] border-dashed text-center shadow-lg backdrop-blur-[0.5px] ${
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 pointer-events-none select-none z-20 animate-fadeIn opacity-75 sm:opacity-80">
+                      <div className={`px-6 sm:px-8 py-2.5 sm:py-3.5 rounded-2xl sm:rounded-3xl border-4 sm:border-[4.5px] border-dashed text-center shadow-md backdrop-blur-[0.5px] ${
                         isCancelledNotReceived
-                          ? 'border-red-600 text-red-600 bg-red-600/10 dark:border-red-500 dark:text-red-400 dark:bg-red-500/15 shadow-red-500/20'
-                          : 'border-amber-600 text-amber-700 bg-amber-600/10 dark:border-amber-500 dark:text-amber-400 dark:bg-amber-500/15 shadow-amber-500/20'
+                          ? 'border-rose-500/75 text-rose-600 bg-rose-500/8 dark:border-rose-400/75 dark:text-rose-300 dark:bg-rose-500/15 shadow-rose-500/10'
+                          : 'border-amber-500/75 text-amber-700 bg-amber-500/8 dark:border-amber-400/75 dark:text-amber-300 dark:bg-amber-500/15 shadow-amber-500/10'
                       }`}>
-                        <div className="flex items-center justify-center gap-1.5 font-black text-sm sm:text-base tracking-wider">
-                          <Ban className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+                        <div className="flex items-center justify-center gap-2 font-black text-base sm:text-xl tracking-wider">
+                          <Ban className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                           <span>{isCancelledNotReceived ? 'مُـلـغـــى (عدم استلام)' : 'مُـلـغـــى (قبل الخروج)'}</span>
                         </div>
-                        <div className="text-[9px] sm:text-[10.5px] font-mono font-black tracking-[0.25em] opacity-85 mt-0.5">
+                        <div className="text-[10px] sm:text-xs font-mono font-black tracking-[0.3em] opacity-80 mt-1">
                           ★ CANCELLED ★
                         </div>
                       </div>
