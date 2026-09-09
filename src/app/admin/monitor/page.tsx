@@ -714,24 +714,24 @@ export default function OrderMonitorPage() {
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6">
 
-        {/* المربعات الإحصائية الثلاثة جمب بعض بتصميم لوحة الضبط الفخم ونفس الخط والألوان */}
+        {/* المربعات الإحصائية الثلاثة جمب بعض بتصميم زجاجي شفاف فخم وواضح غير باهت */}
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           
           {/* 1. إجمالي المبيعات المؤكدة */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-emerald-500/40 bg-gradient-to-br from-emerald-950/65 via-slate-900/75 to-teal-950/60 backdrop-blur-md hover:border-emerald-400 hover:shadow-emerald-500/10">
-            <div className="absolute -top-10 -right-10 w-36 h-36 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-teal-500/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-emerald-500/40 backdrop-blur-xl bg-gradient-to-br from-emerald-950/50 via-slate-950/45 to-teal-950/50 hover:border-emerald-400 hover:shadow-emerald-500/20">
+            <div className="absolute -top-10 -right-10 w-36 h-36 bg-emerald-500/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-teal-500/20 rounded-full blur-2xl pointer-events-none" />
 
             <div className="flex items-center justify-between mb-3 relative z-10">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-400/25 to-teal-500/10 text-emerald-300 flex items-center justify-center border border-emerald-400/30 shadow-lg shadow-emerald-500/20 shrink-0">
+                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-400/30 to-teal-500/15 text-emerald-300 flex items-center justify-center border border-emerald-400/40 shadow-lg shadow-emerald-500/20 shrink-0">
                   <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
                 </div>
                 <div className="min-w-0">
                   <span className="text-[11px] sm:text-base font-black text-white block tracking-wide truncate">
                     إجمالي المبيعات
                   </span>
-                  <span className="text-[9.5px] sm:text-[11px] text-emerald-200/70 font-bold block truncate">
+                  <span className="text-[9.5px] sm:text-[11px] text-emerald-200/80 font-bold block truncate">
                     المؤكدة المعتمدة
                   </span>
                 </div>
@@ -743,35 +743,35 @@ export default function OrderMonitorPage() {
             </div>
 
             <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-3 relative z-10 flex-wrap">
-              <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm">
+              <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-md">
                 {confirmedRevenue.toLocaleString('ar-EG')}
               </span>
               <span className="text-[10px] sm:text-base font-black text-emerald-400">جنيه</span>
             </div>
 
-            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-emerald-200/70 font-medium pt-2 sm:pt-3 border-t border-emerald-500/20 relative z-10">
+            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-emerald-200/80 font-medium pt-2 sm:pt-3 border-t border-emerald-500/20 relative z-10">
               <span className="truncate">💰 المؤكدة فقط</span>
-              <span className="text-emerald-300 font-bold bg-emerald-950/60 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-emerald-500/30 text-[10px] sm:text-xs shrink-0">
+              <span className="text-emerald-300 font-bold bg-emerald-950/50 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-emerald-500/30 text-[10px] sm:text-xs shrink-0">
                 {confirmedOrders.length} طلب
               </span>
             </div>
           </div>
 
           {/* 2. عدد الأوردرات المؤكدة ونشاط الزبائن */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-indigo-500/40 bg-gradient-to-br from-indigo-950/65 via-slate-900/75 to-purple-950/60 backdrop-blur-md hover:border-indigo-400 hover:shadow-indigo-500/10">
-            <div className="absolute -top-10 -right-10 w-36 h-36 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-purple-500/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-indigo-500/40 backdrop-blur-xl bg-gradient-to-br from-indigo-950/50 via-slate-950/45 to-purple-950/50 hover:border-indigo-400 hover:shadow-indigo-500/20">
+            <div className="absolute -top-10 -right-10 w-36 h-36 bg-indigo-500/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-purple-500/20 rounded-full blur-2xl pointer-events-none" />
 
             <div className="flex items-center justify-between mb-3 relative z-10">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-400/25 to-purple-500/10 text-indigo-300 flex items-center justify-center border border-indigo-400/30 shadow-lg shadow-indigo-500/20 shrink-0">
+                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-400/30 to-purple-500/15 text-indigo-300 flex items-center justify-center border border-indigo-400/40 shadow-lg shadow-indigo-500/20 shrink-0">
                   <ShoppingBag className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
                 </div>
                 <div className="min-w-0">
                   <span className="text-[11px] sm:text-base font-black text-white block tracking-wide truncate">
                     عدد الأوردرات
                   </span>
-                  <span className="text-[9.5px] sm:text-[11px] text-indigo-200/70 font-bold block truncate">
+                  <span className="text-[9.5px] sm:text-[11px] text-indigo-200/80 font-bold block truncate">
                     الأوردرات المؤكدة
                   </span>
                 </div>
@@ -784,14 +784,14 @@ export default function OrderMonitorPage() {
 
             <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3 relative z-10">
               <div className="flex items-baseline gap-1 sm:gap-2">
-                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm">
+                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-md">
                   {confirmedOrders.length.toLocaleString('ar-EG')}
                 </span>
                 <span className="text-[10px] sm:text-base font-black text-indigo-400">أوردر</span>
               </div>
 
               {/* كام شخص طلب؟ */}
-              <div className="bg-slate-950/70 border border-indigo-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
+              <div className="bg-slate-950/60 backdrop-blur-xs border border-indigo-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
                 <div className="text-[8.5px] sm:text-[10px] text-indigo-200/80 font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
                   <Users className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-400" />
                   <span className="hidden sm:inline">العملاء:</span>
@@ -802,29 +802,29 @@ export default function OrderMonitorPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-indigo-200/70 font-medium pt-2 sm:pt-3 border-t border-indigo-500/20 relative z-10">
+            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-indigo-200/80 font-medium pt-2 sm:pt-3 border-t border-indigo-500/20 relative z-10">
               <span className="truncate">👥 نشاط العملاء</span>
-              <span className="text-amber-300 font-bold bg-slate-950/60 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-indigo-500/30 text-[10px] sm:text-xs shrink-0">
+              <span className="text-amber-300 font-bold bg-slate-950/50 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-indigo-500/30 text-[10px] sm:text-xs shrink-0">
                 من {uniqueConfirmedCustomers} شخص
               </span>
             </div>
           </div>
 
           {/* 3. الطلبات الملغية ومبالغها */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-rose-500/40 bg-gradient-to-br from-rose-950/65 via-slate-900/75 to-red-950/60 backdrop-blur-md hover:border-rose-400 hover:shadow-rose-500/10">
-            <div className="absolute -top-10 -right-10 w-36 h-36 bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-red-500/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-rose-500/40 backdrop-blur-xl bg-gradient-to-br from-rose-950/50 via-slate-950/45 to-red-950/50 hover:border-rose-400 hover:shadow-rose-500/20">
+            <div className="absolute -top-10 -right-10 w-36 h-36 bg-rose-500/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-red-500/20 rounded-full blur-2xl pointer-events-none" />
 
             <div className="flex items-center justify-between mb-3 relative z-10">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-rose-400/25 to-red-500/10 text-rose-300 flex items-center justify-center border border-rose-400/30 shadow-lg shadow-rose-500/20 shrink-0">
+                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-rose-400/30 to-red-500/15 text-rose-300 flex items-center justify-center border border-rose-400/40 shadow-lg shadow-rose-500/20 shrink-0">
                   <XCircle className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
                 </div>
                 <div className="min-w-0">
                   <span className="text-[11px] sm:text-base font-black text-white block tracking-wide truncate">
                     الطلبات الملغية
                   </span>
-                  <span className="text-[9.5px] sm:text-[11px] text-rose-200/70 font-bold block truncate">
+                  <span className="text-[9.5px] sm:text-[11px] text-rose-200/80 font-bold block truncate">
                     فاقد المبيعات
                   </span>
                 </div>
@@ -837,14 +837,14 @@ export default function OrderMonitorPage() {
 
             <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3 relative z-10">
               <div className="flex items-baseline gap-1 sm:gap-2">
-                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-sm">
+                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-md">
                   {cancelledRevenue.toLocaleString('ar-EG')}
                 </span>
                 <span className="text-[10px] sm:text-base font-black text-rose-400">جنيه</span>
               </div>
 
               {/* عدد الملغي */}
-              <div className="bg-slate-950/70 border border-rose-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
+              <div className="bg-slate-950/60 backdrop-blur-xs border border-rose-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
                 <div className="text-[8.5px] sm:text-[10px] text-rose-200/80 font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
                   <AlertTriangle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-rose-400" />
                   <span className="hidden sm:inline">العدد:</span>
@@ -855,9 +855,9 @@ export default function OrderMonitorPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-rose-200/70 font-medium pt-2 sm:pt-3 border-t border-rose-500/20 relative z-10">
+            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-rose-200/80 font-medium pt-2 sm:pt-3 border-t border-rose-500/20 relative z-10">
               <span className="truncate">🚫 قيمة غير محصلة</span>
-              <span className="text-rose-300 font-bold bg-rose-950/60 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-rose-500/30 text-[10px] sm:text-xs shrink-0">
+              <span className="text-rose-300 font-bold bg-rose-950/50 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-rose-500/30 text-[10px] sm:text-xs shrink-0">
                 {cancelledOrders.length} ملغي
               </span>
             </div>
