@@ -523,7 +523,7 @@ export default function OrderMonitorPage() {
   // Authenticated Monitor View
   return (
     <div className={`min-h-screen selection:bg-amber-500 selection:text-slate-950 pb-24 transition-colors duration-200 ${
-      isLight ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'
+      isLight ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'
     }`}>
       
       {/* Top Floating Notification Toast */}
@@ -866,12 +866,12 @@ export default function OrderMonitorPage() {
                   className={`rounded-3xl p-4 sm:p-5 transition-all duration-300 flex flex-col justify-between space-y-3.5 relative overflow-hidden ${
                     isLight
                       ? isPending
-                        ? 'bg-white border-2 border-rose-500 shadow-[0_8px_30px_rgba(244,63,94,0.12)] ring-2 ring-rose-500/20 hover:border-rose-600'
+                        ? 'bg-[#eaedf2] border-2 border-rose-500 shadow-[0_8px_25px_rgba(244,63,94,0.16)] ring-2 ring-rose-400/25 hover:border-rose-600'
                         : isConfirmed
-                        ? 'bg-white border-2 border-emerald-500 shadow-[0_8px_30px_rgba(16,185,129,0.12)] ring-1 ring-emerald-500/20 hover:border-emerald-600'
+                        ? 'bg-[#eaedf2] border-2 border-emerald-500 shadow-[0_8px_25px_rgba(16,185,129,0.16)] ring-1 ring-emerald-400/25 hover:border-emerald-600'
                         : isCancelledBefore
-                        ? 'bg-white border-2 border-amber-400 shadow-md opacity-95 hover:border-amber-500'
-                        : 'bg-white border-2 border-red-500 shadow-md opacity-90 hover:border-red-600'
+                        ? 'bg-[#eaedf2] border-2 border-amber-400 shadow-md opacity-95 hover:border-amber-500'
+                        : 'bg-[#eaedf2] border-2 border-red-500 shadow-md opacity-90 hover:border-red-600'
                       : isPending
                       ? 'bg-slate-800/95 border-2 border-rose-500/70 shadow-[0_8px_30px_rgba(244,63,94,0.18)] ring-2 ring-rose-500/30 hover:border-rose-400'
                       : isConfirmed
@@ -883,18 +883,18 @@ export default function OrderMonitorPage() {
                 >
                   {/* Card Header: ID, Time, Status Badge & Accordion Toggle Button */}
                   <div className="space-y-2">
-                    <div className={`flex items-center justify-between gap-2 border-b pb-2.5 ${isLight ? 'border-slate-200' : 'border-slate-700/80'}`}>
+                    <div className={`flex items-center justify-between gap-2 border-b pb-2.5 ${isLight ? 'border-slate-300/80' : 'border-slate-700/80'}`}>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-black px-2.5 py-1 rounded-lg font-mono border ${
-                          isLight ? 'bg-slate-100 text-amber-900 border-slate-200' : 'bg-slate-800 text-amber-300 border-slate-700/80'
+                          isLight ? 'bg-white text-amber-900 border-slate-300 shadow-2xs' : 'bg-slate-800 text-amber-300 border-slate-700/80'
                         }`}>
                           #{String(order.id).slice(-6)}
                         </span>
                         {order.created_at && (
-                          <span className={`text-[10.5px] font-bold flex items-center gap-1 ${isLight ? 'text-slate-500' : 'text-slate-400'}`} title={order.created_at}>
+                          <span className={`text-[10.5px] font-bold flex items-center gap-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`} title={order.created_at}>
                             <Clock className="w-3 h-3 text-slate-400" />
                             <span>{formatOrderTime(order.created_at)}</span>
-                            <span className={`text-[10px] ${isLight ? 'text-amber-700 font-bold' : 'text-amber-400/80'}`}>({getTimeAgo(order.created_at)})</span>
+                            <span className={`text-[10px] ${isLight ? 'text-amber-800 font-bold' : 'text-amber-400/80'}`}>({getTimeAgo(order.created_at)})</span>
                           </span>
                         )}
                       </div>
@@ -902,26 +902,42 @@ export default function OrderMonitorPage() {
                       {/* Status Indicator Badge & Accordion Expand/Collapse Button */}
                       <div className="flex items-center gap-2">
                         {isPending && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10.5px] font-black">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-black border ${
+                            isLight
+                              ? 'bg-rose-100 text-rose-800 border-rose-300 shadow-2xs'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                          }`}>
                             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
                             <span>جديد</span>
                           </span>
                         )}
                         {isConfirmed && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10.5px] font-black">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-black border ${
+                            isLight
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-2xs'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          }`}>
+                            <CheckCircle2 className={`w-3 h-3 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
                             <span>مؤكد</span>
                           </span>
                         )}
                         {isCancelledBefore && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10.5px] font-black">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-black border ${
+                            isLight
+                              ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          }`}>
+                            <AlertTriangle className={`w-3 h-3 ${isLight ? 'text-amber-700' : 'text-amber-400'}`} />
                             <span>ملغي</span>
                           </span>
                         )}
                         {isCancelledNotReceived && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/40 text-[10.5px] font-black">
-                            <XCircle className="w-3.5 h-3.5 text-red-400" />
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-black border ${
+                            isLight
+                              ? 'bg-red-100 text-red-800 border-red-300 shadow-2xs'
+                              : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                          }`}>
+                            <XCircle className={`w-3 h-3 ${isLight ? 'text-red-700' : 'text-red-400'}`} />
                             <span>عدم استلام</span>
                           </span>
                         )}
@@ -934,7 +950,7 @@ export default function OrderMonitorPage() {
                             isExpanded
                               ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md'
                               : isLight
-                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                              ? 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-2xs'
                               : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                           }`}
                           title={isExpanded ? 'طي تفاصيل الطلب' : 'فتح وتفاصيل الطلب بالكامل'}
@@ -942,7 +958,7 @@ export default function OrderMonitorPage() {
                           {isExpanded ? (
                             <ChevronUp className="w-4 h-4 text-slate-950 stroke-[2.5]" />
                           ) : (
-                            <ChevronDown className={`w-4 h-4 stroke-[2.5] ${isLight ? 'text-slate-700' : 'text-amber-400'}`} />
+                            <ChevronDown className={`w-4 h-4 stroke-[2.5] ${isLight ? 'text-slate-800' : 'text-amber-400'}`} />
                           )}
                         </button>
                       </div>
@@ -952,10 +968,10 @@ export default function OrderMonitorPage() {
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <h4 className={`text-base font-black truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>{order.customer_name}</h4>
+                          <h4 className={`text-base font-black truncate ${isLight ? 'text-slate-950' : 'text-white'}`}>{order.customer_name}</h4>
                           <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black shrink-0 border ${
                             isLight
-                              ? 'bg-amber-100 border-amber-300 text-amber-900'
+                              ? 'bg-white border-slate-300 text-slate-800 shadow-2xs'
                               : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
                           }`}>
                             {order.items_count || 1} أصناف
@@ -963,7 +979,7 @@ export default function OrderMonitorPage() {
                         </div>
                         <div className="text-left shrink-0">
                           <span className={`text-sm sm:text-base font-black font-mono ${
-                            isLight ? 'text-amber-700' : 'text-amber-400'
+                            isLight ? 'text-amber-800' : 'text-amber-400'
                           }`}>
                             {order.total_amount} ج.م
                           </span>
@@ -972,23 +988,23 @@ export default function OrderMonitorPage() {
 
                       {/* Phone with Fast Call & WhatsApp */}
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs sm:text-sm font-bold font-mono px-3 py-2 rounded-xl border flex-1 flex items-center justify-between shadow-xs ${
+                        <span className={`text-xs sm:text-sm font-bold font-mono px-3 py-2 rounded-xl border flex-1 flex items-center justify-between shadow-2xs ${
                           isLight
-                            ? 'bg-slate-50 text-slate-900 border-slate-200'
+                            ? 'bg-white text-slate-950 border-slate-300'
                             : 'bg-slate-950/90 text-slate-200 border-slate-800'
                         }`}>
                           <span>{order.customer_phone}</span>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
-                            isLight ? 'text-slate-600 bg-slate-200' : 'text-slate-400 bg-slate-800/60'
+                            isLight ? 'text-slate-700 bg-slate-100 border border-slate-200' : 'text-slate-400 bg-slate-800/60'
                           }`}>
                             {order.payment_method === 'vodafone_cash' ? 'محفظة' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش'}
                           </span>
                         </span>
                         <a
                           href={`tel:${order.customer_phone}`}
-                          className={`px-3.5 py-2 rounded-xl border transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs ${
+                          className={`px-3.5 py-2 rounded-xl border transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-2xs ${
                             isLight
-                              ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+                              ? 'bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300'
                               : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border-blue-500/40'
                           }`}
                           title="اتصال بالعميل"
@@ -999,9 +1015,9 @@ export default function OrderMonitorPage() {
                           href={`https://wa.me/2${String(order.customer_phone).replace(/^0/, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`px-3.5 py-2 rounded-xl border transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs ${
+                          className={`px-3.5 py-2 rounded-xl border transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-2xs ${
                             isLight
-                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                              ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300'
                               : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 hover:text-emerald-300 border-emerald-500/40'
                           }`}
                           title="محادثة واتساب"
@@ -1015,9 +1031,9 @@ export default function OrderMonitorPage() {
                         <button
                           type="button"
                           onClick={() => setExpandedOrderId(order.id)}
-                          className={`w-full py-1.5 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-98 ${
+                          className={`w-full py-1.5 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-98 shadow-2xs ${
                             isLight
-                              ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-amber-800'
+                              ? 'bg-white hover:bg-slate-50 border-slate-300 text-slate-800 hover:text-amber-800'
                               : 'bg-slate-950/50 hover:bg-slate-950 border-slate-700/60 hover:border-amber-500/40 text-amber-300/90'
                           }`}
                         >
@@ -1032,7 +1048,7 @@ export default function OrderMonitorPage() {
                           {/* Order Type & Zone with Delivery Fee at the end */}
                           <div className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 shadow-2xs border ${
                             isLight
-                              ? 'text-rose-900 bg-rose-50 border-rose-200'
+                              ? 'text-rose-950 bg-white border-rose-300'
                               : 'text-rose-300 bg-rose-500/10 border-rose-500/20'
                           }`}>
                             <div className="flex items-center gap-1.5 min-w-0">
@@ -1065,14 +1081,14 @@ export default function OrderMonitorPage() {
 
                           {/* Address & Building notes */}
                           {order.delivery_address && (
-                            <div className={`text-[11px] p-2 rounded-xl border space-y-0.5 ${
+                            <div className={`text-[11px] p-2 rounded-xl border space-y-0.5 shadow-2xs ${
                               isLight
-                                ? 'text-slate-800 bg-slate-50 border-slate-200'
+                                ? 'text-slate-900 bg-white border-slate-300'
                                 : 'text-slate-300 bg-slate-950/60 border-slate-800/80'
                             }`}>
                               <p className="font-medium">{order.delivery_address}</p>
                               {order.building_notes && (
-                                <p className={`text-[10.5px] font-bold ${isLight ? 'text-amber-800' : 'text-amber-400/90'}`}>
+                                <p className={`text-[10.5px] font-bold ${isLight ? 'text-amber-800 font-black' : 'text-amber-400/90'}`}>
                                   العمارة/الدور: {order.building_notes}
                                 </p>
                               )}
@@ -1083,9 +1099,9 @@ export default function OrderMonitorPage() {
                           {(() => {
                             const parsed = parseOrderDetails(order.special_notes);
                             return (
-                              <div className={`rounded-2xl border p-3 space-y-2.5 shadow-xs ${
+                              <div className={`rounded-2xl border p-3 space-y-2.5 shadow-2xs ${
                                 isLight
-                                  ? 'bg-slate-50 border-slate-200'
+                                  ? 'bg-white border-slate-300'
                                   : 'bg-slate-950/80 border-slate-800/90 shadow-inner'
                               }`}>
                                 
@@ -1391,7 +1407,7 @@ export default function OrderMonitorPage() {
                   </div>
 
                   {/* THE 3 ACTION BUTTONS */}
-                  <div className={`pt-2 border-t space-y-2 ${isLight ? 'border-slate-200' : 'border-slate-700/80'}`}>
+                  <div className={`pt-2 border-t space-y-2 ${isLight ? 'border-slate-300/80' : 'border-slate-700/80'}`}>
                     <div className="grid grid-cols-3 gap-1.5">
                       
                       {/* 1. Confirm Button */}
@@ -1403,7 +1419,7 @@ export default function OrderMonitorPage() {
                           isConfirmed
                             ? 'bg-emerald-600 text-white shadow-md opacity-100 ring-2 ring-emerald-400/50'
                             : isLight
-                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            ? 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-400 shadow-2xs'
                             : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30'
                         }`}
                         title="تأكيد الأوردر وبدء التجهيز"
@@ -1423,7 +1439,7 @@ export default function OrderMonitorPage() {
                           isCancelledBefore
                             ? 'bg-amber-600 text-white shadow-md opacity-100 ring-2 ring-amber-400/50'
                             : isLight
-                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
+                            ? 'bg-white hover:bg-amber-50 text-amber-900 border border-amber-400 shadow-2xs'
                             : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30'
                         }`}
                         title="إلغاء الطلب قبل خروجه من المطعم"
@@ -1443,7 +1459,7 @@ export default function OrderMonitorPage() {
                           isCancelledNotReceived
                             ? 'bg-red-700 text-white shadow-md opacity-100 ring-2 ring-red-400/50'
                             : isLight
-                            ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-300'
+                            ? 'bg-white hover:bg-red-50 text-red-800 border border-red-400 shadow-2xs'
                             : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30'
                         }`}
                         title="إلغاء الطلب بسبب عدم استلام العميل"
