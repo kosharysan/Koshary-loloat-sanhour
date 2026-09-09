@@ -47,7 +47,9 @@ import {
   Coins,
   Bike,
   AlertTriangle,
-  Receipt
+  Receipt,
+  MapPin,
+  User
 } from 'lucide-react';
 import { Coupon, DeliveryZone, StoreScheduleSettings, ClosedShift } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
@@ -56,6 +58,70 @@ import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
 import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, defaultWhatsAppNotificationSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat, sendWhatsAppMessageApi } from '@/lib/whatsapp';
 
+// استخراج تفاصيل الأصناف وملاحظات العميل من النص المنظم للطلب
+function parseOrderDetails(specialNotes?: string) {
+  if (!specialNotes || !specialNotes.trim()) {
+    return { items: [], notes: '' };
+  }
+  const raw = specialNotes.trim();
+  let itemsPart = raw;
+  let notesPart = '';
+
+  if (raw.includes('ملاحظات العميل:')) {
+    const parts = raw.split('ملاحظات العميل:');
+    itemsPart = parts[0];
+    notesPart = parts.slice(1).join('ملاحظات العميل:').trim();
+  } else if (raw.includes('ملاحظات الأوردر:')) {
+    const parts = raw.split('ملاحظات الأوردر:');
+    itemsPart = parts[0];
+    notesPart = parts.slice(1).join('ملاحظات الأوردر:').trim();
+  }
+
+  itemsPart = itemsPart.replace(/^الأصناف:\s*/i, '').trim();
+
+  const itemsList = itemsPart
+    ? itemsPart.split('\n').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  return { items: itemsList, notes: notesPart };
+}
+
+// تحليل سطر الصنف المنفرد لاستخراج الاسم والكمية والحجم والسعر
+function parseItemLine(itemStr: string) {
+  const clean = itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '').trim();
+  let nameAndDetails = clean;
+  let price: string | null = null;
+  if (clean.includes(' — ')) {
+    const parts = clean.split(' — ');
+    nameAndDetails = parts.slice(0, -1).join(' — ').trim();
+    price = parts[parts.length - 1].trim();
+  }
+  let detailsStr = '';
+  const bracketMatch = nameAndDetails.match(/\[(.*?)\]/);
+  if (bracketMatch) {
+    detailsStr = bracketMatch[1].trim();
+    nameAndDetails = nameAndDetails.replace(/\[.*?\]/, '').trim();
+  }
+  let quantity = '1';
+  const qtyMatch = nameAndDetails.match(/[×xX]\s*(\d+)/);
+  if (qtyMatch) {
+    quantity = qtyMatch[1];
+    nameAndDetails = nameAndDetails.replace(/[×xX]\s*\d+/, '').trim();
+  }
+  let size: string | undefined = undefined;
+  const parenMatch = nameAndDetails.match(/\(([^)]+)\)/);
+  if (parenMatch) {
+    size = parenMatch[1].trim();
+    nameAndDetails = nameAndDetails.replace(/\([^)]+\)/, '').trim();
+  }
+  return {
+    name: nameAndDetails.trim(),
+    quantity,
+    size,
+    price,
+    details: detailsStr
+  };
+}
 
 export default function AdminPortal() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -72,6 +138,7 @@ export default function AdminPortal() {
   const [currentShiftNumber, setCurrentShiftNumber] = useState<number>(1);
   const [archivedOrderIds, setArchivedOrderIds] = useState<string[]>([]);
   const [selectedShiftForView, setSelectedShiftForView] = useState<ClosedShift | null>(null);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<any | null>(null);
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isClosingShift, setIsClosingShift] = useState(false);
   const [shiftInvoicesSearchQuery, setShiftInvoicesSearchQuery] = useState('');
@@ -844,6 +911,86 @@ export default function AdminPortal() {
     printWindow.document.close();
   };
 
+  // طباعة فاتورة مفردة لطلب محدد
+  const handlePrintSingleOrder = (order: any, shiftNumber?: number | string) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('يرجى السماح بالنوافذ المنبثقة لإتمام الطباعة');
+      return;
+    }
+    const parsed = parseOrderDetails(order.special_notes);
+    const itemsToPrint: string[] = (Array.isArray(order.items) && order.items.length > 0)
+      ? order.items.map((it: any) => `${it.quantity || 1}x ${it.name || it.item_name || 'صنف'} ${it.total_price || it.price ? `— ${(it.total_price || it.price)} ج.م` : ''}`)
+      : parsed.items;
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8">
+        <title>فاتورة #${String(order.id).slice(-6)} - كشري لؤلؤة سنهور</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; padding: 16px; direction: rtl; color: #0f172a; max-width: 420px; margin: 0 auto; line-height: 1.4; font-size: 13px; }
+          .header { text-align: center; border-bottom: 2px dashed #94a3b8; padding-bottom: 12px; margin-bottom: 12px; }
+          .header h1 { margin: 0 0 4px 0; font-size: 18px; font-weight: 900; }
+          .header p { margin: 2px 0; font-size: 12px; color: #475569; }
+          .badge { display: inline-block; padding: 4px 10px; background: #fef3c7; color: #92400e; border-radius: 9999px; font-weight: 900; margin: 6px 0; font-size: 12px; border: 1px solid #fde68a; }
+          .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
+          .section-title { font-weight: 800; font-size: 13px; margin: 12px 0 6px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+          .item-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #e2e8f0; font-size: 12px; }
+          .total-box { margin-top: 12px; padding-top: 8px; border-top: 2px dashed #94a3b8; }
+          .total-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+          .grand-total { font-size: 16px; font-weight: 900; color: #059669; border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 4px; }
+          .footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 18px; border-top: 1px dashed #cbd5e1; padding-top: 8px; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>كشري لؤلؤة سنهور 🍲</h1>
+          <p>فاتورة حساب عميل</p>
+          <div class="badge">فاتورة #${String(order.id).slice(-6)} ${shiftNumber ? `(الوردية #${shiftNumber})` : ''}</div>
+          <p>التاريخ: ${formatOrderTime(order.created_at || new Date().toISOString())}</p>
+          <p>الحالة: ${order.status === 'confirmed' ? 'مؤكد ✅' : (typeof order.status === 'string' && order.status.startsWith('cancelled')) ? 'ملغي 🚫' : 'جديد'}</p>
+        </div>
+
+        <div class="info-row"><span>العميل:</span><strong>${order.customer_name || 'بدون اسم'}</strong></div>
+        <div class="info-row"><span>الهاتف:</span><strong dir="ltr">${order.customer_phone || '-'}</strong></div>
+        <div class="info-row"><span>النوع:</span><strong>${order.delivery_zone || (order.order_type === 'pickup' ? 'استلام من المطعم' : 'توصيل دليفري')}</strong></div>
+        ${order.delivery_address ? `<div class="info-row"><span>العنوان:</span><span>${order.delivery_address}</span></div>` : ''}
+        ${order.building_notes ? `<div class="info-row"><span>تفاصيل العنوان:</span><span>${order.building_notes}</span></div>` : ''}
+        ${parsed.notes ? `<div class="info-row" style="color: #b45309;"><span>ملاحظات العميل:</span><span>${parsed.notes}</span></div>` : ''}
+
+        <div class="section-title">الأصناف والطلبات</div>
+        <div>
+          ${itemsToPrint.length > 0 ? itemsToPrint.map((it: string) => `<div class="item-row"><span>${it}</span></div>`).join('') : '<p style="color: #94a3b8; font-size: 11px;">تفاصيل الطلب غير مفصلة</p>'}
+        </div>
+
+        <div class="total-box">
+          ${order.subtotal ? `<div class="total-row"><span>المجموع الفرعي:</span><span>${order.subtotal} ج.م</span></div>` : ''}
+          ${order.delivery_fee ? `<div class="total-row"><span>خدمة التوصيل:</span><span>${order.delivery_fee} ج.م</span></div>` : ''}
+          ${order.discount_amount ? `<div class="total-row" style="color: #059669;"><span>الخصم ${order.coupon_code ? `(${order.coupon_code})` : ''}:</span><span>-${order.discount_amount} ج.م</span></div>` : ''}
+          <div class="total-row grand-total"><span>الإجمالي الصافي:</span><span>${order.total_amount} ج.م</span></div>
+          <div class="total-row" style="font-size: 11px; color: #64748b; margin-top: 4px;">
+            <span>طريقة الدفع:</span>
+            <span>${order.payment_method === 'vodafone_cash' ? 'محفظة فودافون كاش' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش عند الاستلام'}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>شكراً لتعاملكم معنا - كشري لؤلؤة سنهور 🍲</p>
+          <p>خدمة التوصيل: ${defaultInfo.phone}</p>
+        </div>
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       loadOrders();
@@ -1521,6 +1668,15 @@ export default function AdminPortal() {
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="text-base font-black text-white">{order.customer_name}</h4>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedOrderForDetails(order)}
+                                  className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+                                  title="عرض تفاصيل الفاتورة كاملة"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-slate-950" />
+                                  <span>تفاصيل 🔍</span>
+                                </button>
                                 {order.status === 'confirmed' ? (
                                   <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                                     <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -2667,10 +2823,22 @@ export default function AdminPortal() {
                     >
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
                         <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono">
+                          <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300">
                             #{String(order.id).slice(-6)}
                           </span>
                           <span className="text-sm font-black text-white">{order.customer_name}</span>
+
+                          {/* زر تفاصيل الفاتورة بجوار الاسم مباشرة */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrderForDetails(order)}
+                            className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+                            title="عرض تفاصيل الفاتورة كاملة"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-slate-950" />
+                            <span>تفاصيل 🔍</span>
+                          </button>
+
                           {order.status === 'confirmed' ? (
                             <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                               <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -2687,14 +2855,14 @@ export default function AdminPortal() {
                             </span>
                           )}
                           {order.created_at && (
-                            <span className="text-[10px] text-amber-400 font-mono">
+                            <span className="text-[10px] text-amber-400 font-bold">
                               {formatOrderTime(order.created_at)}
                             </span>
                           )}
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <span className="text-base font-black text-emerald-400 font-mono">
+                          <span className="text-base font-black text-emerald-400">
                             {order.total_amount} ج.م
                           </span>
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
@@ -2719,7 +2887,7 @@ export default function AdminPortal() {
 
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-400 pt-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-slate-300">{order.customer_phone}</span>
+                          <span className="text-slate-300 font-bold">{order.customer_phone}</span>
                           <span>•</span>
                           <span>{order.delivery_address || (order.order_type === 'delivery' ? 'توصيل دليفري' : 'استلام من المطعم')}</span>
                           {order.building_notes && <span className="text-amber-400/80">({order.building_notes})</span>}
@@ -2764,6 +2932,320 @@ export default function AdminPortal() {
             </div>
           </div>
         )}
+
+        {/* ========================================================================= */}
+        {/* مودال تفاصيل الفاتورة المنفردة للطلب (selectedOrderForDetails) */}
+        {/* ========================================================================= */}
+        {selectedOrderForDetails && (() => {
+          const ord = selectedOrderForDetails;
+          const parsed = parseOrderDetails(ord.special_notes);
+          const itemsList = (Array.isArray(ord.items) && ord.items.length > 0)
+            ? ord.items
+            : parsed.items;
+          const isCancelled = typeof ord.status === 'string' && ord.status.startsWith('cancelled');
+          const isConfirmed = ord.status === 'confirmed';
+
+          return (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border-2 border-amber-500/50 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white shadow-2xl space-y-5 font-sans">
+                
+                {/* الترويسة وأزرار التحكم */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-black shrink-0">
+                      <Receipt className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-lg sm:text-xl font-black text-white">
+                          تفاصيل الفاتورة #{String(ord.id).slice(-6)}
+                        </h3>
+                        {selectedShiftForView && (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            الوردية #{selectedShiftForView.shiftNumber}
+                          </span>
+                        )}
+                        {isConfirmed ? (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>مؤكد ✅</span>
+                          </span>
+                        ) : isCancelled ? (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                            <span>ملغي 🚫</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                            قيد الانتظار ⏳
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>وقت إنشاء الطلب: {formatOrderTime(ord.created_at)}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* زر طباعة الفاتورة الفردية */}
+                    <button
+                      type="button"
+                      onClick={() => handlePrintSingleOrder(ord, selectedShiftForView?.shiftNumber)}
+                      className="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      title="طباعة هذه الفاتورة"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>طباعة 🖨️</span>
+                    </button>
+
+                    {/* زر إغلاق */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOrderForDetails(null)}
+                      className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                      title="إغلاق"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* بيانات العميل والتوصيل */}
+                <div className="bg-slate-950/60 border border-slate-800/90 rounded-2xl p-4 space-y-3">
+                  <h4 className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                    <User className="w-4 h-4" />
+                    <span>بيانات العميل والتوصيل:</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                      <span className="text-slate-400 text-[11px] font-bold block">اسم العميل:</span>
+                      <span className="text-sm font-black text-white block">{ord.customer_name}</span>
+                      <div className="pt-1 flex items-center gap-2">
+                        <a
+                          href={`tel:${ord.customer_phone}`}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{ord.customer_phone}</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/2${(ord.customer_phone || '').replace(/^0/, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 transition"
+                          title="مراسلة واتساب"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                      <span className="text-slate-400 text-[11px] font-bold block">نوع الاستلام والمنطقة:</span>
+                      <div className="flex items-center gap-1.5 text-white font-black text-sm">
+                        {ord.order_type === 'pickup' ? (
+                          <>
+                            <Store className="w-4 h-4 text-purple-400" />
+                            <span className="text-purple-300">استلام من الفرع</span>
+                          </>
+                        ) : (
+                          <>
+                            <Truck className="w-4 h-4 text-sky-400" />
+                            <span className="text-sky-300">توصيل دليفري ({ord.delivery_zone || 'سنهور'})</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="pt-1 text-[11px] text-slate-300 flex items-start gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                        <span>{ord.delivery_address || (ord.order_type === 'pickup' ? 'استلام من داخل المطعم' : 'العنوان غير محدد')}</span>
+                      </div>
+                      {ord.building_notes && (
+                        <span className="text-[10.5px] text-amber-300/90 block pt-0.5">
+                          الدور / الشقة / علامة مميزة: {ord.building_notes}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {parsed.notes && (
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-300 flex items-start gap-2">
+                      <span className="text-base leading-none">💬</span>
+                      <div>
+                        <strong className="block text-amber-200">ملاحظات العميل الخاصة:</strong>
+                        <span>{parsed.notes}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* قائمة محتويات وأصناف الفاتورة بالتفصيل */}
+                <div className="bg-slate-950/60 border border-slate-800/90 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>أصناف ومحتويات الفاتورة ({itemsList.length}):</span>
+                    </h4>
+                    <span className="text-[11px] text-slate-400 font-bold">
+                      إجمالي الأصناف: {ord.items_count || itemsList.length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {itemsList.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-3 text-center">لا توجد تفاصيل أصناف مسجلة لهذا الطلب.</p>
+                    ) : typeof itemsList[0] === 'string' ? (
+                      itemsList.map((itemStr: string, idx: number) => {
+                        const parsedItem = parseItemLine(itemStr);
+                        return (
+                          <div
+                            key={idx}
+                            className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                              <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-xs font-black shrink-0">
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-black text-white">{parsedItem.name}</span>
+                                  {parsedItem.size && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                                      {parsedItem.size}
+                                    </span>
+                                  )}
+                                  <span className="text-xs font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                                    × {parsedItem.quantity}
+                                  </span>
+                                </div>
+                                {parsedItem.details && (
+                                  <p className="text-[11px] text-slate-400 mt-1">
+                                    [{parsedItem.details}]
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {parsedItem.price && (
+                              <span className="text-sm font-black text-amber-300 shrink-0">
+                                {parsedItem.price}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      itemsList.map((it: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-xs font-black shrink-0">
+                              {idx + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-black text-white">{it.name || it.item_name || 'صنف'}</span>
+                                {it.selectedSize && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                                    {it.selectedSize}
+                                  </span>
+                                )}
+                                <span className="text-xs font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                                  × {it.quantity || 1}
+                                </span>
+                              </div>
+                              {it.notes && (
+                                <p className="text-[11px] text-slate-400 mt-1">ملاحظة: {it.notes}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <span className="text-sm font-black text-amber-300 shrink-0">
+                            {(it.total_price || it.price || 0)} ج.م
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* ملخص الحساب والإجمالي */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2.5 text-xs">
+                  <h4 className="text-xs font-black text-slate-300 mb-2">ملخص الحساب وطريقة الدفع:</h4>
+
+                  {ord.subtotal ? (
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span>المجموع الفرعي للأصناف:</span>
+                      <span className="text-white font-bold">{ord.subtotal} ج.م</span>
+                    </div>
+                  ) : null}
+
+                  {ord.delivery_fee !== undefined && ord.delivery_fee !== null ? (
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span>خدمة التوصيل (الدليفري):</span>
+                      <span className="text-white font-bold">
+                        {ord.delivery_fee > 0 ? `${ord.delivery_fee} ج.م` : 'مجاناً / استلام من الفرع'}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {ord.discount_amount ? (
+                    <div className="flex justify-between items-center text-emerald-400 font-bold">
+                      <span>قيمة الخصم {ord.coupon_code ? `(كوبون: ${ord.coupon_code})` : ''}:</span>
+                      <span>-{ord.discount_amount} ج.م</span>
+                    </div>
+                  ) : null}
+
+                  <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
+                    <span className="text-sm font-black text-white">طريقة الدفع:</span>
+                    <span className="px-3 py-1 rounded-xl bg-slate-800 text-amber-300 border border-slate-700 font-bold text-xs">
+                      {ord.payment_method === 'vodafone_cash'
+                        ? '📱 محفظة فودافون كاش'
+                        : ord.payment_method === 'instapay'
+                        ? '⚡ إنستاباي'
+                        : '💵 كاش عند الاستلام'}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
+                    <div>
+                      <span className="text-base sm:text-lg font-black text-white block">المبلغ الإجمالي الصافي:</span>
+                      <span className="text-[11px] text-slate-400">شامل التوصيل وأي خصومات</span>
+                    </div>
+                    <span className="text-2xl sm:text-3xl font-black text-emerald-400">
+                      {ord.total_amount} ج.م
+                    </span>
+                  </div>
+                </div>
+
+                {/* أزرار الإغلاق السفلية */}
+                <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handlePrintSingleOrder(ord, selectedShiftForView?.shiftNumber)}
+                    className="py-2.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-black transition flex items-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>طباعة الفاتورة 🖨️</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderForDetails(null)}
+                    className="py-2.5 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition cursor-pointer active:scale-95 shadow-lg"
+                  >
+                    إغلاق تفاصيل الفاتورة
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          );
+        })()}
 
       {activeTab === 'coupons' && (
         <div className="space-y-6">
