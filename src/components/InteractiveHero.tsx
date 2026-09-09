@@ -102,7 +102,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
               <span className="relative flex items-center justify-center shrink-0">
                 <svg
                   viewBox="0 0 24 24"
-                  className="relative w-5 h-5 sm:w-5.5 sm:h-5.5 drop-shadow-[0_1px_3px_rgba(217,119,6,0.35)]"
+                  className="relative w-5 h-5 sm:w-5.5 sm:h-5.5 soft-gold-shimmer"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
