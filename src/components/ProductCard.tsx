@@ -55,8 +55,34 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     updateQuantity(cartItemsForThis[0].id, -1);
   };
 
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If the click was directly on a button (like minus/plus), let the button handle it
+    if ((e.target as HTMLElement).closest('button')) return;
+    
+    if (hasSizes) {
+      handleAddClick();
+    } else if (totalQuantityInCart > 0) {
+      handleIncrement();
+    } else {
+      handleAddClick();
+    }
+  };
+
   return (
-    <div className="group relative rounded-2xl sm:rounded-[2rem] elevated-card-3d p-3 sm:p-5 flex flex-col justify-between">
+    <div 
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (hasSizes) handleAddClick();
+          else if (totalQuantityInCart > 0) handleIncrement();
+          else handleAddClick();
+        }
+      }}
+      className="group relative rounded-2xl sm:rounded-[2rem] elevated-card-3d p-3 sm:p-5 flex flex-col justify-between cursor-pointer active:scale-[0.98] transition-all duration-200 select-none"
+    >
       
       {/* Top Media / Image Container */}
       <div 
@@ -142,7 +168,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Customization prompt if sizes exist */}
         {hasSizes ? (
           <button
-            onClick={() => onOpenCustomizer(item)}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddClick();
+            }}
             className="w-full flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-2 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-[11px] sm:text-sm shadow-md ruby-button-shadow transition active:scale-95 cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
@@ -157,7 +187,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         ) : totalQuantityInCart > 0 ? (
           <div className="w-full flex items-center justify-between bg-rose-50/60 border border-rose-200 rounded-xl sm:rounded-2xl p-1 sm:p-1.5">
             <button
-              onClick={handleDecrement}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDecrement();
+              }}
               className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-white hover:bg-rose-100 border border-rose-200 flex items-center justify-center text-slate-700 transition active:scale-90 shadow-xs cursor-pointer"
             >
               <Minus className="w-3.5 h-3.5" />
@@ -166,15 +200,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {totalQuantityInCart}
             </span>
             <button
-              onClick={handleIncrement}
-              className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-rose-600 hover:bg-rose-500 flex items-center justify-center text-white transition active:scale-90 shadow-md"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleIncrement();
+              }}
+              className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-rose-600 hover:bg-rose-500 flex items-center justify-center text-white transition active:scale-90 shadow-md cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
           <button
-            onClick={handleAddClick}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddClick();
+            }}
             className="w-full flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-2 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-[11px] sm:text-sm shadow-md ruby-button-shadow transition active:scale-95 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
