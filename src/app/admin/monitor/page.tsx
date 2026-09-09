@@ -44,7 +44,7 @@ import {
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useMenuStore } from '@/lib/menuStore';
 import { sounds } from '@/lib/sound';
-import { openWhatsAppChat, formatWhatsAppNotification, defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate } from '@/lib/whatsapp';
+import { openWhatsAppChat, formatWhatsAppNotification, defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, sendWhatsAppMessageApi } from '@/lib/whatsapp';
 
 export default function OrderMonitorPage() {
   const { monitorPassword = 'sanhour123', syncWithServer, whatsappNotificationSettings } = useMenuStore();
@@ -209,46 +209,68 @@ export default function OrderMonitorPage() {
       return next;
     });
 
-    // 2. فتح رسالة الواتساب التلقائية للعميل حسب إعدادات المطعم
+    // 2. إرسال رسالة الواتساب للعميل (إما يدوياً بفتح الشات أو تلقائياً في الخلفية)
     const isNotificationEnabled = whatsappNotificationSettings?.isEnabled ?? true;
-    let whatsAppOpened = false;
+    const sendMode = whatsappNotificationSettings?.sendMode || 'manual';
+    const instanceId = (whatsappNotificationSettings?.instanceId || '').trim();
+    const apiToken = (whatsappNotificationSettings?.apiToken || '').trim();
+
+    let whatsAppOutcome: 'manual' | 'auto_success' | 'auto_fallback_manual' | 'none' = 'none';
 
     if (isNotificationEnabled && targetOrder?.customer_phone) {
+      let msg = '';
       if (newStatus === 'confirmed') {
         const template = whatsappNotificationSettings?.confirmTemplate || defaultConfirmNotificationTemplate;
-        const msg = formatWhatsAppNotification(template, targetOrder, { reason: 'تم التأكيد' });
-        if (msg) {
-          openWhatsAppChat(targetOrder.customer_phone, msg);
-          whatsAppOpened = true;
-        }
+        msg = formatWhatsAppNotification(template, targetOrder, { reason: 'تم التأكيد' });
       } else if (newStatus === 'cancelled_not_received' || newStatus === 'cancelled_before_dispatch') {
         const reason = newStatus === 'cancelled_not_received' ? 'عدم استلام' : 'إلغاء قبل الخروج';
         const template = whatsappNotificationSettings?.cancelTemplate || defaultCancelNotificationTemplate;
-        const msg = formatWhatsAppNotification(template, targetOrder, { reason });
-        if (msg) {
+        msg = formatWhatsAppNotification(template, targetOrder, { reason });
+      }
+
+      if (msg) {
+        if (sendMode === 'auto' && instanceId && apiToken) {
+          // الوضع التلقائي المباشر في الخلفية عبر API
+          whatsAppOutcome = 'auto_success';
+          sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken)
+            .then(res => {
+              if (!res.success) {
+                console.warn('[Auto WhatsApp Failed]:', res.error);
+                showNotice(`⚠️ تعذر الإرسال التلقائي للواتساب (${res.error})، يرجى مراجعة بيانات الربط في الإعدادات`, 'warn');
+              }
+            })
+            .catch(e => console.warn(e));
+        } else {
+          // الوضع اليدوي المعتاد: فتح محادثة الواتساب مع الرسالة الجاهزة
           openWhatsAppChat(targetOrder.customer_phone, msg);
-          whatsAppOpened = true;
+          whatsAppOutcome = 'manual';
         }
       }
     }
 
     if (newStatus === 'confirmed') {
       showNotice(
-        whatsAppOpened
+        whatsAppOutcome === 'auto_success'
+          ? `تم تأكيد الأوردر #${String(orderId).slice(-6)} وإرسال إشعار الواتساب تلقائياً في الخلفية ⚡🔒`
+          : whatsAppOutcome === 'manual'
           ? `تم تأكيد الأوردر #${String(orderId).slice(-6)} وفتح رسالة الواتساب للعميل 📲🔒`
           : `تم تأكيد الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`,
         'success'
       );
     } else if (newStatus === 'cancelled_before_dispatch') {
       showNotice(
-        whatsAppOpened
+        whatsAppOutcome === 'auto_success'
+          ? `تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} وإرسال إشعار الواتساب تلقائياً ⚡🔒`
+          : whatsAppOutcome === 'manual'
           ? `تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} وفتح رسالة الواتساب للعميل 📲🔒`
           : `تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`,
         'warn'
       );
     } else {
       showNotice(
-        whatsAppOpened
+        whatsAppOutcome === 'auto_success'
+          ? `تم تسجيل عدم استلام الأوردر #${String(orderId).slice(-6)} وإرسال إشعار الواتساب تلقائياً ⚡🔒`
+          : whatsAppOutcome === 'manual'
           ? `تم تسجيل عدم استلام الأوردر #${String(orderId).slice(-6)} وفتح رسالة الواتساب للعميل 📲🔒`
           : `تم تسجيل عدم استلام الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`,
         'error'

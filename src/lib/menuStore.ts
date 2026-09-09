@@ -7,6 +7,9 @@ import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate }
 
 export const defaultWhatsAppNotificationSettings: WhatsAppNotificationSettings = {
   isEnabled: true,
+  sendMode: 'manual',
+  instanceId: '',
+  apiToken: '',
   confirmTemplate: defaultConfirmNotificationTemplate,
   cancelTemplate: defaultCancelNotificationTemplate,
 };
@@ -818,6 +821,9 @@ export const useMenuStore = create<MenuStore>()(
               isEnabled: typeof persistedState.whatsappNotificationSettings.isEnabled === 'boolean'
                 ? persistedState.whatsappNotificationSettings.isEnabled
                 : defaultWhatsAppNotificationSettings.isEnabled,
+              sendMode: persistedState.whatsappNotificationSettings.sendMode === 'auto' ? 'auto' : 'manual',
+              instanceId: persistedState.whatsappNotificationSettings.instanceId || '',
+              apiToken: persistedState.whatsappNotificationSettings.apiToken || '',
               confirmTemplate: persistedState.whatsappNotificationSettings.confirmTemplate || defaultWhatsAppNotificationSettings.confirmTemplate,
               cancelTemplate: persistedState.whatsappNotificationSettings.cancelTemplate || defaultWhatsAppNotificationSettings.cancelTemplate,
             }

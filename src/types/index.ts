@@ -168,6 +168,9 @@ export interface StoreStatusResult {
 
 export interface WhatsAppNotificationSettings {
   isEnabled: boolean;
+  sendMode: 'manual' | 'auto'; // 'manual' = فتح الواتساب بالرسالة, 'auto' = إرسال تلقائي في الخلفية بدون فتح شات
+  instanceId?: string;
+  apiToken?: string;
   confirmTemplate: string;
   cancelTemplate: string;
 }

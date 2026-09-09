@@ -46,7 +46,7 @@ import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZ
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase } from '@/lib/supabase';
 import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
 import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, defaultWhatsAppNotificationSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
-import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat } from '@/lib/whatsapp';
+import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat, sendWhatsAppMessageApi } from '@/lib/whatsapp';
 
 
 export default function AdminPortal() {
@@ -124,6 +124,12 @@ export default function AdminPortal() {
   // WhatsApp Notification Settings State
   const [tempConfirmTemplate, setTempConfirmTemplate] = useState(whatsappNotificationSettings?.confirmTemplate || defaultConfirmNotificationTemplate);
   const [tempCancelTemplate, setTempCancelTemplate] = useState(whatsappNotificationSettings?.cancelTemplate || defaultCancelNotificationTemplate);
+  const [tempSendMode, setTempSendMode] = useState<'manual' | 'auto'>(whatsappNotificationSettings?.sendMode || 'manual');
+  const [tempInstanceId, setTempInstanceId] = useState(whatsappNotificationSettings?.instanceId || '');
+  const [tempApiToken, setTempApiToken] = useState(whatsappNotificationSettings?.apiToken || '');
+  const [isTestingApi, setIsTestingApi] = useState(false);
+  const [testApiPhone, setTestApiPhone] = useState('');
+  const [testApiResult, setTestApiResult] = useState<{ success: boolean; msg: string } | null>(null);
   const [whatsappActiveTab, setWhatsappActiveTab] = useState<'confirm' | 'cancel'>('confirm');
   const [whatsappSaveNotice, setWhatsappSaveNotice] = useState<string | null>(null);
 
@@ -141,6 +147,9 @@ export default function AdminPortal() {
       if (whatsappNotificationSettings.cancelTemplate) {
         setTempCancelTemplate(whatsappNotificationSettings.cancelTemplate);
       }
+      setTempSendMode(whatsappNotificationSettings.sendMode || 'manual');
+      setTempInstanceId(whatsappNotificationSettings.instanceId || '');
+      setTempApiToken(whatsappNotificationSettings.apiToken || '');
     }
   }, [whatsappNotificationSettings]);
 
@@ -565,16 +574,27 @@ export default function AdminPortal() {
 
     // إرسال إشعار الواتساب التلقائي للعميل إذا كانت الإشعارات مفعلة
     const isNotificationEnabled = whatsappNotificationSettings?.isEnabled ?? true;
+    const sendMode = whatsappNotificationSettings?.sendMode || 'manual';
+    const instanceId = (whatsappNotificationSettings?.instanceId || '').trim();
+    const apiToken = (whatsappNotificationSettings?.apiToken || '').trim();
+
     if (isNotificationEnabled && targetOrder?.customer_phone) {
+      let msg = '';
       if (newStatus === 'confirmed') {
         const template = whatsappNotificationSettings?.confirmTemplate || defaultConfirmNotificationTemplate;
-        const msg = formatWhatsAppNotification(template, targetOrder, { reason: 'تم التأكيد' });
-        if (msg) openWhatsAppChat(targetOrder.customer_phone, msg);
+        msg = formatWhatsAppNotification(template, targetOrder, { reason: 'تم التأكيد' });
       } else if (typeof newStatus === 'string' && (newStatus.startsWith('cancelled') || newStatus.includes('cancel'))) {
         const reason = newStatus === 'cancelled_not_received' ? 'عدم استلام' : 'إلغاء الطلب';
         const template = whatsappNotificationSettings?.cancelTemplate || defaultCancelNotificationTemplate;
-        const msg = formatWhatsAppNotification(template, targetOrder, { reason });
-        if (msg) openWhatsAppChat(targetOrder.customer_phone, msg);
+        msg = formatWhatsAppNotification(template, targetOrder, { reason });
+      }
+
+      if (msg) {
+        if (sendMode === 'auto' && instanceId && apiToken) {
+          sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken);
+        } else {
+          openWhatsAppChat(targetOrder.customer_phone, msg);
+        }
       }
     }
   };
@@ -2964,6 +2984,171 @@ export default function AdminPortal() {
               </div>
             )}
 
+            {/* اختيار طريقة الإرسال: يدوي (فتح الواتساب) vs تلقائي (في الخلفية عبر API) */}
+            <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-bold text-white block">طريقة إرسال الرسالة للعميل عند التأكيد أو الإلغاء:</span>
+                  <span className="text-[11px] text-slate-400">اختر الطريقة المناسبة لك (يمكنك التبديل بينهما في أي وقت)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* الخيار 1: إرسال يدوي (فتح الواتس) */}
+                <div
+                  onClick={() => setTempSendMode('manual')}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    tempSendMode === 'manual'
+                      ? 'bg-emerald-500/10 border-emerald-500/50 ring-2 ring-emerald-400/40 shadow-md'
+                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🖐️</span>
+                      <div>
+                        <div className="text-xs font-black text-white">إرسال يدوي (فتح الواتساب بالرسالة)</div>
+                        <div className="text-[10px] text-emerald-400 font-bold">مجاني 100% وبدون أي اشتراك</div>
+                      </div>
+                    </div>
+                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      tempSendMode === 'manual' ? 'border-emerald-400 bg-emerald-400' : 'border-slate-600'
+                    }`}>
+                      {tempSendMode === 'manual' && <span className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                    يفتح تطبيق الواتساب أو الويب مع رقم العميل والرسالة مكتوبة بالكامل بضغطة زر.
+                  </p>
+                </div>
+
+                {/* الخيار 2: إرسال تلقائي مباشر في الخلفية */}
+                <div
+                  onClick={() => setTempSendMode('auto')}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    tempSendMode === 'auto'
+                      ? 'bg-emerald-500/10 border-emerald-500/50 ring-2 ring-emerald-400/40 shadow-md'
+                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">⚡</span>
+                      <div>
+                        <div className="text-xs font-black text-white">إرسال تلقائي مباشر في الخلفية (Auto API)</div>
+                        <div className="text-[10px] text-amber-400 font-bold">بدون فتح الواتساب وبدون مغادرة الصفحة</div>
+                      </div>
+                    </div>
+                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      tempSendMode === 'auto' ? 'border-emerald-400 bg-emerald-400' : 'border-slate-600'
+                    }`}>
+                      {tempSendMode === 'auto' && <span className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                    يرسل الرسالة مباشرة للعميل في صمت تام دون فتح أي تطبيق ودون تشتيت الكاشير.
+                  </p>
+                </div>
+              </div>
+
+              {/* إعدادات الربط في حالة اختيار الإرسال التلقائي */}
+              {tempSendMode === 'auto' && (
+                <div className="mt-3 p-4 rounded-2xl bg-slate-900 border border-emerald-500/30 space-y-3 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-emerald-400" />
+                      <span>بيانات ربط خدمة الواتساب (UltraMsg Gateway):</span>
+                    </span>
+                    <a
+                      href="https://ultramsg.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <span>موقع الخدمة (UltraMsg.com)</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300">Instance ID (معرّف الرقم):</label>
+                      <input
+                        type="text"
+                        value={tempInstanceId}
+                        onChange={(e) => setTempInstanceId(e.target.value)}
+                        placeholder="مثال: instance12345"
+                        className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300">Token (رمز التوكن السري):</label>
+                      <input
+                        type="password"
+                        value={tempApiToken}
+                        onChange={(e) => setTempApiToken(e.target.value)}
+                        placeholder="أدخل رمز الـ Token هنا..."
+                        className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* فحص واختبار الإرسال المباشر */}
+                  <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-center gap-2">
+                    <input
+                      type="tel"
+                      value={testApiPhone}
+                      onChange={(e) => setTestApiPhone(e.target.value)}
+                      placeholder="أدخل رقم هاتف للتجربة (مثال: 01012345678)"
+                      className="w-full sm:flex-1 py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={isTestingApi || !tempInstanceId.trim() || !tempApiToken.trim()}
+                      onClick={async () => {
+                        const clean = testApiPhone.trim();
+                        if (!clean) {
+                          alert('يرجى إدخال رقم هاتف لإرسال الرسالة التجريبية إليه');
+                          return;
+                        }
+                        setIsTestingApi(true);
+                        setTestApiResult(null);
+                        const res = await sendWhatsAppMessageApi(
+                          clean,
+                          '👑 *مطعم لؤلؤة سنهور*\nهذه رسالة اختبارية لتأكيد نجاح ربط الإرسال التلقائي في الخلفية بنجاح 🚀',
+                          tempInstanceId,
+                          tempApiToken
+                        );
+                        setIsTestingApi(false);
+                        if (res.success) {
+                          setTestApiResult({ success: true, msg: 'تم إرسال الرسالة الاختبارية بنجاح! تفقد رقم الواتساب الآن ✓' });
+                        } else {
+                          setTestApiResult({ success: false, msg: `فشل الإرسال: ${res.error}` });
+                        }
+                      }}
+                      className={`w-full sm:w-auto py-2 px-4 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
+                        !tempInstanceId.trim() || !tempApiToken.trim()
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-sm'
+                      }`}
+                    >
+                      {isTestingApi ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      <span>{isTestingApi ? 'جاري الإرسال التجريبي...' : 'تجربة إرسال رسالة الآن'}</span>
+                    </button>
+                  </div>
+
+                  {testApiResult && (
+                    <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                      testApiResult.success ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                    }`}>
+                      {testApiResult.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                      <span>{testApiResult.msg}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* أزرار التبديل بين قالب التأكيد وقالب الإلغاء */}
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -3137,17 +3322,20 @@ export default function AdminPortal() {
                     type="button"
                     onClick={() => {
                       updateWhatsAppNotificationSettings({
+                        sendMode: tempSendMode,
+                        instanceId: tempInstanceId.trim(),
+                        apiToken: tempApiToken.trim(),
                         confirmTemplate: tempConfirmTemplate,
                         cancelTemplate: tempCancelTemplate,
                       });
-                      setWhatsappSaveNotice('تم حفظ قوالب رسائل الواتساب ومزامنتها مع السيرفر بنجاح ✓');
+                      setWhatsappSaveNotice('تم حفظ وتثبيت إعدادات وقوالب رسائل الواتساب ومزامنتها مع السيرفر بنجاح ✓');
                       setTimeout(() => setWhatsappSaveNotice(null), 4000);
                       showSaveIndicator();
                     }}
                     className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
-                    <span>حفظ قوالب الرسائل ومزامنة السيرفر</span>
+                    <span>حفظ إعدادات وقوالب الرسائل ومزامنة السيرفر</span>
                   </button>
 
                   <button

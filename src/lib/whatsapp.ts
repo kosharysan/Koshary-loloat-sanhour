@@ -206,3 +206,25 @@ export function openWhatsAppChat(phone: string, text: string) {
     window.open(url, '_blank');
   }
 }
+
+export async function sendWhatsAppMessageApi(
+  phone: string,
+  text: string,
+  instanceId: string,
+  apiToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, text, instanceId, apiToken }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      return { success: false, error: data?.error || `فشل الاتصال بمزود الواتساب (${res.status})` };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'تعذر الإرسال عبر السيرفر' };
+  }
+}
