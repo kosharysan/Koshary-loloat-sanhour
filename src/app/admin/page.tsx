@@ -78,6 +78,12 @@ export default function AdminPortal() {
   const [shiftInvoicesStatusFilter, setShiftInvoicesStatusFilter] = useState<'all' | 'confirmed' | 'cancelled'>('all');
   const [currentShiftSearchQuery, setCurrentShiftSearchQuery] = useState('');
 
+  // فلاتر تبويبة فواتير الورديات المقفلة
+  const [shiftPeriodFilter, setShiftPeriodFilter] = useState<'all' | 'specific' | 'today' | 'week' | 'month' | 'quarter' | 'half_year' | 'year' | 'custom'>('all');
+  const [shiftFilterSpecificShift, setShiftFilterSpecificShift] = useState<string>('all');
+  const [shiftCustomStart, setShiftCustomStart] = useState<string>('');
+  const [shiftCustomEnd, setShiftCustomEnd] = useState<string>('');
+
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
@@ -639,16 +645,78 @@ export default function AdminPortal() {
     return list;
   }, [selectedShiftForView, shiftInvoicesStatusFilter, shiftInvoicesSearchQuery]);
 
-  // إجمالي الإحصائيات التاريخية للورديات المقفلة
+  // فلترة الورديات المقفلة بحسب الفلتر المختار (وردية معينة، اليوم، أسبوع، شهر، ربع سنة، نصف سنة، سنة، أو فترة مخصصة)
+  const filteredClosedShifts = useMemo(() => {
+    if (closedShifts.length === 0) return [];
+    
+    // 1. إذا تم اختيار وردية معينة
+    if (shiftFilterSpecificShift !== 'all') {
+      return closedShifts.filter(s => String(s.shiftNumber) === String(shiftFilterSpecificShift) || String(s.id) === String(shiftFilterSpecificShift));
+    }
+
+    if (shiftPeriodFilter === 'all') return closedShifts;
+
+    const now = new Date();
+
+    if (shiftPeriodFilter === 'today') {
+      const todayStr = now.toISOString().slice(0, 10);
+      return closedShifts.filter(s => (s.closedAt || s.openedAt || '').startsWith(todayStr));
+    }
+
+    if (shiftPeriodFilter === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= weekAgo.getTime());
+    }
+
+    if (shiftPeriodFilter === 'month') {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= monthAgo.getTime());
+    }
+
+    if (shiftPeriodFilter === 'quarter') {
+      // ربع سنة (3 أشهر = 90 يوم)
+      const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= quarterAgo.getTime());
+    }
+
+    if (shiftPeriodFilter === 'half_year') {
+      // نصف سنة (6 أشهر = 182 يوم)
+      const halfYearAgo = new Date(now.getTime() - 182 * 24 * 60 * 60 * 1000);
+      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= halfYearAgo.getTime());
+    }
+
+    if (shiftPeriodFilter === 'year') {
+      // سنة كاملة (365 يوم)
+      const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= yearAgo.getTime());
+    }
+
+    if (shiftPeriodFilter === 'custom') {
+      let list = closedShifts;
+      if (shiftCustomStart) {
+        const startTimestamp = new Date(shiftCustomStart).setHours(0, 0, 0, 0);
+        list = list.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= startTimestamp);
+      }
+      if (shiftCustomEnd) {
+        const endTimestamp = new Date(shiftCustomEnd).setHours(23, 59, 59, 999);
+        list = list.filter(s => new Date(s.closedAt || s.openedAt).getTime() <= endTimestamp);
+      }
+      return list;
+    }
+
+    return closedShifts;
+  }, [closedShifts, shiftPeriodFilter, shiftFilterSpecificShift, shiftCustomStart, shiftCustomEnd]);
+
+  // إجمالي الإحصائيات التاريخية للورديات المعروضة بعد الفلترة
   const closedShiftsTotalStats = useMemo(() => {
     let totalRev = 0, totalOrdersCount = 0, totalConfirmed = 0;
-    closedShifts.forEach(shift => {
+    filteredClosedShifts.forEach(shift => {
       totalRev += Number(shift.summary?.totalRevenue || 0);
       totalOrdersCount += Number(shift.summary?.totalOrders || shift.orders?.length || 0);
       totalConfirmed += Number(shift.summary?.confirmedOrders || 0);
     });
     return { totalRev, totalOrdersCount, totalConfirmed };
-  }, [closedShifts]);
+  }, [filteredClosedShifts]);
 
   // تنفيذ تقفيل الوردية من لوحة الإدارة وتصفير الفواتير فوراً
   const handleAdminConfirmCloseShift = async () => {
@@ -1591,30 +1659,133 @@ export default function AdminPortal() {
                   </div>
                 </div>
 
+                {/* وحدة فلترة فواتير الورديات: بالوردية أو الفترة (اليوم، أسبوع، شهر، ربع سنة، نصف سنة، سنة، أو مخصص) */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-lg font-sans">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3.5 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2 text-xs font-black text-amber-400">
+                      <Calendar className="w-4 h-4 text-amber-400" />
+                      <span>تصفية الورديات حسب الفترة الزمنية:</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
+                      {[
+                        { id: 'all', label: 'كل الورديات' },
+                        { id: 'today', label: 'اليوم' },
+                        { id: 'week', label: 'هذا الأسبوع' },
+                        { id: 'month', label: 'هذا الشهر' },
+                        { id: 'quarter', label: 'ربع سنة (3 أشهر)' },
+                        { id: 'half_year', label: 'نصف سنة (6 أشهر)' },
+                        { id: 'year', label: 'سنة كاملة' },
+                        { id: 'custom', label: '📅 فترة محددة' }
+                      ].map((btn) => (
+                        <button
+                          key={btn.id}
+                          type="button"
+                          onClick={() => {
+                            setShiftPeriodFilter(btn.id as any);
+                            if (btn.id !== 'all') setShiftFilterSpecificShift('all');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            shiftPeriodFilter === btn.id && shiftFilterSpecificShift === 'all'
+                              ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                              : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/70'
+                          }`}
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* السطر الثاني: اختيار وردية معينة بالرقم وتحديد فترة مخصصة بالتواريخ */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+                    {/* فلتر اختيار وردية معينة */}
+                    <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                      <span className="text-xs font-bold text-slate-400 whitespace-nowrap">اختيار وردية معينة:</span>
+                      <select
+                        value={shiftFilterSpecificShift}
+                        onChange={(e) => {
+                          setShiftFilterSpecificShift(e.target.value);
+                          if (e.target.value !== 'all') setShiftPeriodFilter('specific');
+                          else setShiftPeriodFilter('all');
+                        }}
+                        className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                      >
+                        <option value="all">جميع أرقام الورديات ({closedShifts.length})</option>
+                        {closedShifts.map((s, idx) => (
+                          <option key={s.id || idx} value={String(s.shiftNumber)}>
+                            الوردية رقم #{s.shiftNumber} ({formatOrderTime(s.closedAt)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* نتائج الفلترة */}
+                    <div className="text-xs text-slate-400 font-bold bg-slate-950/60 px-3.5 py-1.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                      <span>الورديات المعروضة:</span>
+                      <span className="text-amber-400 font-black">{filteredClosedShifts.length} من أصل {closedShifts.length} وردية</span>
+                    </div>
+                  </div>
+
+                  {/* إذا تم اختيار فترة مخصصة بالتواريخ */}
+                  {shiftPeriodFilter === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-3 p-3.5 rounded-2xl bg-slate-950/70 border border-amber-500/30 animate-in fade-in">
+                      <span className="text-xs font-bold text-amber-400">تحديد الفترة باليوم:</span>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-slate-400">من:</label>
+                        <input
+                          type="date"
+                          value={shiftCustomStart}
+                          onChange={(e) => setShiftCustomStart(e.target.value)}
+                          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-slate-400">إلى:</label>
+                        <input
+                          type="date"
+                          value={shiftCustomEnd}
+                          onChange={(e) => setShiftCustomEnd(e.target.value)}
+                          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      {(shiftCustomStart || shiftCustomEnd) && (
+                        <button
+                          type="button"
+                          onClick={() => { setShiftCustomStart(''); setShiftCustomEnd(''); }}
+                          className="text-xs text-amber-400 hover:underline font-bold"
+                        >
+                          إعادة الضبط
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* قائمة كروت الورديات المقفلة */}
-                {closedShifts.length === 0 ? (
-                  <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
+                {filteredClosedShifts.length === 0 ? (
+                  <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3 font-sans">
                     <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
                       <History className="w-8 h-8" />
                     </div>
-                    <h3 className="text-lg font-black text-white">لا توجد أي ورديات مقفلة حتى الآن</h3>
+                    <h3 className="text-lg font-black text-white">لا توجد ورديات مطابقة لخيارات الفلترة المحددة</h3>
                     <p className="text-xs text-slate-400 max-w-md mx-auto">
-                      بمجرد الضغط على زر "تقفيل الوردية" من شاشة المتابعة أو من تبويبة الوردية الحالية، سيتم تصفير فواتير الشاشة ونقل تفاصيل الوردية كاملة إلى هنا فوراً.
+                      جرب اختيار فترة زمنية أخرى أو إعادة ضبط الفلتر لعرض كل الورديات المقفلة.
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {closedShifts.map((shift, idx) => {
+                  <div className="space-y-4 font-sans">
+                    {filteredClosedShifts.map((shift, idx) => {
                       const s = shift.summary || ({} as any);
                       const ordersCount = shift.orders?.length || shift.orderIds?.length || s.totalOrders || 0;
                       return (
                         <div
                           key={shift.id || idx}
-                          className="bg-slate-900/85 border border-slate-800 hover:border-amber-500/40 rounded-3xl p-5 sm:p-6 transition-all duration-300 space-y-4 shadow-xl relative overflow-hidden group"
+                          className="bg-slate-900/85 border border-slate-800 hover:border-amber-500/40 rounded-3xl p-5 sm:p-6 transition-all duration-300 space-y-4 shadow-xl relative overflow-hidden group font-sans"
                         >
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                             <div className="flex items-center gap-3">
-                              <span className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-sm font-black font-mono">
+                              <span className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-sm font-black">
                                 الوردية #{shift.shiftNumber}
                               </span>
                               <div>
@@ -1627,7 +1798,7 @@ export default function AdminPortal() {
                                     إلى: {formatOrderTime(shift.closedAt)}
                                   </span>
                                 </div>
-                                <span className="text-[11px] text-slate-500 block mt-0.5">
+                                <span className="text-[11px] text-slate-400 block mt-0.5">
                                   أغلقت بواسطة: {shift.closedBy || 'شاشة المتابعة'}
                                 </span>
                               </div>
@@ -1642,7 +1813,7 @@ export default function AdminPortal() {
                                   setShiftInvoicesSearchQuery('');
                                   setShiftInvoicesStatusFilter('all');
                                 }}
-                                className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                                className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                               >
                                 <Eye className="w-4 h-4" />
                                 <span>عرض فواتير الوردية ({ordersCount}) 🧾</span>
@@ -1661,34 +1832,74 @@ export default function AdminPortal() {
                             </div>
                           </div>
 
-                          {/* شبكة الأرقام والإحصائيات للوردية */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                          {/* شبكة الأرقام والإحصائيات للوردية (5 كروت منظمة بخط البرنامج الأصلي) */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs">
+                            {/* 1. إجمالي الفواتير مع تكبير رقم المؤكد */}
+                            <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex flex-col justify-between">
                               <span className="text-slate-400 font-bold block">إجمالي الفواتير:</span>
-                              <span className="text-lg font-black text-white font-mono mt-0.5 block">{ordersCount} فاتورة</span>
-                              <span className="text-[10.5px] text-emerald-400 font-bold">{s.confirmedOrders || 0} مؤكد</span>
+                              <div className="my-1">
+                                <span className="text-xl sm:text-2xl font-black text-white block">{ordersCount} فاتورة</span>
+                              </div>
+                              <div className="mt-1 pt-1.5 border-t border-slate-800/80">
+                                <span className="text-sm font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-lg border border-emerald-500/20 inline-block">
+                                  {s.confirmedOrders || 0} مؤكد ✅
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/20">
+                            {/* 2. صافي التحصيل المؤكد */}
+                            <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 flex flex-col justify-between">
                               <span className="text-emerald-300 font-bold block">صافي التحصيل المؤكد:</span>
-                              <span className="text-lg font-black text-emerald-400 font-mono mt-0.5 block">{(s.totalRevenue || 0).toLocaleString()} ج.م</span>
+                              <div className="my-1">
+                                <span className="text-xl sm:text-2xl font-black text-emerald-400 block">{(s.totalRevenue || 0).toLocaleString()} ج.م</span>
+                              </div>
+                              <span className="text-[11px] text-emerald-400/80 font-bold">مبيعات الطلبات المؤكدة</span>
                             </div>
 
-                            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                            {/* 3. طرق الدفع المحصلة */}
+                            <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex flex-col justify-between">
                               <span className="text-slate-400 font-bold block">طرق الدفع المحصلة:</span>
-                              <div className="text-[11px] text-slate-300 font-bold mt-1 space-y-0.5">
-                                <div className="flex justify-between"><span>كاش:</span><span className="text-emerald-400 font-mono">{(s.cashAmount || 0).toLocaleString()} ج</span></div>
-                                <div className="flex justify-between"><span>محافظ:</span><span className="text-amber-400 font-mono">{(s.walletAmount || 0).toLocaleString()} ج</span></div>
-                                <div className="flex justify-between"><span>إنستاباي:</span><span className="text-cyan-400 font-mono">{(s.instapayAmount || 0).toLocaleString()} ج</span></div>
+                              <div className="text-xs text-slate-300 font-bold space-y-1 mt-1">
+                                <div className="flex justify-between items-center">
+                                  <span>كاش:</span>
+                                  <span className="text-emerald-400 font-bold">{(s.cashAmount || 0).toLocaleString()} ج</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span>محافظ:</span>
+                                  <span className="text-amber-400 font-bold">{(s.walletAmount || 0).toLocaleString()} ج</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span>إنستاباي:</span>
+                                  <span className="text-cyan-400 font-bold">{(s.instapayAmount || 0).toLocaleString()} ج</span>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="p-3 rounded-2xl bg-rose-950/20 border border-rose-500/20">
-                              <span className="text-rose-300 font-bold block">الملغي / نوع الطلب:</span>
-                              <div className="text-[11px] font-bold mt-1 space-y-0.5">
-                                <div className="text-rose-400 font-mono">{s.cancelledOrders || 0} طلب ملغي ({(s.totalCancelledRevenue || 0).toLocaleString()} ج)</div>
-                                <div className="text-slate-400">{s.deliveryCount || 0} دليفري • {s.pickupCount || 0} استلام</div>
+                            {/* 4. كارت مستقل: نوع الطلبات (دليفري واستلام من الفرع) */}
+                            <div className="p-3.5 rounded-2xl bg-sky-950/25 border border-sky-500/25 flex flex-col justify-between">
+                              <span className="text-sky-300 font-bold block">🛵 نوع الطلبات:</span>
+                              <div className="space-y-1.5 my-1">
+                                <div className="flex justify-between items-center text-xs font-bold text-sky-400">
+                                  <span>دليفري:</span>
+                                  <span className="text-sm font-black">{s.deliveryCount || 0} طلب</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs font-bold text-purple-400">
+                                  <span>استلام من الفرع:</span>
+                                  <span className="text-sm font-black">{s.pickupCount || 0} طلب</span>
+                                </div>
                               </div>
+                              <span className="text-[10.5px] text-slate-400 block pt-1 border-t border-sky-500/20">توزيع حركة التوصيل والصالة</span>
+                            </div>
+
+                            {/* 5. كارت مستقل: الفواتير الملغية */}
+                            <div className="p-3.5 rounded-2xl bg-rose-950/25 border border-rose-500/25 col-span-2 sm:col-span-1 flex flex-col justify-between">
+                              <span className="text-rose-300 font-bold block">🚫 الفواتير الملغية:</span>
+                              <div className="my-1">
+                                <span className="text-xl sm:text-2xl font-black text-rose-400 block">{s.cancelledOrders || 0} طلب ملغي</span>
+                              </div>
+                              <span className="text-xs font-bold text-rose-300/80 block">
+                                خسائر: {(s.totalCancelledRevenue || 0).toLocaleString()} ج.م
+                              </span>
                             </div>
                           </div>
 
