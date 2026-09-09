@@ -725,18 +725,18 @@ export default function OrderMonitorPage() {
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           
           {/* 1. إجمالي المبيعات المؤكدة */}
-          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-cyan-500/30 bg-gradient-to-br from-[#07262d] via-[#091724] to-[#080d1a] shadow-xl hover:border-cyan-400/50 flex flex-col justify-between">
+          <div className="relative group rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 transition-all duration-300 overflow-hidden border border-cyan-400/45 bg-gradient-to-br from-[#0c3e4a] via-[#0e2a3f] to-[#0c1d2e] shadow-xl hover:border-cyan-300/60 flex flex-col justify-between">
             {/* Ambient corner glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-400/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
 
             <div className="relative z-10">
               {/* Header: Icon Box + Status Tag */}
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-xl sm:text-2xl shadow-md shadow-cyan-950/50 shrink-0 group-hover:scale-110 transition-transform select-none">
+              <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+                <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-cyan-900/60 border border-cyan-400/40 flex items-center justify-center text-lg sm:text-2xl shadow-md shadow-cyan-950/40 shrink-0 group-hover:scale-110 transition-transform select-none">
                   💰
                 </div>
-                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
+                <span className="text-[9.5px] sm:text-xs font-black px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-cyan-900/70 text-cyan-100 border border-cyan-400/40 shadow-xs flex items-center gap-1 shrink-0">
                   <span className="text-xs">✨</span>
                   <span className="hidden sm:inline">صافي التحصيل</span>
                   <span className="sm:hidden">صافي</span>
@@ -748,7 +748,7 @@ export default function OrderMonitorPage() {
                 <h3 className="text-xs sm:text-base font-black text-white block tracking-wide truncate">
                   إجمالي المبيعات
                 </h3>
-                <p className="text-[10px] sm:text-xs text-cyan-300/70 font-semibold truncate">
+                <p className="text-[9.5px] sm:text-xs text-cyan-200/80 font-semibold truncate">
                   المؤكدة المعتمدة
                 </p>
               </div>
@@ -758,35 +758,36 @@ export default function OrderMonitorPage() {
                 <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
                   {confirmedRevenue.toLocaleString('ar-EG')}
                 </span>
-                <span className="text-[10px] sm:text-base font-black text-cyan-400">جنيه</span>
+                <span className="text-[10px] sm:text-base font-black text-cyan-300">جنيه</span>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-cyan-500/15 text-cyan-200/70">
-              <span className="truncate flex items-center gap-1">
-                <span>🪙</span>
-                <span>المؤكد فقط</span>
+            <div className="relative z-10 flex items-center justify-between gap-1 text-[9px] sm:text-xs font-bold pt-2 sm:pt-3 border-t border-cyan-400/25 text-cyan-200">
+              <span className="truncate flex items-center gap-0.5 sm:gap-1 min-w-0">
+                <span className="text-[11px] sm:text-xs shrink-0">🪙</span>
+                <span className="hidden sm:inline truncate">المؤكد فقط</span>
+                <span className="sm:hidden truncate">المؤكد</span>
               </span>
-              <span className="bg-cyan-950/90 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
+              <span className="bg-cyan-900/80 text-cyan-100 border border-cyan-400/40 px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg font-black text-[9px] sm:text-xs shrink-0">
                 {confirmedOrders.length} طلب
               </span>
             </div>
           </div>
 
           {/* 2. عدد الأوردرات المؤكدة */}
-          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-purple-500/30 bg-gradient-to-br from-[#260e3d] via-[#141029] to-[#080d1a] shadow-xl hover:border-purple-400/50 flex flex-col justify-between">
+          <div className="relative group rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 transition-all duration-300 overflow-hidden border border-purple-400/45 bg-gradient-to-br from-[#3b175e] via-[#241a45] to-[#151433] shadow-xl hover:border-purple-300/60 flex flex-col justify-between">
             {/* Ambient corner glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-purple-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-indigo-500/15 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-36 h-36 bg-purple-400/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-indigo-400/20 rounded-full blur-2xl pointer-events-none" />
 
             <div className="relative z-10">
               {/* Header: Icon Box + Status Tag */}
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-purple-950/80 border border-purple-500/30 flex items-center justify-center text-xl sm:text-2xl shadow-md shadow-purple-950/50 shrink-0 group-hover:scale-110 transition-transform select-none">
+              <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+                <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-purple-900/60 border border-purple-400/40 flex items-center justify-center text-lg sm:text-2xl shadow-md shadow-purple-950/40 shrink-0 group-hover:scale-110 transition-transform select-none">
                   📦
                 </div>
-                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-purple-950/80 text-purple-300 border border-purple-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
+                <span className="text-[9.5px] sm:text-xs font-black px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-purple-900/70 text-purple-100 border border-purple-400/40 shadow-xs flex items-center gap-1 shrink-0">
                   <span className="text-xs">⚡</span>
                   <span className="hidden sm:inline">تم التأكيد</span>
                   <span className="sm:hidden">مؤكد</span>
@@ -798,58 +799,59 @@ export default function OrderMonitorPage() {
                 <h3 className="text-xs sm:text-base font-black text-white block tracking-wide truncate">
                   عدد الأوردرات
                 </h3>
-                <p className="text-[10px] sm:text-xs text-purple-300/70 font-semibold truncate">
+                <p className="text-[9.5px] sm:text-xs text-purple-200/80 font-semibold truncate">
                   الأوردرات المؤكدة
                 </p>
               </div>
 
               {/* Big Orders Number + Customers */}
-              <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3">
+              <div className="flex items-baseline justify-between gap-1 sm:gap-3 mb-2 sm:mb-3">
                 <div className="flex items-baseline gap-1 sm:gap-2">
                   <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
                     {confirmedOrders.length.toLocaleString('ar-EG')}
                   </span>
-                  <span className="text-[10px] sm:text-base font-black text-purple-400">أوردر</span>
+                  <span className="text-[10px] sm:text-base font-black text-purple-300">أوردر</span>
                 </div>
 
                 {/* العملاء */}
-                <div className="bg-purple-950/90 border border-purple-500/30 rounded-lg sm:rounded-xl px-2 py-0.5 sm:py-1 text-left shrink-0">
-                  <div className="text-[8.5px] sm:text-[10px] font-bold text-purple-300/80 flex items-center gap-1 justify-end">
+                <div className="bg-purple-900/70 border border-purple-400/40 rounded-lg sm:rounded-xl px-1.5 sm:px-2 py-0.5 sm:py-1 text-left shrink-0">
+                  <div className="text-[8px] sm:text-[10px] font-bold text-purple-200 flex items-center gap-1 justify-end">
                     <span>👥</span>
                     <span className="hidden sm:inline">العملاء:</span>
                   </div>
-                  <div className="text-[11px] sm:text-sm font-black text-amber-300 text-right">
-                    {uniqueConfirmedCustomers.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold text-purple-300/60">عميل</span>
+                  <div className="text-[10.5px] sm:text-sm font-black text-amber-300 text-right">
+                    {uniqueConfirmedCustomers.toLocaleString('ar-EG')} <span className="text-[8px] sm:text-xs font-semibold text-purple-200/70">عميل</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-purple-500/15 text-purple-200/70">
-              <span className="truncate flex items-center gap-1">
-                <span>🛵</span>
-                <span>نشاط العملاء</span>
+            <div className="relative z-10 flex items-center justify-between gap-1 text-[9px] sm:text-xs font-bold pt-2 sm:pt-3 border-t border-purple-400/25 text-purple-200">
+              <span className="truncate flex items-center gap-0.5 sm:gap-1 min-w-0">
+                <span className="text-[11px] sm:text-xs shrink-0">🛵</span>
+                <span className="hidden sm:inline truncate">نشاط العملاء</span>
+                <span className="sm:hidden truncate">العملاء</span>
               </span>
-              <span className="bg-purple-950/90 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
-                من {uniqueConfirmedCustomers} شخص
+              <span className="bg-purple-900/80 text-purple-100 border border-purple-400/40 px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg font-black text-[9px] sm:text-xs shrink-0">
+                <span className="hidden sm:inline">من </span>{uniqueConfirmedCustomers} شخص
               </span>
             </div>
           </div>
 
           {/* 3. الطلبات الملغية ومبالغها */}
-          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-rose-500/30 bg-gradient-to-br from-[#3d0e1e] via-[#24101a] to-[#080d1a] shadow-xl hover:border-rose-400/50 flex flex-col justify-between">
+          <div className="relative group rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 transition-all duration-300 overflow-hidden border border-rose-400/45 bg-gradient-to-br from-[#59172e] via-[#3a1829] to-[#24121e] shadow-xl hover:border-rose-300/60 flex flex-col justify-between">
             {/* Ambient corner glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-red-500/15 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-36 h-36 bg-rose-400/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-red-400/20 rounded-full blur-2xl pointer-events-none" />
 
             <div className="relative z-10">
               {/* Header: Icon Box + Status Tag */}
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-950/80 border border-rose-500/30 flex items-center justify-center text-xl sm:text-2xl shadow-md shadow-rose-950/50 shrink-0 group-hover:scale-110 transition-transform select-none">
+              <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+                <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-900/60 border border-rose-400/40 flex items-center justify-center text-lg sm:text-2xl shadow-md shadow-rose-950/40 shrink-0 group-hover:scale-110 transition-transform select-none">
                   🚫
                 </div>
-                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-rose-950/80 text-rose-300 border border-rose-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
+                <span className="text-[9.5px] sm:text-xs font-black px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-rose-900/70 text-rose-100 border border-rose-400/40 shadow-xs flex items-center gap-1 shrink-0">
                   <span className="text-xs">❌</span>
                   <span>ملغي</span>
                 </span>
@@ -860,40 +862,41 @@ export default function OrderMonitorPage() {
                 <h3 className="text-xs sm:text-base font-black text-white block tracking-wide truncate">
                   الطلبات الملغية
                 </h3>
-                <p className="text-[10px] sm:text-xs text-rose-300/70 font-semibold truncate">
+                <p className="text-[9.5px] sm:text-xs text-rose-200/80 font-semibold truncate">
                   فاقد المبيعات
                 </p>
               </div>
 
               {/* Big Cancelled Revenue + Count */}
-              <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3">
+              <div className="flex items-baseline justify-between gap-1 sm:gap-3 mb-2 sm:mb-3">
                 <div className="flex items-baseline gap-1 sm:gap-2">
                   <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
                     {cancelledRevenue.toLocaleString('ar-EG')}
                   </span>
-                  <span className="text-[10px] sm:text-base font-black text-rose-400">جنيه</span>
+                  <span className="text-[10px] sm:text-base font-black text-rose-300">جنيه</span>
                 </div>
 
                 {/* عدد الملغي */}
-                <div className="bg-rose-950/90 border border-rose-500/30 rounded-lg sm:rounded-xl px-2 py-0.5 sm:py-1 text-left shrink-0">
-                  <div className="text-[8.5px] sm:text-[10px] font-bold text-rose-300/80 flex items-center gap-1 justify-end">
+                <div className="bg-rose-900/70 border border-rose-400/40 rounded-lg sm:rounded-xl px-1.5 sm:px-2 py-0.5 sm:py-1 text-left shrink-0">
+                  <div className="text-[8px] sm:text-[10px] font-bold text-rose-200 flex items-center gap-1 justify-end">
                     <span>⚠️</span>
                     <span className="hidden sm:inline">العدد:</span>
                   </div>
-                  <div className="text-[11px] sm:text-sm font-black text-rose-300 text-right">
-                    {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold text-rose-300/60">أوردر</span>
+                  <div className="text-[10.5px] sm:text-sm font-black text-rose-200 text-right">
+                    {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-[8px] sm:text-xs font-semibold text-rose-200/70">أوردر</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-rose-500/15 text-rose-200/70">
-              <span className="truncate flex items-center gap-1">
-                <span>🛑</span>
-                <span>قيمة غير محصلة</span>
+            <div className="relative z-10 flex items-center justify-between gap-1 text-[9px] sm:text-xs font-bold pt-2 sm:pt-3 border-t border-rose-400/25 text-rose-200">
+              <span className="truncate flex items-center gap-0.5 sm:gap-1 min-w-0">
+                <span className="text-[11px] sm:text-xs shrink-0">🛑</span>
+                <span className="hidden sm:inline truncate">قيمة غير محصلة</span>
+                <span className="sm:hidden truncate">الملغي</span>
               </span>
-              <span className="bg-rose-950/90 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
+              <span className="bg-rose-900/80 text-rose-100 border border-rose-400/40 px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg font-black text-[9px] sm:text-xs shrink-0">
                 {cancelledOrders.length} ملغي
               </span>
             </div>
