@@ -27,15 +27,10 @@ import {
 } from 'lucide-react';
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useMenuStore } from '@/lib/menuStore';
-import { menuItems as defaultMenuItems } from '@/data/mockData';
 import { sounds } from '@/lib/sound';
 
 export default function OrderMonitorPage() {
-  const { monitorPassword = 'sanhour123', syncWithServer, items: menuStoreItems } = useMenuStore();
-
-  const allAvailableMenuItems = useMemo(() => {
-    return (menuStoreItems && menuStoreItems.length > 0) ? menuStoreItems : defaultMenuItems;
-  }, [menuStoreItems]);
+  const { monitorPassword = 'sanhour123', syncWithServer } = useMenuStore();
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -255,7 +250,7 @@ export default function OrderMonitorPage() {
     }
   };
 
-  // Helper to parse order items and customer notes separately and cleanly
+  // Helper to parse order details (items and customer notes)
   const parseOrderDetails = (specialNotes?: string) => {
     if (!specialNotes || !specialNotes.trim()) {
       return { items: [], notes: '' };
@@ -265,7 +260,7 @@ export default function OrderMonitorPage() {
     let itemsPart = raw;
     let notesPart = '';
 
-    // Check for customer notes section
+    // Extract customer notes
     if (raw.includes('ملاحظات العميل:')) {
       const parts = raw.split('ملاحظات العميل:');
       itemsPart = parts[0];
@@ -274,118 +269,30 @@ export default function OrderMonitorPage() {
       const parts = raw.split('ملاحظات الأوردر:');
       itemsPart = parts[0];
       notesPart = parts.slice(1).join('ملاحظات الأوردر:').trim();
-    } else if (raw.includes('| ملاحظات:')) {
-      const parts = raw.split('| ملاحظات:');
-      itemsPart = parts[0];
-      notesPart = parts.slice(1).join('| ملاحظات:').trim();
     }
 
-    // Clean items title if present
-    itemsPart = itemsPart
-      .replace(/^الأصناف المطلوبة:\s*/i, '')
-      .replace(/^الأصناف:\s*/i, '')
-      .trim();
+    // Clean items title
+    itemsPart = itemsPart.replace(/^الأصناف:\s*/i, '').trim();
 
     // Extract items line by line
-    let itemsList: string[] = [];
-    if (itemsPart.includes('\n')) {
-      itemsList = itemsPart.split('\n').map(s => s.trim()).filter(Boolean);
-    } else if (itemsPart.includes(' • ')) {
-      itemsList = itemsPart.split(' • ').map(s => s.trim()).filter(Boolean);
-    } else if (itemsPart) {
-      itemsList = [itemsPart];
-    }
+    const itemsList = itemsPart
+      ? itemsPart.split('\n').map(s => s.trim()).filter(Boolean)
+      : [];
 
     return { items: itemsList, notes: notesPart };
   };
 
-  // Helper to parse each item line and extract the item name and trailing price
-  const parseItemLine = (
-    itemStr: string,
-    allMenuItems: any[] = [],
-    orderSubtotal?: number,
-    itemsCount?: number
-  ) => {
-    let clean = itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '').trim();
+  // Simple, direct parser for each item line: "اسم الصنف × الكمية [خيارات] — السعر ج.م"
+  const parseItemLine = (itemStr: string) => {
+    const clean = itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '').trim();
 
-    // 1. Match price directly if already in the string (e.g. "— 90 ج.م", "- 90 ج.م", "| 90 ج.م", "(90 ج.م)", "90 ج.م")
-    const priceRegex = /(?:[—–\-]|\||\:|\()?\s*(\d+(?:\.\d+)?)\s*(?:ج\.م|جنيه)\)?\s*$/i;
-    const match = clean.match(priceRegex);
-
-    if (match && match[1]) {
-      const priceVal = match[1];
-      const nameWithoutPrice = clean.slice(0, match.index).replace(/[\(—–\-|:]\s*$/, '').trim();
-      if (nameWithoutPrice) {
-        return {
-          name: nameWithoutPrice,
-          price: `${priceVal} ج.م`
-        };
-      }
-    }
-
-    // 2. Extract quantity (e.g. "(x1)", "× 2", "x3", "×1")
-    let quantity = 1;
-    const qtyMatch = clean.match(/(?:\(x|×\s*|x\s*)(\d+)\)?/i);
-    if (qtyMatch && qtyMatch[1]) {
-      quantity = parseInt(qtyMatch[1], 10) || 1;
-    }
-
-    // Extract size in parentheses if not quantity, e.g. "(سوبر لؤلؤة)"
-    let detectedSize = '';
-    const sizeMatches = clean.match(/\(([^)]+)\)/g);
-    if (sizeMatches) {
-      for (const sm of sizeMatches) {
-        const inner = sm.replace(/[\(\)]/g, '').trim();
-        if (!inner.match(/^[xX×]\s*\d+$/)) {
-          detectedSize = inner;
-        }
-      }
-    }
-
-    // Clean name for menu lookup: strip (x1), [extras], brackets, etc.
-    const searchName = clean
-      .replace(/\[.*?\]/g, '')
-      .replace(/\((?:[xX×]?\d+|[^)]+)\)/g, '')
-      .replace(/[×xX]\s*\d+/g, '')
-      .trim();
-
-    // Look up in allMenuItems
-    if (allMenuItems && allMenuItems.length > 0) {
-      const found = allMenuItems.find(m => {
-        const mName = m.name?.trim() || '';
-        return (
-          mName === searchName ||
-          searchName.includes(mName) ||
-          mName.includes(searchName) ||
-          searchName.replace(/\s+/g, '') === mName.replace(/\s+/g, '')
-        );
-      });
-
-      if (found) {
-        let unitPrice = found.price || 0;
-        if (detectedSize && found.sizes && found.sizes.length > 0) {
-          const matchedSize = found.sizes.find((s: any) =>
-            s.name === detectedSize || detectedSize.includes(s.name) || s.name.includes(detectedSize)
-          );
-          if (matchedSize?.price) {
-            unitPrice = matchedSize.price;
-          }
-        }
-        const calcPrice = unitPrice * quantity;
-        if (calcPrice > 0) {
-          return {
-            name: clean,
-            price: `${calcPrice} ج.م`
-          };
-        }
-      }
-    }
-
-    // 3. Fallback for single-item order with known subtotal
-    if (itemsCount === 1 && orderSubtotal && orderSubtotal > 0) {
+    if (clean.includes(' — ')) {
+      const parts = clean.split(' — ');
+      const namePart = parts.slice(0, -1).join(' — ').trim();
+      const pricePart = parts[parts.length - 1].trim();
       return {
-        name: clean,
-        price: `${orderSubtotal} ج.م`
+        name: namePart,
+        price: pricePart
       };
     }
 
@@ -699,15 +606,17 @@ export default function OrderMonitorPage() {
             <span className="text-xs font-bold text-slate-400">جار تحميل الطلبات...</span>
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-800/80 flex items-center justify-center text-slate-500">
-              <Search className="w-6 h-6" />
+          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-10 sm:p-14 text-center space-y-3">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 shadow-inner">
+              <Utensils className="w-8 h-8" />
             </div>
-            <h3 className="text-base font-black text-white">لا توجد طلبات مطابقة</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            <h3 className="text-base sm:text-lg font-black text-white">
+              {searchQuery ? 'لا توجد نتائج مطابقة' : 'شاشة المتابعة فارغة حالياً'}
+            </h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
               {searchQuery
-                ? `لا توجد نتائج بحث مطابقة لكلمة "${searchQuery}". جرب البحث برقم هاتف أو اسم آخر.`
-                : 'لا توجد طلبات في هذا القسم حالياً.'}
+                ? `لا توجد طلبات مطابقة لكلمة "${searchQuery}". جرب البحث برقم هاتف أو اسم آخر.`
+                : 'الشاشة متصلة وجاهزة، بانتظار استلام طلبات جديدة من العملاء لتظهر هنا لحظياً.'}
             </p>
           </div>
         ) : (
@@ -854,7 +763,7 @@ export default function OrderMonitorPage() {
                             {parsed.items.length > 0 ? (
                               <div className="space-y-1.5 pt-0.5">
                                 {parsed.items.map((itemStr, idx) => {
-                                  const itemInfo = parseItemLine(itemStr, allAvailableMenuItems, order.subtotal, order.items_count);
+                                  const itemInfo = parseItemLine(itemStr);
                                   return (
                                     <div
                                       key={idx}
