@@ -48,11 +48,11 @@ export const FloatingNavbar: React.FC = () => {
   };
 
   return (
-    <header className="fixed top-2.5 sm:top-4 left-0 right-0 z-50 px-2 sm:px-4 pointer-events-none">
-      <div className="max-w-4xl mx-auto flex items-center justify-between p-1.5 pl-2 sm:p-2 sm:pl-3 rounded-full bg-gradient-to-r from-rose-100/90 via-[#fff1f3]/95 to-red-100/90 backdrop-blur-2xl border border-rose-200/90 shadow-[0_15px_35px_-5px_rgba(225,29,72,0.16)] pointer-events-auto transition-all duration-300 hover:shadow-[0_20px_45px_-5px_rgba(225,29,72,0.25)]">
+    <header className="fixed top-2 sm:top-4 left-0 right-0 z-50 px-1.5 sm:px-4 md:px-6 pointer-events-none">
+      <div className="max-w-5xl mx-auto flex items-center justify-between px-2.5 py-2 sm:px-4 sm:py-2.5 rounded-full bg-gradient-to-r from-rose-100/95 via-[#fff1f3]/98 to-red-100/95 backdrop-blur-2xl border border-rose-200/90 shadow-[0_15px_35px_-5px_rgba(225,29,72,0.18)] pointer-events-auto transition-all duration-300 hover:shadow-[0_20px_45px_-5px_rgba(225,29,72,0.28)]">
         
         {/* Right side: Logo & Brand Name */}
-        <div className="flex items-center gap-2 sm:gap-3 pr-0.5 sm:pr-1 min-w-0 flex-1">
+        <div className="flex items-center gap-2 sm:gap-3 pr-0.5 min-w-0 flex-1">
           <div className="relative group cursor-pointer shrink-0">
             <div className="absolute -inset-1 bg-gradient-to-r from-rose-600 via-amber-400 to-rose-600 rounded-full blur-xs opacity-80 group-hover:opacity-100 transition duration-500 animate-pulse"></div>
             <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-[0.5px] border-white/30 bg-[#dc0b07] p-0.5 shadow-sm flex items-center justify-center">
@@ -108,15 +108,15 @@ export const FloatingNavbar: React.FC = () => {
         </div>
 
         {/* Center / Left: Quick Action Icons & Cart */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 mr-1 sm:mr-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 mr-1 sm:mr-2">
           
           {/* Quick Call */}
           <a
             href={`tel:${restaurantInfo.phone}`}
-            className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200/80 flex items-center justify-center text-rose-700 transition hover:scale-105 active:scale-95 shadow-xs"
+            className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border border-rose-200/90 flex items-center justify-center text-rose-700 transition-all hover:scale-105 active:scale-95 shadow-sm"
             title="اتصل بالمطعم"
           >
-            <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Phone className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </a>
 
           {/* Quick WhatsApp */}
@@ -124,43 +124,43 @@ export const FloatingNavbar: React.FC = () => {
             href={`https://wa.me/${restaurantInfo.whatsapp}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 transition hover:scale-105 active:scale-95 shadow-xs"
+            className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 flex items-center justify-center text-emerald-600 transition-all hover:scale-105 active:scale-95 shadow-sm"
             title="محادثة واتساب"
           >
-            <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <MessageCircle className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </a>
 
           {/* Share - Visible on all screens including mobile */}
           <button
             onClick={handleShare}
-            className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 transition hover:scale-105 active:scale-95 shadow-xs"
+            className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-700 transition-all hover:scale-105 active:scale-95 shadow-sm"
             title="مشاركة الرابط"
           >
-            {copied ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            {copied ? <Check className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-emerald-600" /> : <Share2 className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
           </button>
 
           {/* Floating Cart Capsule: Icon + Amount directly without the word "السلة" */}
           <button
             id="floating-navbar-cart-btn"
             onClick={() => setIsCartOpen(true)}
-            className="relative flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs sm:text-sm shadow-md ruby-button-shadow transition-all duration-300 hover:scale-105 active:scale-95 mr-0.5"
+            className="relative flex items-center gap-1.5 sm:gap-2 h-9.5 sm:h-10.5 px-3 sm:px-4 rounded-full bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-black shadow-md ruby-button-shadow transition-all duration-300 hover:scale-105 active:scale-95"
             title="سلة الطلبات"
           >
             <div className="relative flex items-center justify-center">
-              <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ShoppingBag className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
               {itemsCount > 0 && (
-                <span className="absolute -top-2 -right-2 min-w-[15px] h-[15px] px-0.5 rounded-full bg-white text-rose-700 text-[9px] font-black flex items-center justify-center shadow-xs">
+                <span className="absolute -top-2.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-white text-rose-700 text-[10px] font-black flex items-center justify-center shadow-xs border border-rose-100">
                   {itemsCount}
                 </span>
               )}
             </div>
             
             {itemsCount > 0 ? (
-              <span className="font-black text-[11px] sm:text-xs text-amber-200 whitespace-nowrap">
+              <span className="font-black text-xs sm:text-sm text-amber-200 whitespace-nowrap">
                 {total} ج.م
               </span>
             ) : (
-              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-300 animate-ping"></span>
+              <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
             )}
           </button>
 
