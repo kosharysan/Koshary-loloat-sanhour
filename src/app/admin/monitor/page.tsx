@@ -1159,17 +1159,17 @@ export default function OrderMonitorPage() {
                 >
                   {/* ختم الطلب الملغي: يظهر كختم رسمي مائل ومميز على كارت الطلب */}
                   {isCancelled && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 pointer-events-none select-none z-20 animate-fadeIn opacity-75 sm:opacity-80">
-                      <div className={`px-6 sm:px-8 py-2.5 sm:py-3.5 rounded-2xl sm:rounded-3xl border-4 sm:border-[4.5px] border-dashed text-center shadow-md backdrop-blur-[0.5px] ${
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[13deg] pointer-events-none select-none z-20 animate-fadeIn w-max max-w-[90%]">
+                      <div className={`px-6 sm:px-8 py-2.5 sm:py-3.5 rounded-2xl sm:rounded-3xl border-4 sm:border-[4.5px] border-dashed text-center shadow-xl backdrop-blur-[0.5px] ${
                         isCancelledNotReceived
-                          ? 'border-rose-500/75 text-rose-600 bg-rose-500/8 dark:border-rose-400/75 dark:text-rose-300 dark:bg-rose-500/15 shadow-rose-500/10'
-                          : 'border-amber-500/75 text-amber-700 bg-amber-500/8 dark:border-amber-400/75 dark:text-amber-300 dark:bg-amber-500/15 shadow-amber-500/10'
+                          ? 'border-red-500/90 text-red-500/95 bg-red-500/[0.08] dark:border-red-400/90 dark:text-red-400/95 dark:bg-red-500/[0.12] shadow-red-500/15'
+                          : 'border-amber-500/90 text-amber-600/95 bg-amber-500/[0.08] dark:border-amber-400/90 dark:text-amber-400/95 dark:bg-amber-500/[0.12] shadow-amber-500/15'
                       }`}>
-                        <div className="flex items-center justify-center gap-2 font-black text-base sm:text-xl tracking-wider">
-                          <Ban className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+                        <div className="flex items-center justify-center gap-2 font-black text-base sm:text-xl lg:text-2xl tracking-wider leading-none">
+                          <Ban className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 stroke-[2.5] shrink-0" />
                           <span>{isCancelledNotReceived ? 'مُـلـغـــى (عدم استلام)' : 'مُـلـغـــى (قبل الخروج)'}</span>
                         </div>
-                        <div className="text-[10px] sm:text-xs font-mono font-black tracking-[0.3em] opacity-80 mt-1">
+                        <div className="text-[10.5px] sm:text-xs font-mono font-black tracking-[0.3em] opacity-85 mt-1 sm:mt-1.5">
                           ★ CANCELLED ★
                         </div>
                       </div>
