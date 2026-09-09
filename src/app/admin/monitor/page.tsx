@@ -733,11 +733,11 @@ export default function OrderMonitorPage() {
             <div className="relative z-10">
               {/* Header: Icon Box + Status Tag */}
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-950/50 shrink-0 group-hover:scale-105 transition-transform">
-                  <Wallet className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-xl sm:text-2xl shadow-md shadow-cyan-950/50 shrink-0 group-hover:scale-110 transition-transform select-none">
+                  💰
                 </div>
                 <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
-                  <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 animate-pulse" />
+                  <span className="text-xs">✨</span>
                   <span className="hidden sm:inline">صافي التحصيل</span>
                   <span className="sm:hidden">صافي</span>
                 </span>
@@ -765,7 +765,7 @@ export default function OrderMonitorPage() {
             {/* Footer */}
             <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-cyan-500/15 text-cyan-200/70">
               <span className="truncate flex items-center gap-1">
-                <Coins className="w-3 h-3 text-cyan-400 shrink-0" />
+                <span>🪙</span>
                 <span>المؤكد فقط</span>
               </span>
               <span className="bg-cyan-950/90 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
@@ -783,11 +783,11 @@ export default function OrderMonitorPage() {
             <div className="relative z-10">
               {/* Header: Icon Box + Status Tag */}
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-purple-950/80 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-md shadow-purple-950/50 shrink-0 group-hover:scale-105 transition-transform">
-                  <PackageCheck className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-purple-950/80 border border-purple-500/30 flex items-center justify-center text-xl sm:text-2xl shadow-md shadow-purple-950/50 shrink-0 group-hover:scale-110 transition-transform select-none">
+                  📦
                 </div>
                 <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-purple-950/80 text-purple-300 border border-purple-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
-                  <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-400 animate-pulse" />
+                  <span className="text-xs">⚡</span>
                   <span className="hidden sm:inline">تم التأكيد</span>
                   <span className="sm:hidden">مؤكد</span>
                 </span>
@@ -815,7 +815,7 @@ export default function OrderMonitorPage() {
                 {/* العملاء */}
                 <div className="bg-purple-950/90 border border-purple-500/30 rounded-lg sm:rounded-xl px-2 py-0.5 sm:py-1 text-left shrink-0">
                   <div className="text-[8.5px] sm:text-[10px] font-bold text-purple-300/80 flex items-center gap-1 justify-end">
-                    <UserCheck className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-400" />
+                    <span>👥</span>
                     <span className="hidden sm:inline">العملاء:</span>
                   </div>
                   <div className="text-[11px] sm:text-sm font-black text-amber-300 text-right">
@@ -828,7 +828,7 @@ export default function OrderMonitorPage() {
             {/* Footer */}
             <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-purple-500/15 text-purple-200/70">
               <span className="truncate flex items-center gap-1">
-                <Receipt className="w-3 h-3 text-purple-400 shrink-0" />
+                <span>🛵</span>
                 <span>نشاط العملاء</span>
               </span>
               <span className="bg-purple-950/90 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
@@ -846,11 +846,11 @@ export default function OrderMonitorPage() {
             <div className="relative z-10">
               {/* Header: Icon Box + Status Tag */}
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-950/80 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-md shadow-rose-950/50 shrink-0 group-hover:scale-105 transition-transform">
-                  <Ban className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-950/80 border border-rose-500/30 flex items-center justify-center text-xl sm:text-2xl shadow-md shadow-rose-950/50 shrink-0 group-hover:scale-110 transition-transform select-none">
+                  🚫
                 </div>
                 <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-rose-950/80 text-rose-300 border border-rose-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
-                  <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400" />
+                  <span className="text-xs">❌</span>
                   <span>ملغي</span>
                 </span>
               </div>
@@ -877,7 +877,7 @@ export default function OrderMonitorPage() {
                 {/* عدد الملغي */}
                 <div className="bg-rose-950/90 border border-rose-500/30 rounded-lg sm:rounded-xl px-2 py-0.5 sm:py-1 text-left shrink-0">
                   <div className="text-[8.5px] sm:text-[10px] font-bold text-rose-300/80 flex items-center gap-1 justify-end">
-                    <AlertTriangle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-rose-400" />
+                    <span>⚠️</span>
                     <span className="hidden sm:inline">العدد:</span>
                   </div>
                   <div className="text-[11px] sm:text-sm font-black text-rose-300 text-right">
@@ -890,7 +890,7 @@ export default function OrderMonitorPage() {
             {/* Footer */}
             <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-rose-500/15 text-rose-200/70">
               <span className="truncate flex items-center gap-1">
-                <Ban className="w-3 h-3 text-rose-400 shrink-0" />
+                <span>🛑</span>
                 <span>قيمة غير محصلة</span>
               </span>
               <span className="bg-rose-950/90 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
