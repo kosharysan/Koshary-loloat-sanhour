@@ -49,7 +49,9 @@ import {
   AlertTriangle,
   Receipt,
   MapPin,
-  User
+  User,
+  TrendingUp,
+  Trophy
 } from 'lucide-react';
 import { Coupon, DeliveryZone, StoreScheduleSettings, ClosedShift } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
@@ -953,6 +955,43 @@ export default function AdminPortal() {
       return matchName || matchPhone || matchId || matchAddress;
     });
   }, [allClosedShiftsOrdersWithShift, shiftCustomerSearchQuery]);
+
+  // إحصائيات وبيانات الرسم البياني لمقارنة صافي المبيعات بين الورديات المعروضة
+  const shiftChartData = useMemo(() => {
+    if (filteredClosedShifts.length <= 1) return null;
+
+    // ترتيب الورديات زمنياً من الأقدم إلى الأحدث لقراءة التسلسل بشكل طبيعي
+    const chronologicalShifts = [...filteredClosedShifts].sort((a, b) => {
+      const timeA = new Date(a.closedAt || a.openedAt).getTime();
+      const timeB = new Date(b.closedAt || b.openedAt).getTime();
+      return timeA - timeB;
+    });
+
+    const revenues = chronologicalShifts.map(s => Number(s.summary?.totalRevenue || 0));
+    const maxRev = Math.max(...revenues, 1);
+    const totalRev = revenues.reduce((acc, v) => acc + v, 0);
+    const avgRev = Math.round(totalRev / chronologicalShifts.length);
+
+    // الوردية الأعلى مبيعاً
+    let topShift = chronologicalShifts[0];
+    let topRev = Number(topShift.summary?.totalRevenue || 0);
+    chronologicalShifts.forEach(s => {
+      const r = Number(s.summary?.totalRevenue || 0);
+      if (r > topRev) {
+        topRev = r;
+        topShift = s;
+      }
+    });
+
+    return {
+      shifts: chronologicalShifts,
+      maxRev,
+      totalRev,
+      avgRev,
+      topShift,
+      topRev
+    };
+  }, [filteredClosedShifts]);
 
   // تنفيذ تقفيل الوردية من لوحة الإدارة وتصفير الفواتير فوراً
   const handleAdminConfirmCloseShift = async () => {
@@ -2149,6 +2188,183 @@ export default function AdminPortal() {
                     </div>
                   )}
                 </div>
+
+                {/* الرسم البياني الفخم لمقارنة صافي المبيعات بين الورديات عند اختيار أكثر من وردية */}
+                {shiftChartData && (
+                  <div className="bg-gradient-to-br from-slate-900 via-[#131b26] to-slate-950 border-2 border-amber-500/40 rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden font-sans space-y-5 animate-in fade-in duration-300">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                    {/* الترويسة العلوية للرسم البياني */}
+                    <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/90">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 via-amber-400 to-emerald-400 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 shrink-0">
+                          <TrendingUp className="w-6 h-6 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-lg sm:text-xl font-black text-white">
+                              مقارنة صافي مبيعات الورديات
+                            </h3>
+                            <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+                              {shiftChartData.shifts.length} وردية
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            مقارنة بيانية دقيقة لصافي الإيراد المحصل لكل وردية تم تقفيلها
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* شارات إحصائية سريعة بالأعلى */}
+                      <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                        {shiftChartData.topRev > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs">
+                            <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+                            <div>
+                              <span className="text-[10.5px] text-slate-400 block font-bold">الوردية الأعلى:</span>
+                              <span className="font-black text-amber-300 font-mono">
+                                الوردية #{shiftChartData.topShift.shiftNumber} ({shiftChartData.topRev.toLocaleString()} ج.م)
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs">
+                          <BarChart3 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div>
+                            <span className="text-[10.5px] text-slate-400 block font-bold">متوسط الوردية:</span>
+                            <span className="font-black text-emerald-400 font-mono">
+                              {shiftChartData.avgRev.toLocaleString()} ج.م
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs">
+                          <Coins className="w-4 h-4 text-slate-300 shrink-0" />
+                          <div>
+                            <span className="text-[10.5px] text-slate-400 block font-bold">إجمالي المعروض:</span>
+                            <span className="font-black text-white font-mono">
+                              {shiftChartData.totalRev.toLocaleString()} ج.م
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* مساحة الرسم البياني مع محاذاة الخطوط وأعمدة الورديات */}
+                    <div className="relative z-10 pt-2">
+                      {/* منطقة الرسم البياني العمودي */}
+                      <div className="relative overflow-x-auto pb-4 pt-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+                        
+                        {/* خطوط الشبكة الإرشادية الأفقية (Grid lines) */}
+                        <div className="absolute inset-0 top-10 bottom-12 pointer-events-none flex flex-col justify-between border-b border-slate-800">
+                          <div className="border-b border-dashed border-slate-700/60 w-full flex justify-end pr-2">
+                            <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900/90 px-1.5 py-0.5 rounded -mt-2.5">
+                              {shiftChartData.maxRev.toLocaleString()} ج.م
+                            </span>
+                          </div>
+                          <div className="border-b border-dashed border-slate-800/70 w-full flex justify-end pr-2">
+                            <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900/90 px-1.5 py-0.5 rounded -mt-2.5">
+                              {Math.round(shiftChartData.maxRev / 2).toLocaleString()} ج.م
+                            </span>
+                          </div>
+                          <div className="w-full flex justify-end pr-2">
+                            <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900/90 px-1.5 py-0.5 rounded -mt-2.5">
+                              0 ج.م
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* شريط الأعمدة الرأسية المتراصة */}
+                        <div className="relative flex items-end justify-start sm:justify-around gap-3 sm:gap-5 min-w-max px-4 h-64 sm:h-72">
+                          {shiftChartData.shifts.map((shift, sIdx) => {
+                            const rev = Number(shift.summary?.totalRevenue || 0);
+                            const confirmedCount = Number(shift.summary?.confirmedOrders || 0);
+                            const percent = Math.round((rev / shiftChartData.maxRev) * 100);
+                            const isTop = shift.id === shiftChartData.topShift.id && rev > 0;
+
+                            return (
+                              <div
+                                key={shift.id || sIdx}
+                                className="group flex flex-col items-center justify-end h-full min-w-[85px] sm:min-w-[105px] max-w-[130px] flex-1 cursor-pointer transition-transform hover:-translate-y-1"
+                                onClick={() => {
+                                  setSelectedShiftForView(shift);
+                                  setShiftInvoicesSearchQuery('');
+                                  setShiftInvoicesStatusFilter('all');
+                                }}
+                                title={`الوردية #${shift.shiftNumber}: ${rev.toLocaleString()} ج.م (${confirmedCount} طلب مؤكد) - اضغط لاستعراض فواتيرها`}
+                              >
+                                {/* المبلغ والشارة في قمة العمود */}
+                                <div className="mb-2 text-center transition-all duration-300 group-hover:scale-105">
+                                  {isTop && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 mb-1 animate-bounce">
+                                      <span>الأعلى</span>
+                                      <span>🏆</span>
+                                    </span>
+                                  )}
+                                  <div className="font-mono text-xs sm:text-sm font-black text-white group-hover:text-amber-300">
+                                    {rev.toLocaleString()}
+                                    <span className="text-[10px] text-slate-400 font-normal mr-0.5">ج.م</span>
+                                  </div>
+                                </div>
+
+                                {/* العمود الرأسي */}
+                                <div className="w-full flex items-end justify-center h-full max-h-[170px] sm:max-h-[190px]">
+                                  <div
+                                    style={{ height: `${Math.max(percent, 6)}%` }}
+                                    className={`w-10 sm:w-14 rounded-t-2xl relative transition-all duration-500 overflow-hidden flex items-end justify-center pb-2 ${
+                                      isTop
+                                        ? 'bg-gradient-to-t from-amber-600 via-amber-400 to-emerald-300 shadow-[0_0_25px_rgba(245,158,11,0.4)] border-t-2 border-x-2 border-amber-200 group-hover:brightness-110'
+                                        : rev > 0
+                                        ? 'bg-gradient-to-t from-emerald-950 via-emerald-600 to-emerald-400 shadow-lg border-t-2 border-x-2 border-emerald-400/50 group-hover:from-emerald-900 group-hover:via-emerald-500 group-hover:to-emerald-300'
+                                        : 'bg-slate-800/80 border-t border-slate-700'
+                                    }`}
+                                  >
+                                    {/* تأثير لمعة داخلية */}
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+                                    
+                                    {/* نسبة مئوية أو عدد الطلبات تظهر داخل العمود إذا كان الارتفاع كافياً */}
+                                    {percent >= 25 && (
+                                      <span className="text-[10px] font-mono font-black text-slate-950/90 px-1 py-0.5 rounded bg-white/40 backdrop-blur-xs relative z-10 shadow-xs">
+                                        {percent}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* محور السينات السفلي: رقم الوردية وتاريخها */}
+                                <div className="pt-2 text-center w-full border-t border-slate-800 mt-1">
+                                  <span className={`text-xs font-black block px-2 py-0.5 rounded-lg border transition ${
+                                    isTop
+                                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-black'
+                                      : 'bg-slate-800/90 text-slate-200 border-slate-700/80 group-hover:border-amber-500/40 group-hover:text-amber-300'
+                                  }`}>
+                                    #{shift.shiftNumber}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 block mt-1 truncate max-w-[95px] mx-auto font-medium">
+                                    {formatOrderTime(shift.closedAt || shift.openedAt).replace(/.*،\s*/, '')}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* شريط الإرشاد السفلي */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-amber-400">💡</span>
+                          <span>اضغط على أي عمود في الرسم البياني لاستعراض فواتير تلك الوردية بالتفصيل.</span>
+                        </span>
+                        <span className="font-mono text-emerald-400 font-bold">
+                          مرتبة زمنياً من الأقدم للأحدث ←
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* قائمة كروت الورديات المقفلة */}
                 {filteredClosedShifts.length === 0 ? (
