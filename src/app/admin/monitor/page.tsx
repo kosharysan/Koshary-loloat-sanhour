@@ -331,14 +331,10 @@ export default function OrderMonitorPage() {
             </button>
           </form>
 
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <Link href="/" className="hover:text-white transition flex items-center gap-1">
+          <div className="pt-3 border-t border-slate-800 flex items-center justify-center text-xs text-slate-400">
+            <Link href="/" className="hover:text-white transition flex items-center gap-1 font-medium">
               <ChevronLeft className="w-3.5 h-3.5" />
-              <span>صفحة الزوار</span>
-            </Link>
-            <Link href="/admin" className="text-amber-400 hover:text-amber-300 transition flex items-center gap-1 font-bold">
-              <span>لوحة الإدارة الكاملة</span>
-              <ExternalLink className="w-3 h-3" />
+              <span>العودة لصفحة الزوار والقائمة الرئيسية</span>
             </Link>
           </div>
         </div>
@@ -367,81 +363,80 @@ export default function OrderMonitorPage() {
       )}
 
       {/* Top Navbar Header */}
-      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-3 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-2.5 sm:px-6 py-2.5 sm:py-3">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
           
-          {/* Right Brand Info */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#dc0b07] border-2 border-white/30 overflow-hidden flex items-center justify-center shadow-md shrink-0">
-              <Image src="/logo-transparent.png" alt="لؤلؤة سنهور" fill className="object-contain p-1" priority />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-black text-white">شاشة متابعة الطلبات 🖥️</h2>
-                <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>مباشر</span>
-                </span>
+          {/* Top Row / Right Brand Info */}
+          <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#dc0b07] border-2 border-white/30 overflow-hidden flex items-center justify-center shadow-md shrink-0">
+                <Image src="/logo-transparent.png" alt="لؤلؤة سنهور" fill className="object-contain p-1" priority />
               </div>
-              <p className="text-[10.5px] sm:text-xs text-slate-400 hidden sm:block">
-                متابعة وتأكيد طلبات الزبائن وإلغائها لحظياً • مطعم لؤلؤة سنهور
-              </p>
+              <div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h2 className="text-sm sm:text-base font-black text-white whitespace-nowrap">شاشة متابعة الطلبات 🖥️</h2>
+                  <span className="inline-flex items-center gap-1 text-[9.5px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>مباشر</span>
+                  </span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-slate-400 hidden sm:block">
+                  متابعة وتأكيد طلبات الزبائن وإلغائها لحظياً • مطعم لؤلؤة سنهور
+                </p>
+              </div>
+            </div>
+
+            {/* Mobile-only Live Clock next to brand */}
+            <div className="flex sm:hidden items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700/80 text-amber-300 font-mono text-[11px] font-bold shadow-xs">
+              <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>{currentTime.toLocaleTimeString('ar-EG', { hour12: true })}</span>
             </div>
           </div>
 
-          {/* Left Actions (Clock, Sound Toggle, Refresh, Admin Jump, Logout) */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Action Buttons & Desktop Clock: 100% visible on all screens */}
+          <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto">
             
-            {/* Live Clock Badge */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700/80 text-amber-300 font-mono text-xs font-bold shadow-xs">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+            {/* Desktop Live Clock Badge */}
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700/80 text-amber-300 font-mono text-xs font-bold shadow-xs">
+              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>{currentTime.toLocaleTimeString('ar-EG', { hour12: true })}</span>
             </div>
 
             {/* Sound Alerts Toggle */}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              className={`flex-1 sm:flex-none py-1.5 px-2.5 sm:px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 soundEnabled
-                  ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/30'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
               }`}
               title={soundEnabled ? 'تنبيه الصوت مفعل للطلبات الجديدة' : 'تنبيه الصوت مكتوم'}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              <span className="hidden lg:inline">{soundEnabled ? 'صوت التنبيه: يعمل' : 'مكتوم'}</span>
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />}
+              <span className="text-[11px] sm:text-xs">{soundEnabled ? 'التنبيه: يعمل 🔊' : 'مكتوم 🔇'}</span>
             </button>
 
             {/* Manual Refresh Button */}
             <button
               onClick={() => loadOrders(false)}
               disabled={isRefreshing}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="flex-1 sm:flex-none py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
               title="تحديث قائمة الطلبات"
             >
-              <RefreshCw className={`w-4 h-4 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">تحديث</span>
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="text-[11px] sm:text-xs">تحديث 🔄</span>
             </button>
-
-            {/* Jump to Full Admin */}
-            <Link
-              href="/admin"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition"
-              title="الانتقال للوحة الإدارة والمنيو"
-            >
-              <span>الإدارة الكاملة</span>
-              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-            </Link>
 
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              className="py-1.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
               title="تسجيل الخروج من شاشة المتابعة"
             >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">خروج</span>
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="text-[11px] sm:text-xs">خروج</span>
             </button>
+
           </div>
         </div>
       </header>
