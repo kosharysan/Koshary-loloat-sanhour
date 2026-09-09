@@ -2252,8 +2252,8 @@ export default function OrderMonitorPage() {
 
       {/* مودال تقفيل الوردية الحالية وتصفير الفواتير */}
       {isShiftModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className={`relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border-2 shadow-2xl space-y-5 ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in font-sans">
+          <div className={`relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border-2 shadow-2xl space-y-5 font-sans ${
             isLight
               ? 'bg-white border-amber-300 text-slate-900 shadow-amber-950/20'
               : 'bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-amber-500/40 text-white shadow-black/80'
@@ -2261,18 +2261,19 @@ export default function OrderMonitorPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b pb-4 border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950">
-                  <Lock className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/25 text-slate-950 shrink-0">
+                  <Lock className="w-6 h-6 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-lg sm:text-xl font-black flex items-center gap-2">
-                    <span>تقفيل الوردية رقم #{currentShiftNumber}</span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
-                      تصفير الفواتير 🔒
+                  <h3 className="text-lg sm:text-xl font-black flex items-center gap-2 flex-wrap">
+                    <span>📋 تقفيل الوردية رقم #{currentShiftNumber}</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                      <span>🔒</span>
+                      <span>تصفير الفواتير</span>
                     </span>
                   </h3>
-                  <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                    مراجعة إحصائيات الوردية قبل الإغلاق ونقل الفواتير إلى الأرشيف
+                  <p className={`text-xs mt-1 font-bold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    📊 مراجعة كشف حساب الوردية قبل الإغلاق ونقل الفواتير إلى الأرشيف
                   </p>
                 </div>
               </div>
@@ -2281,102 +2282,193 @@ export default function OrderMonitorPage() {
                 onClick={() => setIsShiftModalOpen(false)}
                 disabled={isClosingShift}
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                title="إغلاق النافذة"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Shift Timing Info */}
-            <div className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs font-bold ${
-              isLight ? 'bg-amber-50/70 border-amber-200 text-amber-950' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+            <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-black ${
+              isLight ? 'bg-amber-50/80 border-amber-200 text-amber-950' : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
             }`}>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>بدء الوردية: {currentShiftStartTime ? formatOrderTime(currentShiftStartTime) : 'بداية اليوم'}</span>
+                <span>⏳ وقت بدء الوردية: {currentShiftStartTime ? formatOrderTime(currentShiftStartTime) : 'بداية اليوم'}</span>
               </div>
-              <div className="flex items-center gap-2 font-mono">
-                <span>وقت الإغلاق: الآن ({formatOrderTime(new Date().toISOString())})</span>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-orange-500 shrink-0" />
+                <span>⏱️ وقت الإغلاق: الآن ({formatOrderTime(new Date().toISOString())})</span>
               </div>
             </div>
 
-            {/* Quick Metrics Grid */}
+            {/* Quick Metrics Grid with Expressive Icons */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/60 border-slate-700/60'}`}>
-                <div className={`text-[11px] font-bold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>إجمالي فواتير الوردية</div>
-                <div className="text-xl font-black font-mono mt-1 text-amber-500">{shiftSummary.totalOrders} فاتورة</div>
+              {/* إجمالي فواتير الوردية */}
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-800/60 border-slate-700/60 text-white'
+              }`}>
+                <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+                  <span>🧾 إجمالي الفواتير</span>
+                  <Receipt className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-amber-500">
+                  {shiftSummary.totalOrders} <span className="text-xs font-bold text-slate-400">فاتورة</span>
+                </div>
               </div>
 
-              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-emerald-50/70 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                <div className={`text-[11px] font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>الفواتير المؤكدة</div>
-                <div className="text-xl font-black font-mono mt-1 text-emerald-500">{shiftSummary.confirmedOrders} مؤكد</div>
+              {/* الفواتير المؤكدة */}
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                isLight ? 'bg-emerald-50/80 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/25'
+              }`}>
+                <div className="flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1">
+                  <span>✅ الفواتير المؤكدة</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-emerald-500">
+                  {shiftSummary.confirmedOrders} <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">مؤكد</span>
+                </div>
               </div>
 
-              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-emerald-50/70 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20'} col-span-2 sm:col-span-1`}>
-                <div className={`text-[11px] font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>صافي مبيعات الوردية</div>
-                <div className="text-xl font-black font-mono mt-1 text-emerald-500">{shiftSummary.totalRevenue.toLocaleString()} ج.م</div>
+              {/* صافي مبيعات الوردية */}
+              <div className={`p-3.5 rounded-2xl border transition-all col-span-2 sm:col-span-1 ${
+                isLight ? 'bg-emerald-50/90 border-emerald-300 shadow-sm' : 'bg-emerald-950/40 border-emerald-500/30'
+              }`}>
+                <div className="flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1">
+                  <span>💰 صافي المبيعات</span>
+                  <DollarSign className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {shiftSummary.totalRevenue.toLocaleString()} <span className="text-xs font-bold">ج.م</span>
+                </div>
               </div>
 
-              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-red-50/70 border-red-200' : 'bg-red-500/10 border-red-500/20'}`}>
-                <div className={`text-[11px] font-bold ${isLight ? 'text-red-800' : 'text-red-400'}`}>فواتير ملغية</div>
-                <div className="text-lg font-black font-mono mt-1 text-red-500">{shiftSummary.cancelledOrders} طلب</div>
+              {/* فواتير ملغية */}
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                isLight ? 'bg-red-50/80 border-red-200' : 'bg-red-500/10 border-red-500/25'
+              }`}>
+                <div className="flex items-center justify-between text-xs font-bold text-red-700 dark:text-red-400 mb-1">
+                  <span>🚫 فواتير ملغية</span>
+                  <XCircle className="w-4 h-4 text-red-500" />
+                </div>
+                <div className="text-lg sm:text-xl font-black text-red-500">
+                  {shiftSummary.cancelledOrders} <span className="text-xs font-bold text-red-700 dark:text-red-400">طلب</span>
+                </div>
+                <span className="text-[11px] font-bold text-red-500/80 block mt-0.5">
+                  بقيمة {shiftSummary.totalCancelledRevenue.toLocaleString()} ج.م
+                </span>
               </div>
 
-              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-sky-50/70 border-sky-200' : 'bg-sky-500/10 border-sky-500/20'}`}>
-                <div className={`text-[11px] font-bold ${isLight ? 'text-sky-800' : 'text-sky-400'}`}>طلبات الدليفري</div>
-                <div className="text-lg font-black font-mono mt-1 text-sky-500">{shiftSummary.deliveryCount} دليفري</div>
+              {/* طلبات الدليفري */}
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                isLight ? 'bg-sky-50/80 border-sky-200' : 'bg-sky-500/10 border-sky-500/25'
+              }`}>
+                <div className="flex items-center justify-between text-xs font-bold text-sky-700 dark:text-sky-400 mb-1">
+                  <span>🛵 طلبات الدليفري</span>
+                  <Bike className="w-4 h-4 text-sky-500" />
+                </div>
+                <div className="text-lg sm:text-xl font-black text-sky-500">
+                  {shiftSummary.deliveryCount} <span className="text-xs font-bold text-sky-700 dark:text-sky-400">دليفري</span>
+                </div>
               </div>
 
-              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-purple-50/70 border-purple-200' : 'bg-purple-500/10 border-purple-500/20'}`}>
-                <div className={`text-[11px] font-bold ${isLight ? 'text-purple-800' : 'text-purple-400'}`}>طلبات الاستلام</div>
-                <div className="text-lg font-black font-mono mt-1 text-purple-500">{shiftSummary.pickupCount} صالة/تيك أواي</div>
+              {/* طلبات الاستلام */}
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                isLight ? 'bg-purple-50/80 border-purple-200' : 'bg-purple-500/10 border-purple-500/25'
+              }`}>
+                <div className="flex items-center justify-between text-xs font-bold text-purple-700 dark:text-purple-400 mb-1">
+                  <span>🏬 طلبات الاستلام</span>
+                  <ShoppingBag className="w-4 h-4 text-purple-500" />
+                </div>
+                <div className="text-lg sm:text-xl font-black text-purple-500">
+                  {shiftSummary.pickupCount} <span className="text-xs font-bold text-purple-700 dark:text-purple-400">صالة/تيك أواي</span>
+                </div>
               </div>
             </div>
 
-            {/* Payment Method Breakdown */}
-            <div className={`p-3.5 rounded-2xl border space-y-2 ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/40 border-slate-700/60'}`}>
-              <div className="text-xs font-black text-amber-500 flex items-center gap-1.5">
+            {/* Payment Method Breakdown with Expressive Badges */}
+            <div className={`p-4 rounded-2xl border space-y-2.5 ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700/70'
+            }`}>
+              <div className="text-xs font-black text-amber-500 flex items-center gap-2">
                 <Coins className="w-4 h-4" />
-                <span>تفصيل طرق الدفع للمبيعات المؤكدة:</span>
+                <span>💳 تفصيل طرق الدفع للمبيعات المؤكدة:</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className={`p-2 rounded-xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
-                  <span className="text-[11px] text-slate-400 block font-bold">كاش (نقدي)</span>
-                  <span className="font-mono font-black text-emerald-500">{shiftSummary.cashAmount.toLocaleString()} ج.م</span>
+              <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
+                {/* كاش */}
+                <div className={`p-2.5 rounded-xl border ${
+                  isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mb-0.5">
+                    💵 كاش (نقدي)
+                  </span>
+                  <span className="text-base font-black text-emerald-500 block">
+                    {shiftSummary.cashAmount.toLocaleString()} ج.م
+                  </span>
                 </div>
-                <div className={`p-2 rounded-xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
-                  <span className="text-[11px] text-slate-400 block font-bold">فودافون كاش / محافظ</span>
-                  <span className="font-mono font-black text-amber-500">{shiftSummary.walletAmount.toLocaleString()} ج.م</span>
+
+                {/* فودافون كاش ومحافظ */}
+                <div className={`p-2.5 rounded-xl border ${
+                  isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mb-0.5">
+                    📱 فودافون كاش / محافظ
+                  </span>
+                  <span className="text-base font-black text-amber-500 block">
+                    {shiftSummary.walletAmount.toLocaleString()} ج.م
+                  </span>
                 </div>
-                <div className={`p-2 rounded-xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
-                  <span className="text-[11px] text-slate-400 block font-bold">إنستاباي</span>
-                  <span className="font-mono font-black text-cyan-500">{shiftSummary.instapayAmount.toLocaleString()} ج.م</span>
+
+                {/* إنستاباي */}
+                <div className={`p-2.5 rounded-xl border ${
+                  isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mb-0.5">
+                    ⚡ إنستاباي
+                  </span>
+                  <span className="text-base font-black text-cyan-500 block">
+                    {shiftSummary.instapayAmount.toLocaleString()} ج.م
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Pending Orders Warning if any */}
             {shiftSummary.pendingOrders > 0 && (
-              <div className={`p-3 rounded-2xl border flex items-start gap-2.5 text-xs font-bold ${
-                isLight ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+              <div className={`p-3.5 rounded-2xl border flex items-start gap-3 text-xs font-bold ${
+                isLight ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
               }`}>
-                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>
-                  تنبيه: يوجد {shiftSummary.pendingOrders} طلبات قيد الانتظار لم يتم تأكيدها أو إلغاؤها بعد. سيتم إغلاق الوردية وأرشفتها مع هذه الفواتير.
-                </span>
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <span className="font-black">⚠️ تنبيه بالطلبات المعلقة:</span> يوجد{' '}
+                  <span className="font-black underline">{shiftSummary.pendingOrders} طلبات</span> قيد الانتظار لم يتم تأكيدها أو إلغاؤها بعد. سيتم أرشفة الوردية مع هذه الفواتير.
+                </div>
               </div>
             )}
 
             {/* Shift Zeroing Notice */}
-            <div className={`p-3.5 rounded-2xl border flex items-start gap-2.5 text-xs leading-relaxed ${
-              isLight ? 'bg-blue-50 border-blue-200 text-blue-950' : 'bg-blue-950/40 border-blue-500/30 text-blue-200'
+            <div className={`p-4 rounded-2xl border flex items-start gap-3 text-xs leading-relaxed ${
+              isLight ? 'bg-blue-50/90 border-blue-200 text-blue-950' : 'bg-blue-950/40 border-blue-500/30 text-blue-200'
             }`}>
               <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
               <div>
-                <p className="font-black mb-1">ماذا يحدث عند الضغط على تأكيد التقفيل؟</p>
-                <ul className="list-disc list-inside space-y-0.5 text-[11px] opacity-90">
-                  <li>سيتم تصفير فواتير شاشة المتابعة فوراً لتجهيز الشاشة للوردية الجديدة رقم #{currentShiftNumber + 1}.</li>
-                  <li>ستنتقل كافة فواتير وإحصائيات هذه الوردية بالكامل إلى تبويبة <strong>(فواتير الورديات)</strong> في لوحة الإدارة.</li>
-                  <li>لن يتم حذف أي فاتورة من النظام وستظل محفوظة بالكامل في الأرشيف والتقارير.</li>
+                <p className="font-black mb-1.5 flex items-center gap-1.5 text-sm">
+                  <span>🛡️</span>
+                  <span>ماذا يحدث عند الضغط على تأكيد التقفيل؟</span>
+                </p>
+                <ul className="space-y-1 text-xs opacity-95">
+                  <li className="flex items-center gap-1.5">
+                    <span className="text-emerald-500 font-black">✓</span>
+                    <span>سيتم تصفير فواتير شاشة المتابعة فوراً لتجهيز الشاشة للوردية الجديدة رقم #{currentShiftNumber + 1}.</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="text-emerald-500 font-black">✓</span>
+                    <span>ستنتقل كافة فواتير وإحصائيات هذه الوردية بالكامل إلى تبويبة <strong>(فواتير الورديات)</strong> في لوحة الإدارة.</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="text-emerald-500 font-black">✓</span>
+                    <span>لن يتم حذف أي فاتورة من النظام وستظل محفوظة بالكامل في الأرشيف والتقارير.</span>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -2411,7 +2503,7 @@ export default function OrderMonitorPage() {
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                 }`}
               >
-                إلغاء
+                إلغاء ومتابعة الوردية ✕
               </button>
             </div>
 
