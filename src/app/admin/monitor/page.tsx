@@ -946,19 +946,19 @@ export default function OrderMonitorPage() {
                         <button
                           type="button"
                           onClick={() => setExpandedOrderId(prev => prev === order.id ? null : order.id)}
-                          className={`p-1.5 rounded-xl border transition flex items-center justify-center cursor-pointer shadow-xs active:scale-95 ${
+                          className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border transition flex items-center justify-center cursor-pointer shadow-xs active:scale-95 ${
                             isExpanded
                               ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md'
                               : isLight
-                              ? 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-2xs'
-                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                              ? 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300 shadow-2xs hover:border-amber-400'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700 hover:border-amber-400'
                           }`}
                           title={isExpanded ? 'طي تفاصيل الطلب' : 'فتح وتفاصيل الطلب بالكامل'}
                         >
                           {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+                            <ChevronUp className="w-5 h-5 text-slate-950 stroke-[3]" />
                           ) : (
-                            <ChevronDown className={`w-4 h-4 stroke-[2.5] ${isLight ? 'text-slate-800' : 'text-amber-400'}`} />
+                            <ChevronDown className={`w-5 h-5 stroke-[3] ${isLight ? 'text-slate-900' : 'text-amber-400'}`} />
                           )}
                         </button>
                       </div>
