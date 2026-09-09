@@ -2250,43 +2250,34 @@ export default function OrderMonitorPage() {
         </div>
       )}
 
-      {/* مودال تقفيل الوردية الحالية وتصفير الفواتير بتصميم فاخر وعصري */}
+      {/* نافذة تأكيد تقفيل الوردية وتصفير الفواتير - تصميم نظيف وعصري */}
       {isShiftModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 font-sans">
-          <div className={`relative w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border shadow-2xl space-y-5 font-sans transition-all ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150 font-sans">
+          <div className={`relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-5 sm:p-6 border shadow-2xl space-y-4 font-sans ${
             isLight
-              ? 'bg-gradient-to-b from-white via-amber-50/30 to-white border-amber-300 text-slate-900 shadow-2xl shadow-amber-950/15'
-              : 'bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950 border-amber-500/30 text-white shadow-2xl shadow-black'
+              ? 'bg-white border-slate-200 text-slate-900 shadow-slate-900/10'
+              : 'bg-slate-900 border-slate-800 text-white shadow-black/80'
           }`}>
             
-            {/* الخلفية الجمالية المتوهجة */}
-            <div className="absolute top-0 right-1/4 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-1/4 w-48 h-48 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
-
-            {/* رأس النافذة Modal Header */}
-            <div className={`relative flex items-center justify-between pb-4 border-b ${
-              isLight ? 'border-slate-200' : 'border-slate-800'
+            {/* رأس النافذة */}
+            <div className={`flex items-center justify-between pb-3.5 border-b ${
+              isLight ? 'border-slate-150' : 'border-slate-800'
             }`}>
-              <div className="flex items-center gap-3.5">
-                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-500 via-yellow-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30 text-slate-950 shrink-0 ring-2 ring-amber-400/40">
-                  <Lock className="w-6 h-6 stroke-[2.5]" />
-                  <span className="absolute -bottom-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                  </span>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 shrink-0">
+                  <Lock className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-xl font-black tracking-tight">
-                      تقفيل الوردية رقم #{currentShiftNumber}
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold">
+                      تقفيل الوردية #{currentShiftNumber}
                     </h3>
-                    <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-black bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs">
-                      <span>🔒</span>
-                      <span>تصفير الفواتير</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-md font-bold bg-amber-500/15 text-amber-500 border border-amber-500/20">
+                      تصفير الفواتير
                     </span>
                   </div>
-                  <p className={`text-xs mt-1 font-bold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                    مراجعة كشف حساب ومبيعات الوردية الحالية قبل الترحيل والأرشفة
+                  <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    ملخص مبيعات الوردية الحالية قبل الترحيل للأرشيف
                   </p>
                 </div>
               </div>
@@ -2295,10 +2286,10 @@ export default function OrderMonitorPage() {
                 type="button"
                 onClick={() => setIsShiftModalOpen(false)}
                 disabled={isClosingShift}
-                className={`p-2.5 rounded-2xl transition cursor-pointer active:scale-95 ${
+                className={`p-2 rounded-xl transition cursor-pointer ${
                   isLight 
                     ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
                 title="إغلاق النافذة"
               >
@@ -2306,294 +2297,179 @@ export default function OrderMonitorPage() {
               </button>
             </div>
 
-            {/* شريط توقيت الوردية الزجاجي الفاخر */}
-            <div className={`relative p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs font-black shadow-xs ${
+            {/* توقيت الوردية */}
+            <div className={`px-3.5 py-2.5 rounded-xl border flex items-center justify-between text-xs font-semibold ${
               isLight
-                ? 'bg-amber-500/10 border-amber-300 text-amber-950'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                ? 'bg-slate-50 border-slate-200 text-slate-600'
+                : 'bg-slate-800/60 border-slate-700/60 text-slate-300'
             }`}>
-              <div className="flex items-center gap-2">
-                <div className="p-1 rounded-lg bg-amber-500/20 text-amber-500">
-                  <Clock className="w-4 h-4" />
-                </div>
-                <span>⏳ وقت بدء الوردية: {currentShiftStartTime ? formatOrderTime(currentShiftStartTime) : 'بداية اليوم'}</span>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                <span>البدء: <strong className="font-bold text-amber-500">{currentShiftStartTime ? formatOrderTime(currentShiftStartTime) : 'بداية اليوم'}</strong></span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="p-1 rounded-lg bg-orange-500/20 text-orange-500">
-                  <Clock className="w-4 h-4" />
-                </div>
-                <span>⏱️ وقت الإغلاق: الآن ({formatOrderTime(new Date().toISOString())})</span>
+              <div className="flex items-center gap-1.5">
+                <span>الإغلاق: <strong className="font-bold">{formatOrderTime(new Date().toISOString())}</strong></span>
               </div>
             </div>
 
-            {/* الصف الأول: الفواتير الثلاثة متجاورة (الإجمالي + المؤكد + الملغي) */}
-            <div>
-              <div className="text-[11px] font-black mb-2 text-slate-400 flex items-center gap-1.5">
-                <span>📑 حركة فواتير الوردية:</span>
+            {/* الصف 1: حركة الفواتير (الإجمالي | المؤكد | الملغي) */}
+            <div className="grid grid-cols-3 gap-2">
+              {/* الإجمالي */}
+              <div className={`p-3 rounded-xl border text-center ${
+                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700/60'
+              }`}>
+                <span className="text-[11px] font-bold text-slate-400 block mb-1">🧾 إجمالي الفواتير</span>
+                <span className="text-xl font-bold text-amber-500 block">{shiftSummary.totalOrders}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2.5">
-                {/* 1. إجمالي الفواتير */}
-                <div className={`relative p-3.5 rounded-2xl border transition-all flex flex-col justify-between overflow-hidden shadow-xs hover:border-amber-400/60 ${
-                  isLight 
-                    ? 'bg-white border-slate-200' 
-                    : 'bg-gradient-to-b from-slate-800/80 to-slate-800/40 border-slate-700/70'
-                }`}>
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-                    <span className="truncate">🧾 الإجمالي</span>
-                    <div className="p-1 rounded-lg bg-amber-500/15 text-amber-500">
-                      <Receipt className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <div className="mt-2.5">
-                    <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight">
-                      {shiftSummary.totalOrders}
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 block mt-0.5">فاتورة مسجلة</span>
-                  </div>
-                </div>
 
-                {/* 2. الفواتير المؤكدة */}
-                <div className={`relative p-3.5 rounded-2xl border transition-all flex flex-col justify-between overflow-hidden shadow-xs hover:border-emerald-400/60 ${
-                  isLight 
-                    ? 'bg-emerald-50/70 border-emerald-200' 
-                    : 'bg-gradient-to-b from-emerald-950/40 to-slate-800/40 border-emerald-500/30'
-                }`}>
-                  <div className="flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <span className="truncate">✅ المؤكدة</span>
-                    <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-500">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <div className="mt-2.5">
-                    <div className="text-xl sm:text-2xl font-black text-emerald-500 tracking-tight">
-                      {shiftSummary.confirmedOrders}
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-600/80 dark:text-emerald-400/80 block mt-0.5">طلب مؤكد ومكتمل</span>
-                  </div>
-                </div>
+              {/* المؤكد */}
+              <div className={`p-3 rounded-xl border text-center ${
+                isLight ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950' : 'bg-emerald-500/10 border-emerald-500/25'
+              }`}>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">✅ المؤكدة</span>
+                <span className="text-xl font-bold text-emerald-500 block">{shiftSummary.confirmedOrders}</span>
+              </div>
 
-                {/* 3. الفواتير الملغية (بجانب أول كارتين) */}
-                <div className={`relative p-3.5 rounded-2xl border transition-all flex flex-col justify-between overflow-hidden shadow-xs hover:border-rose-400/60 ${
-                  isLight 
-                    ? 'bg-rose-50/70 border-rose-200' 
-                    : 'bg-gradient-to-b from-rose-950/40 to-slate-800/40 border-rose-500/30'
-                }`}>
-                  <div className="flex items-center justify-between text-xs font-bold text-rose-600 dark:text-rose-400">
-                    <span className="truncate">🚫 الملغية</span>
-                    <div className="p-1 rounded-lg bg-rose-500/20 text-rose-500">
-                      <XCircle className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <div className="mt-2.5">
-                    <div className="text-xl sm:text-2xl font-black text-rose-500 tracking-tight">
-                      {shiftSummary.cancelledOrders}
-                    </div>
-                    <span className="text-[10px] font-bold text-rose-500/80 block mt-0.5 truncate">
-                      {shiftSummary.totalCancelledRevenue > 0 ? `${shiftSummary.totalCancelledRevenue.toLocaleString()} ج.م` : 'بدون خسائر'}
-                    </span>
-                  </div>
-                </div>
+              {/* الملغي */}
+              <div className={`p-3 rounded-xl border text-center ${
+                isLight ? 'bg-rose-50/60 border-rose-200 text-rose-950' : 'bg-rose-500/10 border-rose-500/25'
+              }`}>
+                <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 block mb-1">🚫 الملغية</span>
+                <span className="text-xl font-bold text-rose-500 block">{shiftSummary.cancelledOrders}</span>
               </div>
             </div>
 
-            {/* الصف الثاني: صافي المبيعات (كارت بارز مميز) + نوع الطلبات (دليفري واستلام) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {/* صافي مبيعات الوردية المميز */}
-              <div className={`p-4 rounded-2xl border transition-all sm:col-span-1 flex flex-col justify-between shadow-md relative overflow-hidden ${
-                isLight 
-                  ? 'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-teal-500/10 border-emerald-400/50' 
-                  : 'bg-gradient-to-br from-emerald-900/40 via-emerald-950/50 to-slate-900 border-emerald-500/40 shadow-emerald-950/20'
-              }`}>
-                <div className="flex items-center justify-between text-xs font-black text-emerald-600 dark:text-emerald-400">
-                  <span className="flex items-center gap-1.5">
-                    <span>💰</span>
-                    <span>صافي المبيعات</span>
-                  </span>
-                  <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400">
-                    <DollarSign className="w-4 h-4" />
-                  </div>
+            {/* كارت صافي المبيعات البارز */}
+            <div className={`p-4 rounded-xl border flex items-center justify-between ${
+              isLight 
+                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950' 
+                : 'bg-gradient-to-r from-emerald-950/50 to-slate-900 border-emerald-500/30'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center text-emerald-500">
+                  <DollarSign className="w-5 h-5" />
                 </div>
-                <div className="mt-3">
-                  <div className="text-2xl sm:text-3xl font-black text-emerald-500 tracking-tight flex items-baseline gap-1">
-                    <span>{shiftSummary.totalRevenue.toLocaleString()}</span>
-                    <span className="text-xs font-bold text-emerald-600/80 dark:text-emerald-400/80">ج.م</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-400 block mt-1">
-                    إجمالي إيراد الطلبات المؤكدة
-                  </span>
+                <div>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">💰 صافي مبيعات الوردية</span>
+                  <span className="text-[11px] text-slate-400 block">إجمالي مبيعات الفواتير المؤكدة</span>
                 </div>
               </div>
+              <div className="text-left">
+                <span className="text-2xl font-black text-emerald-500">
+                  {shiftSummary.totalRevenue.toLocaleString()}
+                </span>
+                <span className="text-xs font-bold text-slate-400 mr-1">ج.م</span>
+              </div>
+            </div>
 
-              {/* طلبات الدليفري */}
-              <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between shadow-xs ${
-                isLight 
-                  ? 'bg-sky-50/70 border-sky-200' 
-                  : 'bg-gradient-to-b from-sky-950/30 to-slate-800/40 border-sky-500/30'
+            {/* الصف 2: الصالة والدليفري بجانب بعضهما */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* الدليفري */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                isLight ? 'bg-sky-50/60 border-sky-200' : 'bg-sky-500/10 border-sky-500/20'
               }`}>
-                <div className="flex items-center justify-between text-xs font-black text-sky-600 dark:text-sky-400">
-                  <span className="flex items-center gap-1.5">
-                    <span>🛵</span>
-                    <span>طلبات الدليفري</span>
-                  </span>
-                  <div className="p-1.5 rounded-xl bg-sky-500/20 text-sky-400">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-sky-500/15 text-sky-500">
                     <Bike className="w-4 h-4" />
                   </div>
-                </div>
-                <div className="mt-3">
-                  <div className="text-xl sm:text-2xl font-black text-sky-500 tracking-tight flex items-baseline gap-1">
-                    <span>{shiftSummary.deliveryCount}</span>
-                    <span className="text-xs font-bold text-sky-600/80 dark:text-sky-400/80">طلب</span>
+                  <div>
+                    <span className="text-xs font-bold text-sky-600 dark:text-sky-400 block">طلبات الدليفري</span>
+                    <span className="text-[10px] text-slate-400 block">توصيل منزلي</span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 block mt-1">توصيل منزلي</span>
+                </div>
+                <div className="text-lg font-bold text-sky-500">
+                  {shiftSummary.deliveryCount} <span className="text-[11px] font-normal text-slate-400">طلب</span>
                 </div>
               </div>
 
-              {/* طلبات الاستلام */}
-              <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between shadow-xs ${
-                isLight 
-                  ? 'bg-purple-50/70 border-purple-200' 
-                  : 'bg-gradient-to-b from-purple-950/30 to-slate-800/40 border-purple-500/30'
+              {/* الصالة وتيك أواي (بجانب الدليفري) */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                isLight ? 'bg-purple-50/60 border-purple-200' : 'bg-purple-500/10 border-purple-500/20'
               }`}>
-                <div className="flex items-center justify-between text-xs font-black text-purple-600 dark:text-purple-400">
-                  <span className="flex items-center gap-1.5">
-                    <span>🏬</span>
-                    <span>صالة وتيك أواي</span>
-                  </span>
-                  <div className="p-1.5 rounded-xl bg-purple-500/20 text-purple-400">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-purple-500/15 text-purple-500">
                     <ShoppingBag className="w-4 h-4" />
                   </div>
-                </div>
-                <div className="mt-3">
-                  <div className="text-xl sm:text-2xl font-black text-purple-500 tracking-tight flex items-baseline gap-1">
-                    <span>{shiftSummary.pickupCount}</span>
-                    <span className="text-xs font-bold text-purple-600/80 dark:text-purple-400/80">طلب</span>
+                  <div>
+                    <span className="text-xs font-bold text-purple-600 dark:text-purple-400 block">صالة وتيك أواي</span>
+                    <span className="text-[10px] text-slate-400 block">استلام مباشر</span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 block mt-1">استلام مباشر</span>
+                </div>
+                <div className="text-lg font-bold text-purple-500">
+                  {shiftSummary.pickupCount} <span className="text-[11px] font-normal text-slate-400">طلب</span>
                 </div>
               </div>
             </div>
 
-            {/* تفصيل طرق الدفع بتصميم بطاقات أنيق */}
-            <div className={`p-4 rounded-2xl border space-y-3 shadow-xs ${
-              isLight 
-                ? 'bg-slate-50/80 border-slate-200' 
-                : 'bg-slate-800/40 border-slate-700/60'
+            {/* تفصيل طرق الدفع */}
+            <div className={`p-3 rounded-xl border space-y-2 ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/40 border-slate-700/60'
             }`}>
-              <div className="text-xs font-black text-amber-500 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Coins className="w-4 h-4" />
-                  <span>💳 تفصيل طرق الدفع للمبيعات المؤكدة:</span>
-                </span>
-                <span className="text-[10px] font-bold text-slate-400">3 طرق دفع</span>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-2.5 text-center">
-                {/* كاش */}
-                <div className={`p-3 rounded-xl border transition-all ${
-                  isLight 
-                    ? 'bg-white border-slate-200 shadow-xs' 
-                    : 'bg-slate-800/90 border-slate-700/80 hover:border-emerald-500/40'
+              <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                <Coins className="w-3.5 h-3.5 text-amber-500" />
+                <span>طرق تحصيل المبيعات:</span>
+              </span>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className={`p-2 rounded-lg border ${
+                  isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'
                 }`}>
-                  <span className="text-[11px] text-slate-400 font-bold block mb-1">
-                    💵 كاش (نقدي)
-                  </span>
-                  <span className="text-base sm:text-lg font-black text-emerald-500 block">
-                    {shiftSummary.cashAmount.toLocaleString()} <span className="text-[10px]">ج.م</span>
-                  </span>
+                  <span className="text-[10px] text-slate-400 block">💵 كاش (نقدي)</span>
+                  <span className="font-bold text-emerald-500 block mt-0.5">{shiftSummary.cashAmount.toLocaleString()} ج.م</span>
                 </div>
 
-                {/* فودافون كاش ومحافظ */}
-                <div className={`p-3 rounded-xl border transition-all ${
-                  isLight 
-                    ? 'bg-white border-slate-200 shadow-xs' 
-                    : 'bg-slate-800/90 border-slate-700/80 hover:border-amber-500/40'
+                <div className={`p-2 rounded-lg border ${
+                  isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'
                 }`}>
-                  <span className="text-[11px] text-slate-400 font-bold block mb-1 truncate">
-                    📱 محافظ إلكترونية
-                  </span>
-                  <span className="text-base sm:text-lg font-black text-amber-500 block">
-                    {shiftSummary.walletAmount.toLocaleString()} <span className="text-[10px]">ج.م</span>
-                  </span>
+                  <span className="text-[10px] text-slate-400 block">📱 محافظ</span>
+                  <span className="font-bold text-amber-500 block mt-0.5">{shiftSummary.walletAmount.toLocaleString()} ج.م</span>
                 </div>
 
-                {/* إنستاباي */}
-                <div className={`p-3 rounded-xl border transition-all ${
-                  isLight 
-                    ? 'bg-white border-slate-200 shadow-xs' 
-                    : 'bg-slate-800/90 border-slate-700/80 hover:border-cyan-500/40'
+                <div className={`p-2 rounded-lg border ${
+                  isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'
                 }`}>
-                  <span className="text-[11px] text-slate-400 font-bold block mb-1">
-                    ⚡ إنستاباي
-                  </span>
-                  <span className="text-base sm:text-lg font-black text-cyan-500 block">
-                    {shiftSummary.instapayAmount.toLocaleString()} <span className="text-[10px]">ج.م</span>
-                  </span>
+                  <span className="text-[10px] text-slate-400 block">⚡ إنستاباي</span>
+                  <span className="font-bold text-cyan-500 block mt-0.5">{shiftSummary.instapayAmount.toLocaleString()} ج.م</span>
                 </div>
               </div>
             </div>
 
             {/* تنبيه الطلبات المعلقة إن وجدت */}
             {shiftSummary.pendingOrders > 0 && (
-              <div className={`p-3.5 rounded-2xl border flex items-start gap-3 text-xs font-bold shadow-xs ${
-                isLight 
-                  ? 'bg-amber-50 border-amber-300 text-amber-950' 
-                  : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+              <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs font-bold ${
+                isLight ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
               }`}>
-                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
-                  <span className="font-black">⚠️ تنبيه بالطلبات المعلقة:</span> يوجد{' '}
-                  <span className="font-black underline decoration-amber-500 decoration-2">{shiftSummary.pendingOrders} طلبات</span> قيد الانتظار لم يتم تأكيدها أو إلغاؤها بعد. سيتم أرشفة الوردية مع هذه الفواتير.
-                </div>
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>تنبيه: يوجد {shiftSummary.pendingOrders} طلبات قيد الانتظار سيتم ترحيلها مع هذه الوردية.</span>
               </div>
             )}
 
-            {/* بطاقة التوضيح الأنيقة: ماذا يحدث عند التقفيل */}
-            <div className={`p-4 rounded-2xl border flex items-start gap-3 text-xs leading-relaxed shadow-xs ${
-              isLight 
-                ? 'bg-blue-50/90 border-blue-200 text-blue-950' 
-                : 'bg-blue-950/40 border-blue-500/30 text-blue-200'
+            {/* تنبيه تصفير الشاشة */}
+            <div className={`p-3 rounded-xl border flex items-start gap-2 text-xs leading-relaxed ${
+              isLight ? 'bg-blue-50/70 border-blue-200 text-blue-900' : 'bg-blue-950/30 border-blue-500/20 text-blue-200'
             }`}>
-              <div className="p-1.5 rounded-xl bg-blue-500/20 text-blue-400 shrink-0 mt-0.5">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <div className="space-y-1.5">
-                <p className="font-black text-sm flex items-center gap-1.5">
-                  <span>ماذا يحدث عند الضغط على تأكيد التقفيل؟</span>
-                </p>
-                <ul className="space-y-1 text-xs opacity-90">
-                  <li className="flex items-center gap-2">
-                    <span className="text-emerald-500 font-black">✓</span>
-                    <span>سيتم تصفير فواتير شاشة المتابعة فوراً لبدء الوردية الجديدة رقم #{currentShiftNumber + 1}.</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-emerald-500 font-black">✓</span>
-                    <span>ستنتقل فواتير وإحصائيات هذه الوردية كاملة إلى تبويبة <strong>(فواتير الورديات)</strong> بلوحة الإدارة.</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-emerald-500 font-black">✓</span>
-                    <span>لن يتم حذف أي فاتورة من النظام، وستظل محفوظة بالكامل للتقارير والأرشيف.</span>
-                  </li>
-                </ul>
-              </div>
+              <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <span>
+                عند التأكيد سيتم تصفير شاشة المتابعة فوراً للوردية الجديدة رقم #{currentShiftNumber + 1} مع نقل كافة الفواتير لأرشيف <strong>فواتير الورديات</strong>.
+              </span>
             </div>
 
-            {/* أزرار الإجراءات الفاخرة */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            {/* أزرار الإجراءات */}
+            <div className="flex gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={handleConfirmCloseShift}
                 disabled={isClosingShift}
-                className="flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-sm transition cursor-pointer shadow-lg shadow-amber-500/25 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 font-bold text-sm transition cursor-pointer shadow-sm active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isClosingShift ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                    <span>جاري تقفيل الوردية وتصفير الشاشة...</span>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>جاري التقفيل والتصفير...</span>
                   </>
                 ) : (
                   <>
-                    <Lock className="w-4 h-4 text-slate-950" />
-                    <span>تأكيد تقفيل الوردية وتصفير الفواتير 🔒</span>
+                    <Lock className="w-4 h-4" />
+                    <span>تأكيد تقفيل الوردية وتصفير الفواتير</span>
                   </>
                 )}
               </button>
@@ -2602,13 +2478,13 @@ export default function OrderMonitorPage() {
                 type="button"
                 onClick={() => setIsShiftModalOpen(false)}
                 disabled={isClosingShift}
-                className={`py-3.5 px-5 rounded-2xl text-xs font-black transition cursor-pointer active:scale-95 border ${
+                className={`py-3 px-4 rounded-xl text-xs font-bold transition cursor-pointer active:scale-[0.98] border ${
                   isLight
                     ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                 }`}
               >
-                إلغاء ومتابعة الوردية ✕
+                إلغاء
               </button>
             </div>
 
