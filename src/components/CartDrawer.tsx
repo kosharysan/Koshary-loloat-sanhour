@@ -243,12 +243,24 @@ export const CartDrawer: React.FC = () => {
         let text = `${item.name} × ${item.quantity}`;
         if (item.selectedSize) text += ` (${item.selectedSize})`;
         const details: string[] = [];
-        if (item.extras && item.extras.length > 0) {
-          details.push(`إضافات: ${item.extras.map(e => e.name).join('، ')}`);
+
+        // تفاصيل الطاجن المبتكر الخاص (المكونات والشطة)
+        if (item.customDishDetails) {
+          const cd = item.customDishDetails;
+          if (cd.base) details.push(`أساس: ${cd.base}`);
+          if (cd.spice) details.push(`شطة: ${cd.spice}`);
+          if (cd.toppings && cd.toppings.length > 0) details.push(`إضافات: ${cd.toppings.join('، ')}`);
+          if (cd.noOptions && cd.noOptions.length > 0) details.push(`بدون: ${cd.noOptions.join('، ')}`);
+          if (cd.customNotes && cd.customNotes.length > 0) details.push(`ملاحظة: ${cd.customNotes.join('، ')}`);
+        } else {
+          if (item.extras && item.extras.length > 0) {
+            details.push(`إضافات: ${item.extras.map(e => e.name).join('، ')}`);
+          }
+          if (item.itemNotes && item.itemNotes.length > 0) {
+            details.push(item.itemNotes.join('، '));
+          }
         }
-        if (item.itemNotes && item.itemNotes.length > 0) {
-          details.push(item.itemNotes.join('، '));
-        }
+
         if (details.length > 0) {
           text += ` [${details.join(' • ')}]`;
         }
