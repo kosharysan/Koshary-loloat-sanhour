@@ -1031,13 +1031,13 @@ export default function OrderMonitorPage() {
                         <button
                           type="button"
                           onClick={() => setExpandedOrderId(order.id)}
-                          className={`w-full py-1.5 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-98 shadow-2xs ${
+                          className={`w-full py-2.5 sm:py-3 px-4 rounded-2xl border text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer active:scale-98 shadow-xs ${
                             isLight
-                              ? 'bg-white hover:bg-slate-50 border-slate-300 text-slate-800 hover:text-amber-800'
-                              : 'bg-slate-950/50 hover:bg-slate-950 border-slate-700/60 hover:border-amber-500/40 text-amber-300/90'
+                              ? 'bg-white hover:bg-amber-50/80 border-slate-300 hover:border-amber-400 text-slate-900 hover:text-amber-900'
+                              : 'bg-slate-950/60 hover:bg-slate-950 border-slate-700 hover:border-amber-500/50 text-amber-300'
                           }`}
                         >
-                          <Utensils className={`w-3.5 h-3.5 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
+                          <Utensils className={`w-4 h-4 shrink-0 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
                           <span>عرض تفاصيل ومكونات الوجبات ({order.items_count || 1}) ▾</span>
                         </button>
                       )}
