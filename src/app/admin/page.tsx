@@ -1542,10 +1542,10 @@ export default function AdminPortal() {
 
       if (isDaily) {
         key = d.toISOString().slice(0, 10);
-        label = d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+        label = d.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short' });
       } else {
         key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        label = d.toLocaleDateString('ar-EG', { month: 'short', year: 'numeric' });
+        label = d.toLocaleDateString('ar-EG-u-nu-latn', { month: 'short', year: 'numeric' });
       }
 
       if (!bucketsMap.has(key)) {
@@ -1598,8 +1598,8 @@ export default function AdminPortal() {
       avgRevenue: avgRev,
       topBucket,
       topPeriod,
-      startDateStr: firstDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' }),
-      endDateStr: lastDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' })
+      startDateStr: firstDate.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }),
+      endDateStr: lastDate.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' })
     };
   }, [confirmedOrders, reportSelectedMonth]);
 
@@ -1692,7 +1692,7 @@ export default function AdminPortal() {
     itemInfo.ordersList.forEach(order => {
       const d = new Date(order.created_at);
       const key = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+      const label = d.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short' });
 
       const parsedDetails = parseOrderDetails(order.special_notes);
       const itemsList = Array.isArray(order.items) && order.items.length > 0
@@ -3321,7 +3321,7 @@ export default function AdminPortal() {
                     
                     <div className="flex items-baseline gap-2 mb-3 relative z-10">
                       <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm font-sans">
-                        {confirmedRevenue.toLocaleString('ar-EG')}
+                        {confirmedRevenue.toLocaleString()}
                       </span>
                       <span className="text-sm sm:text-base font-black text-emerald-400">جنيه مصري</span>
                     </div>
@@ -3332,7 +3332,7 @@ export default function AdminPortal() {
                         <span>قيمة الطلبات المؤكدة فقط</span>
                       </span>
                       <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30 font-sans">
-                        {confirmedOrders.length.toLocaleString('ar-EG')} طلب مؤكد
+                        {confirmedOrders.length.toLocaleString()} طلب مؤكد
                       </span>
                     </div>
                   </div>
@@ -3361,7 +3361,7 @@ export default function AdminPortal() {
                     <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
                       <div className="flex items-baseline gap-2">
                         <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm font-sans">
-                          {confirmedOrders.length.toLocaleString('ar-EG')}
+                          {confirmedOrders.length.toLocaleString()}
                         </span>
                         <span className="text-sm sm:text-base font-black text-indigo-400">أوردر</span>
                       </div>
@@ -3372,7 +3372,7 @@ export default function AdminPortal() {
                           <span>العملاء المؤكدون</span>
                         </div>
                         <div className="text-sm sm:text-lg font-black text-amber-300 text-right font-sans">
-                          {uniqueConfirmedCustomerCount.toLocaleString('ar-EG')} <span className="text-xs text-indigo-200/60 font-medium">عميل</span>
+                          {uniqueConfirmedCustomerCount.toLocaleString()} <span className="text-xs text-indigo-200/60 font-medium">عميل</span>
                         </div>
                       </div>
                     </div>
@@ -3383,7 +3383,7 @@ export default function AdminPortal() {
                         <span>عملاء مميزون</span>
                       </span>
                       <span className="text-amber-300 font-bold bg-slate-950/60 px-2.5 py-1 rounded-xl border border-indigo-500/30 font-sans">
-                        من {uniqueConfirmedCustomerCount.toLocaleString('ar-EG')} شخص مختلف
+                        من {uniqueConfirmedCustomerCount.toLocaleString()} شخص مختلف
                       </span>
                     </div>
                   </div>
@@ -3412,7 +3412,7 @@ export default function AdminPortal() {
                     <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
                       <div className="flex items-baseline gap-2">
                         <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-sm font-sans">
-                          {cancelledRevenue.toLocaleString('ar-EG')}
+                          {cancelledRevenue.toLocaleString()}
                         </span>
                         <span className="text-sm sm:text-base font-black text-rose-400">جنيه</span>
                       </div>
@@ -3423,7 +3423,7 @@ export default function AdminPortal() {
                           <span>عدد الملغي</span>
                         </div>
                         <div className="text-sm sm:text-lg font-black text-rose-300 text-right font-sans">
-                          {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-xs text-rose-200/60 font-medium">أوردر</span>
+                          {cancelledOrders.length.toLocaleString()} <span className="text-xs text-rose-200/60 font-medium">أوردر</span>
                         </div>
                       </div>
                     </div>
@@ -3434,7 +3434,7 @@ export default function AdminPortal() {
                         <span>قيمة المبيعات غير المحصلة</span>
                       </span>
                       <span className="text-rose-300 font-bold bg-rose-950/60 px-2.5 py-1 rounded-xl border border-rose-500/30 font-sans">
-                        {cancelledOrders.length.toLocaleString('ar-EG')} طلب ملغي
+                        {cancelledOrders.length.toLocaleString()} طلب ملغي
                       </span>
                     </div>
                   </div>
@@ -3468,11 +3468,11 @@ export default function AdminPortal() {
                           <Trophy className="w-4 h-4 text-amber-400" />
                           <span className="text-slate-400 font-bold">الأعلى تحصيلاً:</span>
                           <span className="text-amber-300 font-black">{salesTrendChartData.topPeriod.name}</span>
-                          <span className="text-emerald-400 font-black font-sans">({salesTrendChartData.topPeriod.confirmedRevenue.toLocaleString('ar-EG')} ج.م)</span>
+                          <span className="text-emerald-400 font-black font-sans">({salesTrendChartData.topPeriod.confirmedRevenue.toLocaleString()} ج.م)</span>
                         </div>
                         <div className="px-3.5 py-1.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs flex items-center gap-1.5">
                           <span className="text-slate-400 font-bold">المتوسط:</span>
-                          <span className="text-white font-black font-sans">{Math.round(salesTrendChartData.avgRevenue).toLocaleString('ar-EG')} ج.م</span>
+                          <span className="text-white font-black font-sans">{Math.round(salesTrendChartData.avgRevenue).toLocaleString()} ج.م</span>
                         </div>
                       </div>
                     )}
@@ -3503,7 +3503,7 @@ export default function AdminPortal() {
                                 {/* نافذة التفاصيل عند التمرير (Tooltip) */}
                                 <div className="absolute -top-12 z-30 opacity-0 group-hover:opacity-100 transition-all pointer-events-none bg-slate-800 text-white text-[11px] font-bold rounded-xl px-3 py-1.5 shadow-2xl border border-slate-700 whitespace-nowrap">
                                   <div>{bucket.name}</div>
-                                  <div className="text-emerald-400 font-sans">{bucket.confirmedRevenue.toLocaleString('ar-EG')} ج.م ({bucket.confirmedCount} طلب)</div>
+                                  <div className="text-emerald-400 font-sans">{bucket.confirmedRevenue.toLocaleString()} ج.م ({bucket.confirmedCount} طلب)</div>
                                 </div>
 
                                 {/* قيمة المبيعات فوق العمود */}
@@ -3517,7 +3517,7 @@ export default function AdminPortal() {
                                   <span className={`text-[10px] sm:text-xs font-black block font-sans transition-colors ${
                                     isTop ? 'text-amber-300 font-black' : bucket.confirmedRevenue > 0 ? 'text-emerald-300' : 'text-slate-600'
                                   }`}>
-                                    {bucket.confirmedRevenue > 0 ? bucket.confirmedRevenue.toLocaleString('ar-EG') : '0'}
+                                    {bucket.confirmedRevenue > 0 ? bucket.confirmedRevenue.toLocaleString() : '0'}
                                   </span>
                                 </div>
 
@@ -3582,7 +3582,7 @@ export default function AdminPortal() {
                           </span>
                         </h3>
                         <p className="text-xs text-slate-400 font-bold mt-0.5">
-                          إجمالي الكميات المباعة: <span className="text-amber-400 font-black font-sans">{menuItemsRankingData.totalSoldAllItems.toLocaleString('ar-EG')} قطعة/طاجن</span> | صافي دخل الأصناف: <span className="text-emerald-400 font-black font-sans">{menuItemsRankingData.totalRevenueAllItems.toLocaleString('ar-EG')} ج.م</span>
+                          إجمالي الكميات المباعة: <span className="text-amber-400 font-black font-sans">{menuItemsRankingData.totalSoldAllItems.toLocaleString()} قطعة/طاجن</span> | صافي دخل الأصناف: <span className="text-emerald-400 font-black font-sans">{menuItemsRankingData.totalRevenueAllItems.toLocaleString()} ج.م</span>
                         </p>
                       </div>
                     </div>
@@ -3619,7 +3619,7 @@ export default function AdminPortal() {
                               {menuItemsRankingData.topItem.name}
                             </h4>
                             <p className="text-xs text-slate-300 font-bold mt-0.5">
-                              حقق <span className="text-amber-300 font-black font-sans">{menuItemsRankingData.topItem.quantity.toLocaleString('ar-EG')}</span> طلب بإجمالي مبيعات <span className="text-emerald-400 font-black font-sans">{menuItemsRankingData.topItem.revenue.toLocaleString('ar-EG')} ج.م</span>
+                              حقق <span className="text-amber-300 font-black font-sans">{menuItemsRankingData.topItem.quantity.toLocaleString()}</span> طلب بإجمالي مبيعات <span className="text-emerald-400 font-black font-sans">{menuItemsRankingData.topItem.revenue.toLocaleString()} ج.م</span>
                             </p>
                           </div>
                         </div>
@@ -3651,7 +3651,7 @@ export default function AdminPortal() {
                               تحليل حركة ومبيعات صنف: <span className="text-indigo-400 font-black">&quot;{reportSelectedItemForChart}&quot;</span>
                             </h4>
                             <p className="text-xs text-slate-400 font-bold">
-                              إجمالي المباع: <span className="text-amber-300 font-black font-sans">{selectedItemChartData.itemInfo?.quantity || 0} قطعة/طاجن</span> | إجمالي العائد: <span className="text-emerald-400 font-black font-sans">{(selectedItemChartData.itemInfo?.revenue || 0).toLocaleString('ar-EG')} ج.م</span>
+                              إجمالي المباع: <span className="text-amber-300 font-black font-sans">{(selectedItemChartData.itemInfo?.quantity || 0).toLocaleString()} قطعة/طاجن</span> | إجمالي العائد: <span className="text-emerald-400 font-black font-sans">{(selectedItemChartData.itemInfo?.revenue || 0).toLocaleString()} ج.م</span>
                             </p>
                           </div>
                         </div>
@@ -3679,7 +3679,7 @@ export default function AdminPortal() {
                                 <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer">
                                   <div className="mb-1.5 text-center">
                                     <span className="text-[10px] font-black text-indigo-300 block font-sans">
-                                      {b.revenue > 0 ? `${b.revenue.toLocaleString('ar-EG')} ج.م` : '0'}
+                                      {b.revenue > 0 ? `${b.revenue.toLocaleString()} ج.م` : '0'}
                                     </span>
                                   </div>
                                   <div className="w-full max-w-[36px] bg-slate-950 rounded-t-xl overflow-hidden border border-slate-800">
@@ -3745,14 +3745,14 @@ export default function AdminPortal() {
                                 <div>
                                   <h5 className="text-sm font-black text-white">{item.name}</h5>
                                   <p className="text-[11px] text-slate-400 font-bold mt-0.5">
-                                    الكمية المباعة: <span className="text-amber-400 font-black font-sans">{item.quantity.toLocaleString('ar-EG')}</span> قطعة/طاجن
+                                    الكمية المباعة: <span className="text-amber-400 font-black font-sans">{item.quantity.toLocaleString()}</span> قطعة/طاجن
                                   </p>
                                 </div>
                               </div>
 
                               <div className="text-left shrink-0">
                                 <span className="text-base font-black text-emerald-400 block font-sans">
-                                  {item.revenue.toLocaleString('ar-EG')} ج.م
+                                  {item.revenue.toLocaleString()} ج.م
                                 </span>
                                 <span className="text-[10px] text-slate-500 font-bold font-sans">
                                   {pctOfTotal}% من دخل الأصناف
@@ -3774,7 +3774,7 @@ export default function AdminPortal() {
 
                             <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
                               <span className="text-[11px] text-slate-400 font-medium">
-                                متوسط سعر الصنف: <span className="text-white font-bold font-sans">{item.quantity > 0 ? Math.round(item.revenue / item.quantity).toLocaleString('ar-EG') : 0} ج.م</span>
+                                متوسط سعر الصنف: <span className="text-white font-bold font-sans">{item.quantity > 0 ? Math.round(item.revenue / item.quantity).toLocaleString() : 0} ج.م</span>
                               </span>
 
                               <button
@@ -3853,13 +3853,13 @@ export default function AdminPortal() {
                       <div>
                         <span className="text-xs font-bold text-emerald-400 block">🟢 العملاء النشطون (طلبوا خلال آخر 30 يوم)</span>
                         <span className="text-2xl font-black text-white mt-1 block font-sans">
-                          {customerAnalyticsData.activeList.length.toLocaleString('ar-EG')} <span className="text-xs text-emerald-300 font-bold font-sans">({customerAnalyticsData.activePercent}%)</span>
+                          {customerAnalyticsData.activeList.length.toLocaleString()} <span className="text-xs text-emerald-300 font-bold font-sans">({customerAnalyticsData.activePercent}%)</span>
                         </span>
                       </div>
                       <div className="text-left">
                         <span className="text-[11px] text-slate-400 font-bold block">أعلى زبون إنفاقاً:</span>
                         <span className="text-sm font-black text-amber-300 font-sans">
-                          {customerAnalyticsData.activeList[0] ? `${customerAnalyticsData.activeList[0].totalSpent.toLocaleString('ar-EG')} ج.م` : '0'}
+                          {customerAnalyticsData.activeList[0] ? `${customerAnalyticsData.activeList[0].totalSpent.toLocaleString()} ج.م` : '0'}
                         </span>
                       </div>
                     </div>
@@ -3868,7 +3868,7 @@ export default function AdminPortal() {
                       <div>
                         <span className="text-xs font-bold text-rose-400 block">💤 العملاء الخاملون (لم يطلبوا منذ أكثر من 30 يوم)</span>
                         <span className="text-2xl font-black text-white mt-1 block font-sans">
-                          {customerAnalyticsData.inactiveList.length.toLocaleString('ar-EG')} <span className="text-xs text-rose-300 font-bold font-sans">({customerAnalyticsData.inactivePercent}%)</span>
+                          {customerAnalyticsData.inactiveList.length.toLocaleString()} <span className="text-xs text-rose-300 font-bold font-sans">({customerAnalyticsData.inactivePercent}%)</span>
                         </span>
                       </div>
                       <div className="text-left">
@@ -3913,7 +3913,7 @@ export default function AdminPortal() {
 
                                 <div className="text-left">
                                   <span className="text-xs font-black text-emerald-400 font-sans block">
-                                    {cust.totalSpent.toLocaleString('ar-EG')} ج.م
+                                    {cust.totalSpent.toLocaleString()} ج.م
                                   </span>
                                   <span className="text-[10px] text-slate-500 font-bold font-sans block">
                                     {cust.confirmedCount} طلب مؤكد
@@ -3991,7 +3991,7 @@ export default function AdminPortal() {
                                 </div>
 
                                 <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-                                  <span>إنفاق سابق: <strong className="text-white font-sans">{cust.totalSpent.toLocaleString('ar-EG')} ج.م</strong></span>
+                                  <span>إنفاق سابق: <strong className="text-white font-sans">{cust.totalSpent.toLocaleString()} ج.م</strong></span>
                                   
                                   <a
                                     href={waLink}
@@ -4023,15 +4023,15 @@ export default function AdminPortal() {
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">كاش (نقدي)</span>
-                        <span className="text-base font-black text-emerald-400 font-sans block mt-1">{paymentMethodStats.cash.toLocaleString('ar-EG')} ج.م</span>
+                        <span className="text-base font-black text-emerald-400 font-sans block mt-1">{paymentMethodStats.cash.toLocaleString()} ج.م</span>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">محافظ إلكترونية</span>
-                        <span className="text-base font-black text-amber-400 font-sans block mt-1">{paymentMethodStats.wallet.toLocaleString('ar-EG')} ج.م</span>
+                        <span className="text-base font-black text-amber-400 font-sans block mt-1">{paymentMethodStats.wallet.toLocaleString()} ج.م</span>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">إنستاباي</span>
-                        <span className="text-base font-black text-cyan-400 font-sans block mt-1">{paymentMethodStats.instapay.toLocaleString('ar-EG')} ج.م</span>
+                        <span className="text-base font-black text-cyan-400 font-sans block mt-1">{paymentMethodStats.instapay.toLocaleString()} ج.م</span>
                       </div>
                     </div>
                   </div>
@@ -4045,11 +4045,11 @@ export default function AdminPortal() {
                     <div className="grid grid-cols-2 gap-2 text-center text-xs">
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">🛵 طلبات الدليفري</span>
-                        <span className="text-base font-black text-sky-400 font-sans block mt-1">{orderTypeStats.delivery.toLocaleString('ar-EG')} طلب</span>
+                        <span className="text-base font-black text-sky-400 font-sans block mt-1">{orderTypeStats.delivery.toLocaleString()} طلب</span>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">🏬 استلام من الفرع</span>
-                        <span className="text-base font-black text-purple-400 font-sans block mt-1">{orderTypeStats.pickup.toLocaleString('ar-EG')} طلب</span>
+                        <span className="text-base font-black text-purple-400 font-sans block mt-1">{orderTypeStats.pickup.toLocaleString()} طلب</span>
                       </div>
                     </div>
                   </div>
