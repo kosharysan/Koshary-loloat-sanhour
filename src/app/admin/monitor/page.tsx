@@ -718,18 +718,21 @@ export default function OrderMonitorPage() {
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           
           {/* 1. إجمالي المبيعات المؤكدة */}
-          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-cyan-500/30 bg-gradient-to-br from-[#07262d] via-[#091724] to-[#080d1a] shadow-xl hover:border-cyan-400/50 flex flex-col justify-between">
+          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-white/15 bg-gradient-to-br from-[#07262d]/90 via-[#091724]/95 to-[#080d1a]/95 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] shadow-cyan-950/20 ring-1 ring-white/10 hover:border-cyan-400/40 flex flex-col justify-between">
+            {/* iOS Glass Top Sheen & Inner Light Rim */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.12] via-white/[0.02] to-transparent pointer-events-none rounded-2xl sm:rounded-3xl" />
+            
             {/* Ambient corner glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-400/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
 
             <div className="relative z-10">
-              {/* Header: Icon Box + Status Tag */}
+              {/* Header: iOS Frosted Squircle Icon Box + Status Tag */}
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-950/50 shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[16px] sm:rounded-[20px] bg-white/10 backdrop-blur-xl border border-white/25 flex items-center justify-center text-cyan-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] shadow-cyan-500/10 shrink-0">
                   <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                 </div>
-                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md text-cyan-200 border border-white/20 shadow-xs flex items-center gap-1.5 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
                   <span className="hidden sm:inline">صافي التحصيل</span>
                   <span className="sm:hidden">صافي</span>
@@ -741,14 +744,14 @@ export default function OrderMonitorPage() {
                 <h3 className="text-xs sm:text-base font-black text-white block tracking-wide truncate">
                   إجمالي المبيعات
                 </h3>
-                <p className="text-[10px] sm:text-xs text-cyan-300/70 font-semibold truncate">
+                <p className="text-[10px] sm:text-xs text-cyan-300/80 font-medium truncate">
                   المؤكدة المعتمدة
                 </p>
               </div>
 
               {/* Big Value Number */}
               <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-3 flex-wrap">
-                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight drop-shadow-sm">
                   {confirmedRevenue.toLocaleString('ar-EG')}
                 </span>
                 <span className="text-[10px] sm:text-base font-black text-cyan-400">جنيه</span>
@@ -756,27 +759,30 @@ export default function OrderMonitorPage() {
             </div>
 
             {/* Footer */}
-            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-cyan-500/15 text-cyan-200/70">
+            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-white/10 text-cyan-200/70">
               <span className="truncate">المؤكد فقط</span>
-              <span className="bg-cyan-950/90 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
+              <span className="bg-white/10 backdrop-blur-md text-cyan-300 border border-white/15 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0 shadow-xs">
                 {confirmedOrders.length} طلب
               </span>
             </div>
           </div>
 
           {/* 2. عدد الأوردرات المؤكدة */}
-          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-purple-500/30 bg-gradient-to-br from-[#260e3d] via-[#141029] to-[#080d1a] shadow-xl hover:border-purple-400/50 flex flex-col justify-between">
+          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-white/15 bg-gradient-to-br from-[#260e3d]/90 via-[#141029]/95 to-[#080d1a]/95 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] shadow-purple-950/20 ring-1 ring-white/10 hover:border-purple-400/40 flex flex-col justify-between">
+            {/* iOS Glass Top Sheen & Inner Light Rim */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.12] via-white/[0.02] to-transparent pointer-events-none rounded-2xl sm:rounded-3xl" />
+
             {/* Ambient corner glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-purple-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute top-0 right-0 w-36 h-36 bg-purple-400/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-indigo-500/15 rounded-full blur-2xl pointer-events-none" />
 
             <div className="relative z-10">
-              {/* Header: Icon Box + Status Tag */}
+              {/* Header: iOS Frosted Squircle Icon Box + Status Tag */}
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-purple-950/80 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-md shadow-purple-950/50 shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[16px] sm:rounded-[20px] bg-white/10 backdrop-blur-xl border border-white/25 flex items-center justify-center text-purple-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] shadow-purple-500/10 shrink-0">
                   <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                 </div>
-                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-purple-950/80 text-purple-300 border border-purple-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md text-purple-200 border border-white/20 shadow-xs flex items-center gap-1.5 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
                   <span className="hidden sm:inline">تم التأكيد</span>
                   <span className="sm:hidden">مؤكد</span>
@@ -788,7 +794,7 @@ export default function OrderMonitorPage() {
                 <h3 className="text-xs sm:text-base font-black text-white block tracking-wide truncate">
                   عدد الأوردرات
                 </h3>
-                <p className="text-[10px] sm:text-xs text-purple-300/70 font-semibold truncate">
+                <p className="text-[10px] sm:text-xs text-purple-300/80 font-medium truncate">
                   الأوردرات المؤكدة
                 </p>
               </div>
@@ -796,47 +802,50 @@ export default function OrderMonitorPage() {
               {/* Big Orders Number + Customers */}
               <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3">
                 <div className="flex items-baseline gap-1 sm:gap-2">
-                  <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+                  <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight drop-shadow-sm">
                     {confirmedOrders.length.toLocaleString('ar-EG')}
                   </span>
                   <span className="text-[10px] sm:text-base font-black text-purple-400">أوردر</span>
                 </div>
 
                 {/* العملاء */}
-                <div className="bg-purple-950/90 border border-purple-500/30 rounded-lg sm:rounded-xl px-2 py-0.5 sm:py-1 text-left shrink-0">
-                  <div className="text-[8.5px] sm:text-[10px] font-bold text-purple-300/80 flex items-center gap-1 justify-end">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-[14px] px-2 py-0.5 sm:py-1 text-left shrink-0 shadow-xs">
+                  <div className="text-[8.5px] sm:text-[10px] font-bold text-purple-200/80 flex items-center gap-1 justify-end">
                     <Users className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-400" />
                     <span className="hidden sm:inline">العملاء:</span>
                   </div>
                   <div className="text-[11px] sm:text-sm font-black text-amber-300 text-right">
-                    {uniqueConfirmedCustomers.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold text-purple-300/60">عميل</span>
+                    {uniqueConfirmedCustomers.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold text-purple-200/70">عميل</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-purple-500/15 text-purple-200/70">
+            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-white/10 text-purple-200/70">
               <span className="truncate">نشاط العملاء</span>
-              <span className="bg-purple-950/90 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
+              <span className="bg-white/10 backdrop-blur-md text-purple-300 border border-white/15 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0 shadow-xs">
                 من {uniqueConfirmedCustomers} شخص
               </span>
             </div>
           </div>
 
           {/* 3. الطلبات الملغية ومبالغها */}
-          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-rose-500/30 bg-gradient-to-br from-[#3d0e1e] via-[#24101a] to-[#080d1a] shadow-xl hover:border-rose-400/50 flex flex-col justify-between">
+          <div className="relative group rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-300 overflow-hidden border border-white/15 bg-gradient-to-br from-[#3d0e1e]/90 via-[#24101a]/95 to-[#080d1a]/95 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] shadow-rose-950/20 ring-1 ring-white/10 hover:border-rose-400/40 flex flex-col justify-between">
+            {/* iOS Glass Top Sheen & Inner Light Rim */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.12] via-white/[0.02] to-transparent pointer-events-none rounded-2xl sm:rounded-3xl" />
+
             {/* Ambient corner glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute top-0 right-0 w-36 h-36 bg-rose-400/25 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-red-500/15 rounded-full blur-2xl pointer-events-none" />
 
             <div className="relative z-10">
-              {/* Header: Icon Box + Status Tag */}
+              {/* Header: iOS Frosted Squircle Icon Box + Status Tag */}
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-950/80 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-md shadow-rose-950/50 shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[16px] sm:rounded-[20px] bg-white/10 backdrop-blur-xl border border-white/25 flex items-center justify-center text-rose-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] shadow-rose-500/10 shrink-0">
                   <XCircle className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                 </div>
-                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-rose-950/80 text-rose-300 border border-rose-500/30 shadow-xs flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md text-rose-200 border border-white/20 shadow-xs flex items-center gap-1.5 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
                   <span>ملغي</span>
                 </span>
@@ -847,7 +856,7 @@ export default function OrderMonitorPage() {
                 <h3 className="text-xs sm:text-base font-black text-white block tracking-wide truncate">
                   الطلبات الملغية
                 </h3>
-                <p className="text-[10px] sm:text-xs text-rose-300/70 font-semibold truncate">
+                <p className="text-[10px] sm:text-xs text-rose-300/80 font-medium truncate">
                   فاقد المبيعات
                 </p>
               </div>
@@ -855,29 +864,29 @@ export default function OrderMonitorPage() {
               {/* Big Cancelled Revenue + Count */}
               <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3">
                 <div className="flex items-baseline gap-1 sm:gap-2">
-                  <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+                  <span className="text-lg sm:text-3xl lg:text-4xl font-black text-white tracking-tight drop-shadow-sm">
                     {cancelledRevenue.toLocaleString('ar-EG')}
                   </span>
                   <span className="text-[10px] sm:text-base font-black text-rose-400">جنيه</span>
                 </div>
 
                 {/* عدد الملغي */}
-                <div className="bg-rose-950/90 border border-rose-500/30 rounded-lg sm:rounded-xl px-2 py-0.5 sm:py-1 text-left shrink-0">
-                  <div className="text-[8.5px] sm:text-[10px] font-bold text-rose-300/80 flex items-center gap-1 justify-end">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-[14px] px-2 py-0.5 sm:py-1 text-left shrink-0 shadow-xs">
+                  <div className="text-[8.5px] sm:text-[10px] font-bold text-rose-200/80 flex items-center gap-1 justify-end">
                     <AlertTriangle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-rose-400" />
                     <span className="hidden sm:inline">العدد:</span>
                   </div>
                   <div className="text-[11px] sm:text-sm font-black text-rose-300 text-right">
-                    {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold text-rose-300/60">أوردر</span>
+                    {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold text-rose-200/70">أوردر</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-rose-500/15 text-rose-200/70">
+            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs font-semibold pt-2 sm:pt-3 border-t border-white/10 text-rose-200/70">
               <span className="truncate">قيمة غير محصلة</span>
-              <span className="bg-rose-950/90 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0">
+              <span className="bg-white/10 backdrop-blur-md text-rose-300 border border-white/15 px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0 shadow-xs">
                 {cancelledOrders.length} ملغي
               </span>
             </div>
