@@ -29,7 +29,7 @@ export const Footer: React.FC = () => {
                 <span className="text-amber-500 text-sm">👑</span>
               </h3>
               <p className="text-xs text-rose-600 font-black">
-                {restaurantInfo.tagline} • سنهور المدينة
+                {restaurantInfo.tagline} • سنهور القبلية
               </p>
               <p className="text-[11px] text-slate-500 max-w-sm font-medium">
                 كشري وطواجن زمان على أصولها - تجربة طعام ملكية في قلب الفيوم.

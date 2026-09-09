@@ -99,10 +99,10 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
 
           <div className="pt-2">
             <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/95 border-2 border-rose-200 shadow-[0_8px_25px_rgba(225,29,72,0.15)] text-rose-700 text-xs sm:text-sm font-black backdrop-blur-md">
-              <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>كشري وطواجن زمان على أصولها الفندقية</span>
+              <Star className="w-4.5 h-4.5 text-amber-500 fill-amber-400 drop-shadow-[0_2px_6px_rgba(245,158,11,0.5)]" />
+              <span>كشري وطواجن زمان على أصولها</span>
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-              <span className="text-slate-800">سنهور المدينة - الفيوم</span>
+              <span className="text-slate-800">سنهور القبلية - الفيوم</span>
             </div>
           </div>
 
