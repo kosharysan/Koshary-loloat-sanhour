@@ -27,10 +27,15 @@ import {
 } from 'lucide-react';
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useMenuStore } from '@/lib/menuStore';
+import { menuItems as defaultMenuItems } from '@/data/mockData';
 import { sounds } from '@/lib/sound';
 
 export default function OrderMonitorPage() {
-  const { monitorPassword = 'sanhour123', syncWithServer } = useMenuStore();
+  const { monitorPassword = 'sanhour123', syncWithServer, items: menuStoreItems } = useMenuStore();
+
+  const allAvailableMenuItems = useMemo(() => {
+    return (menuStoreItems && menuStoreItems.length > 0) ? menuStoreItems : defaultMenuItems;
+  }, [menuStoreItems]);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -295,10 +300,15 @@ export default function OrderMonitorPage() {
   };
 
   // Helper to parse each item line and extract the item name and trailing price
-  const parseItemLine = (itemStr: string) => {
+  const parseItemLine = (
+    itemStr: string,
+    allMenuItems: any[] = [],
+    orderSubtotal?: number,
+    itemsCount?: number
+  ) => {
     let clean = itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '').trim();
 
-    // Match price at the end of the line (e.g. "— 90 ج.م", "- 90 ج.م", "| 90 ج.م", "(90 ج.م)", "90 ج.م")
+    // 1. Match price directly if already in the string (e.g. "— 90 ج.م", "- 90 ج.م", "| 90 ج.م", "(90 ج.م)", "90 ج.م")
     const priceRegex = /(?:[—–\-]|\||\:|\()?\s*(\d+(?:\.\d+)?)\s*(?:ج\.م|جنيه)\)?\s*$/i;
     const match = clean.match(priceRegex);
 
@@ -311,6 +321,72 @@ export default function OrderMonitorPage() {
           price: `${priceVal} ج.م`
         };
       }
+    }
+
+    // 2. Extract quantity (e.g. "(x1)", "× 2", "x3", "×1")
+    let quantity = 1;
+    const qtyMatch = clean.match(/(?:\(x|×\s*|x\s*)(\d+)\)?/i);
+    if (qtyMatch && qtyMatch[1]) {
+      quantity = parseInt(qtyMatch[1], 10) || 1;
+    }
+
+    // Extract size in parentheses if not quantity, e.g. "(سوبر لؤلؤة)"
+    let detectedSize = '';
+    const sizeMatches = clean.match(/\(([^)]+)\)/g);
+    if (sizeMatches) {
+      for (const sm of sizeMatches) {
+        const inner = sm.replace(/[\(\)]/g, '').trim();
+        if (!inner.match(/^[xX×]\s*\d+$/)) {
+          detectedSize = inner;
+        }
+      }
+    }
+
+    // Clean name for menu lookup: strip (x1), [extras], brackets, etc.
+    const searchName = clean
+      .replace(/\[.*?\]/g, '')
+      .replace(/\((?:[xX×]?\d+|[^)]+)\)/g, '')
+      .replace(/[×xX]\s*\d+/g, '')
+      .trim();
+
+    // Look up in allMenuItems
+    if (allMenuItems && allMenuItems.length > 0) {
+      const found = allMenuItems.find(m => {
+        const mName = m.name?.trim() || '';
+        return (
+          mName === searchName ||
+          searchName.includes(mName) ||
+          mName.includes(searchName) ||
+          searchName.replace(/\s+/g, '') === mName.replace(/\s+/g, '')
+        );
+      });
+
+      if (found) {
+        let unitPrice = found.price || 0;
+        if (detectedSize && found.sizes && found.sizes.length > 0) {
+          const matchedSize = found.sizes.find((s: any) =>
+            s.name === detectedSize || detectedSize.includes(s.name) || s.name.includes(detectedSize)
+          );
+          if (matchedSize?.price) {
+            unitPrice = matchedSize.price;
+          }
+        }
+        const calcPrice = unitPrice * quantity;
+        if (calcPrice > 0) {
+          return {
+            name: clean,
+            price: `${calcPrice} ج.م`
+          };
+        }
+      }
+    }
+
+    // 3. Fallback for single-item order with known subtotal
+    if (itemsCount === 1 && orderSubtotal && orderSubtotal > 0) {
+      return {
+        name: clean,
+        price: `${orderSubtotal} ج.م`
+      };
     }
 
     return {
@@ -778,7 +854,7 @@ export default function OrderMonitorPage() {
                             {parsed.items.length > 0 ? (
                               <div className="space-y-1.5 pt-0.5">
                                 {parsed.items.map((itemStr, idx) => {
-                                  const itemInfo = parseItemLine(itemStr);
+                                  const itemInfo = parseItemLine(itemStr, allAvailableMenuItems, order.subtotal, order.items_count);
                                   return (
                                     <div
                                       key={idx}
@@ -793,7 +869,7 @@ export default function OrderMonitorPage() {
                                         </span>
                                       </div>
                                       {itemInfo.price && (
-                                        <span className="px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-[11px] whitespace-nowrap shrink-0 shadow-xs">
+                                        <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-xs whitespace-nowrap shrink-0 shadow-xs">
                                           {itemInfo.price}
                                         </span>
                                       )}
@@ -802,8 +878,11 @@ export default function OrderMonitorPage() {
                                 })}
                               </div>
                             ) : (
-                              <div className="text-xs text-slate-400 py-1 font-medium bg-slate-900/50 px-2.5 rounded-xl">
-                                عدد الأصناف: {order.items_count} صنف • الإجمالي: {order.total_amount} ج.م
+                              <div className="flex items-center justify-between text-xs text-slate-300 py-2 font-medium bg-slate-900/80 px-3 rounded-xl border border-slate-800">
+                                <span>عدد الأصناف: {order.items_count} صنف</span>
+                                <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-xs">
+                                  {order.subtotal || order.total_amount} ج.م
+                                </span>
                               </div>
                             )}
 
