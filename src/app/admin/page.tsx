@@ -45,7 +45,8 @@ import { Coupon, DeliveryZone, StoreScheduleSettings } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase } from '@/lib/supabase';
 import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
-import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
+import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, defaultWhatsAppNotificationSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
+import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat } from '@/lib/whatsapp';
 
 
 export default function AdminPortal() {
@@ -110,17 +111,38 @@ export default function AdminPortal() {
     toggleStoreManualStatus,
     monitorPassword = 'sanhour123',
     setMonitorPassword,
+    whatsappNotificationSettings = defaultWhatsAppNotificationSettings,
+    updateWhatsAppNotificationSettings,
+    toggleWhatsAppNotificationEnabled,
+    resetWhatsAppNotificationSettings,
   } = useMenuStore();
 
   const [tempMonitorPassword, setTempMonitorPassword] = useState(monitorPassword || 'sanhour123');
   const [showMonitorPassword, setShowMonitorPassword] = useState(false);
   const [monitorPassNotice, setMonitorPassNotice] = useState<string | null>(null);
 
+  // WhatsApp Notification Settings State
+  const [tempConfirmTemplate, setTempConfirmTemplate] = useState(whatsappNotificationSettings?.confirmTemplate || defaultConfirmNotificationTemplate);
+  const [tempCancelTemplate, setTempCancelTemplate] = useState(whatsappNotificationSettings?.cancelTemplate || defaultCancelNotificationTemplate);
+  const [whatsappActiveTab, setWhatsappActiveTab] = useState<'confirm' | 'cancel'>('confirm');
+  const [whatsappSaveNotice, setWhatsappSaveNotice] = useState<string | null>(null);
+
   useEffect(() => {
     if (monitorPassword) {
       setTempMonitorPassword(monitorPassword);
     }
   }, [monitorPassword]);
+
+  useEffect(() => {
+    if (whatsappNotificationSettings) {
+      if (whatsappNotificationSettings.confirmTemplate) {
+        setTempConfirmTemplate(whatsappNotificationSettings.confirmTemplate);
+      }
+      if (whatsappNotificationSettings.cancelTemplate) {
+        setTempCancelTemplate(whatsappNotificationSettings.cancelTemplate);
+      }
+    }
+  }, [whatsappNotificationSettings]);
 
   // Delivery Zones Management State
   const [isDeliveryZonesEditMode, setIsDeliveryZonesEditMode] = useState(false);
@@ -537,8 +559,24 @@ export default function AdminPortal() {
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
+    const targetOrder = orders.find(o => o.id === orderId);
     await updateOrderStatusInDb(orderId, newStatus);
     setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: newStatus } : o)));
+
+    // إرسال إشعار الواتساب التلقائي للعميل إذا كانت الإشعارات مفعلة
+    const isNotificationEnabled = whatsappNotificationSettings?.isEnabled ?? true;
+    if (isNotificationEnabled && targetOrder?.customer_phone) {
+      if (newStatus === 'confirmed') {
+        const template = whatsappNotificationSettings?.confirmTemplate || defaultConfirmNotificationTemplate;
+        const msg = formatWhatsAppNotification(template, targetOrder, { reason: 'تم التأكيد' });
+        if (msg) openWhatsAppChat(targetOrder.customer_phone, msg);
+      } else if (typeof newStatus === 'string' && (newStatus.startsWith('cancelled') || newStatus.includes('cancel'))) {
+        const reason = newStatus === 'cancelled_not_received' ? 'عدم استلام' : 'إلغاء الطلب';
+        const template = whatsappNotificationSettings?.cancelTemplate || defaultCancelNotificationTemplate;
+        const msg = formatWhatsAppNotification(template, targetOrder, { reason });
+        if (msg) openWhatsAppChat(targetOrder.customer_phone, msg);
+      }
+    }
   };
 
   const confirmDeleteOrder = async (orderId: string) => {
@@ -2859,6 +2897,281 @@ export default function AdminPortal() {
                 >
                   استعادة المناطق الأصلية
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* كارت إدارة رسائل إشعارات الواتساب للعملاء (تأكيد / إلغاء) */}
+          <div className="bg-slate-900/90 border-2 border-emerald-500/30 rounded-3xl p-6 sm:p-7 space-y-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* رأس الكارت */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 shadow-lg shadow-emerald-500/10">
+                  <MessageCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                      <span>إعدادات رسائل الواتساب التلقائية للعملاء</span>
+                    </h3>
+                    <span className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      تأكيد وإلغاء فوري 📲
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    تخصيص نص رسائل الواتساب التي ترسل للعميل مباشرة فور الضغط على زر (تأكيد) أو (إلغاء) في شاشة الطلبات
+                  </p>
+                </div>
+              </div>
+
+              {/* زر التفعيل العام للإشعارات */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleWhatsAppNotificationEnabled();
+                    showSaveIndicator();
+                  }}
+                  className={`py-2.5 px-4 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-md active:scale-95 ${
+                    whatsappNotificationSettings?.isEnabled !== false
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-emerald-500/20'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                  }`}
+                  title="تفعيل أو تعطيل إرسال رسائل الواتساب للعملاء"
+                >
+                  {whatsappNotificationSettings?.isEnabled !== false ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                      <span>إشعارات الواتساب: مفعلة 🟢</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4 text-slate-400" />
+                      <span>إشعارات الواتساب: معطلة مؤقتاً ⚪</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* إشعار الحفظ المحلي */}
+            {whatsappSaveNotice && (
+              <div className="p-3 rounded-2xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-black flex items-center gap-2 animate-fadeIn">
+                <Check className="w-4 h-4" />
+                <span>{whatsappSaveNotice}</span>
+              </div>
+            )}
+
+            {/* أزرار التبديل بين قالب التأكيد وقالب الإلغاء */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto p-1 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setWhatsappActiveTab('confirm')}
+                    className={`py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      whatsappActiveTab === 'confirm'
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>قالب رسالة تأكيد الطلب 🚀</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setWhatsappActiveTab('cancel')}
+                    className={`py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      whatsappActiveTab === 'cancel'
+                        ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>قالب رسالة إلغاء الطلب ⚠️</span>
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-slate-400">
+                  {whatsappActiveTab === 'confirm'
+                    ? 'يتم إرسالها عند الضغط على "تأكيد" في شاشة المتابعة'
+                    : 'يتم إرسالها عند الضغط على "إلغاء قبل الخروج" أو "عدم استلام"'}
+                </div>
+              </div>
+
+              {/* شريط المتغيرات الديناميكية القابلة للنقر للإدراج السريع */}
+              <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>المتغيرات الديناميكية المتاحة (اضغط على أي متغير لإدراجه في القالب):</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500">تستبدل تلقائياً ببيانات الطلب الفعلية</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    { key: '{customer_name}', label: 'اسم العميل', desc: 'مثل: أحمد كمال' },
+                    { key: '{order_id}', label: 'رقم الأوردر', desc: 'مثل: 248190' },
+                    { key: '{total_amount}', label: 'المبلغ الإجمالي', desc: 'مثل: 145' },
+                    { key: '{phone}', label: 'رقم الهاتف', desc: 'هاتف العميل' },
+                    ...(whatsappActiveTab === 'cancel' ? [{ key: '{reason}', label: 'سبب الإلغاء', desc: 'عدم استلام / قبل الخروج' }] : []),
+                    { key: '{items_count}', label: 'عدد الأصناف', desc: 'العدد الكلي للوجبات' },
+                  ].map((v) => (
+                    <button
+                      key={v.key}
+                      type="button"
+                      onClick={() => {
+                        if (whatsappActiveTab === 'confirm') {
+                          setTempConfirmTemplate(prev => prev ? `${prev} ${v.key}` : v.key);
+                        } else {
+                          setTempCancelTemplate(prev => prev ? `${prev} ${v.key}` : v.key);
+                        }
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-emerald-500/50 text-xs font-mono font-bold text-emerald-300 transition flex items-center gap-1.5 cursor-pointer active:scale-95 group shadow-xs"
+                      title={`انقر لإضافة ${v.key} (${v.desc})`}
+                    >
+                      <Plus className="w-3 h-3 text-slate-400 group-hover:text-emerald-400" />
+                      <span>{v.key}</span>
+                      <span className="text-[10px] text-slate-400 font-sans font-medium">({v.label})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* شبكة التحرير والمعاينة الحية للواتساب */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-1">
+                {/* 1. مربع التعديل والتحرير */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300">
+                      {whatsappActiveTab === 'confirm'
+                        ? 'محتوى رسالة التأكيد (يمكنك تعديل أي سطر):'
+                        : 'محتوى رسالة الإلغاء (يمكنك تعديل أي سطر):'}
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {(whatsappActiveTab === 'confirm' ? tempConfirmTemplate : tempCancelTemplate).length} حرف
+                    </span>
+                  </div>
+
+                  <textarea
+                    rows={9}
+                    dir="rtl"
+                    value={whatsappActiveTab === 'confirm' ? tempConfirmTemplate : tempCancelTemplate}
+                    onChange={(e) => {
+                      if (whatsappActiveTab === 'confirm') {
+                        setTempConfirmTemplate(e.target.value);
+                      } else {
+                        setTempCancelTemplate(e.target.value);
+                      }
+                    }}
+                    placeholder="اكتب نص الرسالة هنا مع المتغيرات..."
+                    className="w-full p-3.5 rounded-2xl bg-slate-950 border border-slate-700/80 text-white font-medium text-xs sm:text-sm focus:outline-none focus:border-emerald-500 font-mono leading-relaxed resize-y"
+                  />
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    💡 يمكنك استخدام نجوم للتغميق مثل <strong className="text-white font-bold">*كلمة عريضة*</strong> كما في محادثات الواتساب الرسمية.
+                  </p>
+                </div>
+
+                {/* 2. بطاقة المعاينة الحية كما ستظهر في شات الواتساب */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <span>معاينة حية لشكل الرسالة عند العميل:</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        واتساب 💬
+                      </span>
+                    </label>
+                    <span className="text-[10px] text-slate-500">مظهر المحادثة</span>
+                  </div>
+
+                  {(() => {
+                    const currentTemplate = whatsappActiveTab === 'confirm' ? tempConfirmTemplate : tempCancelTemplate;
+                    const sampleOrder = {
+                      id: 'ord-883921',
+                      customer_name: 'أحمد كمال',
+                      customer_phone: '01012345678',
+                      total_amount: 145,
+                      items: [{ quantity: 2 }, { quantity: 1 }],
+                    };
+                    const formatted = formatWhatsAppNotification(
+                      currentTemplate,
+                      sampleOrder,
+                      { reason: whatsappActiveTab === 'cancel' ? 'عدم استلام العميل للطلب' : undefined }
+                    );
+
+                    return (
+                      <div className="rounded-2xl bg-[#0b141a] border border-[#202c33] p-4 min-h-[220px] flex flex-col justify-between shadow-inner relative overflow-hidden">
+                        {/* خلفية بنمط الواتساب */}
+                        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#25d366_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+
+                        {/* فقاعة الرسالة الخضراء الملكية */}
+                        <div className="relative z-10 max-w-[92%] mr-auto rounded-2xl rounded-tr-xs bg-[#005c4b] text-[#e9edef] p-3 sm:p-3.5 shadow-md border border-[#02735e]/60 space-y-2">
+                          <div className="text-xs sm:text-[13px] font-sans leading-relaxed whitespace-pre-wrap dir-rtl select-text">
+                            {formatted || 'لا يوجد نص رسالة للمعاينة'}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-1 text-[10px] text-[#8696a0] pt-0.5 select-none">
+                            <span>الآن</span>
+                            <span className="text-sky-400 font-bold">✓✓</span>
+                          </div>
+                        </div>
+
+                        <div className="text-[10px] text-slate-500 text-center pt-2 relative z-10">
+                          هكذا تظهر الرسالة تلقائياً في شات المحل مع العميل بمجرد نقر زر التأكيد أو الإلغاء
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* أزرار الحفظ واستعادة الافتراضي */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateWhatsAppNotificationSettings({
+                        confirmTemplate: tempConfirmTemplate,
+                        cancelTemplate: tempCancelTemplate,
+                      });
+                      setWhatsappSaveNotice('تم حفظ قوالب رسائل الواتساب ومزامنتها مع السيرفر بنجاح ✓');
+                      setTimeout(() => setWhatsappSaveNotice(null), 4000);
+                      showSaveIndicator();
+                    }}
+                    className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>حفظ قوالب الرسائل ومزامنة السيرفر</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (whatsappActiveTab === 'confirm') {
+                        setTempConfirmTemplate(defaultConfirmNotificationTemplate);
+                      } else {
+                        setTempCancelTemplate(defaultCancelNotificationTemplate);
+                      }
+                      setWhatsappSaveNotice(`تم استعادة القالب الافتراضي لـ ${whatsappActiveTab === 'confirm' ? 'التأكيد' : 'الإلغاء'} (اضغط حفظ للتثبيت)`);
+                      setTimeout(() => setWhatsappSaveNotice(null), 4000);
+                    }}
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700"
+                    title="استعادة القالب الافتراضي الأصلي لهذه الرسالة"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>استعادة القالب الافتراضي</span>
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-slate-500 text-center sm:text-left">
+                  تنعكس التعديلات فوراً على شاشة الكاشير والمطبخ
+                </div>
               </div>
             </div>
           </div>

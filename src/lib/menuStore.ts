@@ -1,8 +1,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, Coupon, CartIncentiveSettings, DeliveryZone, StoreScheduleSettings, StoreStatusResult } from '@/types';
+import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, Coupon, CartIncentiveSettings, DeliveryZone, StoreScheduleSettings, StoreStatusResult, WhatsAppNotificationSettings } from '@/types';
 import { menuItems as defaultMenuItems, categories as defaultCategories, restaurantInfo, deliveryZones as defaultDeliveryZones } from '@/data/mockData';
 import { fetchRestaurantSettingsFromDb, saveRestaurantSettingsToDb } from '@/lib/supabase';
+import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate } from '@/lib/whatsapp';
+
+export const defaultWhatsAppNotificationSettings: WhatsAppNotificationSettings = {
+  isEnabled: true,
+  confirmTemplate: defaultConfirmNotificationTemplate,
+  cancelTemplate: defaultCancelNotificationTemplate,
+};
 
 export const defaultStoreScheduleSettings: StoreScheduleSettings = {
   mode: 'manual',
@@ -261,6 +268,10 @@ interface MenuStore {
   resetToFactoryOriginal: () => void;
   monitorPassword?: string;
   setMonitorPassword: (password: string) => void;
+  whatsappNotificationSettings: WhatsAppNotificationSettings;
+  updateWhatsAppNotificationSettings: (settings: Partial<WhatsAppNotificationSettings>) => void;
+  toggleWhatsAppNotificationEnabled: (enabled?: boolean) => void;
+  resetWhatsAppNotificationSettings: () => void;
   isServerSyncing: boolean;
   serverSyncError: string | null;
   lastServerSyncTime: string | null;
@@ -289,6 +300,31 @@ export const useMenuStore = create<MenuStore>()(
       monitorPassword: 'sanhour123',
       setMonitorPassword: (password: string) => {
         set({ monitorPassword: password.trim() });
+        get().saveToServer();
+      },
+      whatsappNotificationSettings: defaultWhatsAppNotificationSettings,
+      toggleWhatsAppNotificationEnabled: (enabled) => {
+        set(state => ({
+          whatsappNotificationSettings: {
+            ...state.whatsappNotificationSettings,
+            isEnabled: typeof enabled === 'boolean' ? enabled : !state.whatsappNotificationSettings.isEnabled
+          }
+        }));
+        get().saveToServer();
+      },
+      updateWhatsAppNotificationSettings: (settings) => {
+        set(state => ({
+          whatsappNotificationSettings: {
+            ...state.whatsappNotificationSettings,
+            ...settings
+          }
+        }));
+        get().saveToServer();
+      },
+      resetWhatsAppNotificationSettings: () => {
+        set({
+          whatsappNotificationSettings: defaultWhatsAppNotificationSettings
+        });
         get().saveToServer();
       },
       toggleWalletPayment: (enabled) => set(state => ({
@@ -626,6 +662,7 @@ export const useMenuStore = create<MenuStore>()(
               isCouponsEnabled: typeof remoteData.isCouponsEnabled === 'boolean' ? remoteData.isCouponsEnabled : get().isCouponsEnabled,
               isMinOrderEnabled: typeof remoteData.isMinOrderEnabled === 'boolean' ? remoteData.isMinOrderEnabled : get().isMinOrderEnabled,
               monitorPassword: remoteData.monitorPassword || get().monitorPassword || 'sanhour123',
+              whatsappNotificationSettings: remoteData.whatsappNotificationSettings || get().whatsappNotificationSettings || defaultWhatsAppNotificationSettings,
               isServerSyncing: false,
               lastServerSyncTime: new Date().toLocaleTimeString('ar-EG'),
             });
@@ -651,6 +688,7 @@ export const useMenuStore = create<MenuStore>()(
               isCouponsEnabled: get().isCouponsEnabled,
               isMinOrderEnabled: get().isMinOrderEnabled,
               monitorPassword: get().monitorPassword || 'sanhour123',
+              whatsappNotificationSettings: get().whatsappNotificationSettings,
             };
             const res = await saveRestaurantSettingsToDb(currentPayload);
             set({
@@ -686,6 +724,7 @@ export const useMenuStore = create<MenuStore>()(
             isCouponsEnabled: get().isCouponsEnabled,
             isMinOrderEnabled: get().isMinOrderEnabled,
             monitorPassword: get().monitorPassword || 'sanhour123',
+            whatsappNotificationSettings: get().whatsappNotificationSettings,
           };
           const res = await saveRestaurantSettingsToDb(payload);
           if (res.success) {
@@ -772,6 +811,17 @@ export const useMenuStore = create<MenuStore>()(
         walletPhoneNumber: persistedState?.walletPhoneNumber || restaurantInfo.cashWalletNumber,
         instapayHandle: persistedState?.instapayHandle || restaurantInfo.instapayHandle,
         monitorPassword: persistedState?.monitorPassword || 'sanhour123',
+        whatsappNotificationSettings: persistedState?.whatsappNotificationSettings
+          ? {
+              ...defaultWhatsAppNotificationSettings,
+              ...persistedState.whatsappNotificationSettings,
+              isEnabled: typeof persistedState.whatsappNotificationSettings.isEnabled === 'boolean'
+                ? persistedState.whatsappNotificationSettings.isEnabled
+                : defaultWhatsAppNotificationSettings.isEnabled,
+              confirmTemplate: persistedState.whatsappNotificationSettings.confirmTemplate || defaultWhatsAppNotificationSettings.confirmTemplate,
+              cancelTemplate: persistedState.whatsappNotificationSettings.cancelTemplate || defaultWhatsAppNotificationSettings.cancelTemplate,
+            }
+          : defaultWhatsAppNotificationSettings,
         isCouponsEnabled: typeof persistedState?.isCouponsEnabled === 'boolean'
           ? persistedState.isCouponsEnabled
           : true,

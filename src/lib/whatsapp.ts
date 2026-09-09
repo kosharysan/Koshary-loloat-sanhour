@@ -142,6 +142,50 @@ export function generateWhatsAppMessage({
   return lines.join('\n');
 }
 
+export const defaultConfirmNotificationTemplate = `👑 *مطعم لؤلؤة سنهور* 👑
+أهلاً بك يا {customer_name}،
+تم تأكيد طلبك رقم #{order_id} بنجاح! 🚀
+وجاري تجهيزه بأعلى جودة ليكون جاهزاً في أقرب وقت.
+💵 إجمالي الحساب: {total_amount} ج.م
+شكراً لاختيارك لؤلؤة سنهور ونرجو لك وجبة شهية! 😋❤️`;
+
+export const defaultCancelNotificationTemplate = `👑 *مطعم لؤلؤة سنهور* 👑
+عزيزنا {customer_name}،
+نعتذر منك، تم إلغاء طلبك رقم #{order_id} ({reason}).
+💵 إجمالي الطلب: {total_amount} ج.م
+إذا كان لديك أي استفسار أو رغبة في إعادة الطلب يمكنك التواصل معنا مباشرة.
+شكراً لتفهمك ونعتذر عن أي إزعاج 🌹`;
+
+export function formatWhatsAppNotification(
+  template: string,
+  order: any,
+  options?: { reason?: string }
+): string {
+  if (!template) return '';
+  const customerName = (order.customer_name || order.customer?.name || 'عميلنا العزيز').trim();
+  const orderId = String(order.id || '').slice(-6) || '---';
+  const totalAmount = order.total_amount ?? order.total ?? 0;
+  const phone = order.customer_phone || order.customer?.phone || '';
+  const reason = options?.reason || 'بناءً على التحديث في المطعم';
+  const itemsCount = Array.isArray(order.items)
+    ? order.items.reduce((s: number, i: any) => s + (Number(i.quantity) || 1), 0)
+    : 1;
+
+  let text = template
+    .replace(/{customer_name}/g, customerName)
+    .replace(/{order_id}/g, orderId)
+    .replace(/{total_amount}/g, String(totalAmount))
+    .replace(/{phone}/g, phone)
+    .replace(/{reason}/g, reason)
+    .replace(/{items_count}/g, String(itemsCount));
+
+  // Add RLM to each line for crisp Arabic formatting
+  return text
+    .split('\n')
+    .map(line => (line.startsWith(RLM) || line.trim() === '') ? line : `${RLM}${line}`)
+    .join('\n');
+}
+
 export function openWhatsAppChat(phone: string, text: string) {
   let cleanPhone = phone.replace(/[^0-9]/g, '');
   if (cleanPhone.startsWith('01') && cleanPhone.length === 11) {

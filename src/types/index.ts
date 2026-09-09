@@ -166,3 +166,9 @@ export interface StoreStatusResult {
   detailText: string;
 }
 
+export interface WhatsAppNotificationSettings {
+  isEnabled: boolean;
+  confirmTemplate: string;
+  cancelTemplate: string;
+}
+

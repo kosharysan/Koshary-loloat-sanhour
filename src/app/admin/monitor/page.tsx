@@ -44,9 +44,10 @@ import {
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useMenuStore } from '@/lib/menuStore';
 import { sounds } from '@/lib/sound';
+import { openWhatsAppChat, formatWhatsAppNotification, defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate } from '@/lib/whatsapp';
 
 export default function OrderMonitorPage() {
-  const { monitorPassword = 'sanhour123', syncWithServer } = useMenuStore();
+  const { monitorPassword = 'sanhour123', syncWithServer, whatsappNotificationSettings } = useMenuStore();
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -194,6 +195,9 @@ export default function OrderMonitorPage() {
     newStatus: 'confirmed' | 'cancelled_before_dispatch' | 'cancelled_not_received',
     statusLabel: string
   ) => {
+    // العثور على بيانات الطلب الحالية لإرسال رسالة الواتساب للعميل
+    const targetOrder = orders.find(o => o.id === orderId);
+
     // 1. تحديث فوري للحالة محلياً بدون أي تأخير
     setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: newStatus } : o)));
     sounds.playSuccessChime();
@@ -205,15 +209,53 @@ export default function OrderMonitorPage() {
       return next;
     });
 
-    if (newStatus === 'confirmed') {
-      showNotice(`تم تأكيد الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`, 'success');
-    } else if (newStatus === 'cancelled_before_dispatch') {
-      showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`, 'warn');
-    } else {
-      showNotice(`تم تسجيل عدم استلام الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`, 'error');
+    // 2. فتح رسالة الواتساب التلقائية للعميل حسب إعدادات المطعم
+    const isNotificationEnabled = whatsappNotificationSettings?.isEnabled ?? true;
+    let whatsAppOpened = false;
+
+    if (isNotificationEnabled && targetOrder?.customer_phone) {
+      if (newStatus === 'confirmed') {
+        const template = whatsappNotificationSettings?.confirmTemplate || defaultConfirmNotificationTemplate;
+        const msg = formatWhatsAppNotification(template, targetOrder, { reason: 'تم التأكيد' });
+        if (msg) {
+          openWhatsAppChat(targetOrder.customer_phone, msg);
+          whatsAppOpened = true;
+        }
+      } else if (newStatus === 'cancelled_not_received' || newStatus === 'cancelled_before_dispatch') {
+        const reason = newStatus === 'cancelled_not_received' ? 'عدم استلام' : 'إلغاء قبل الخروج';
+        const template = whatsappNotificationSettings?.cancelTemplate || defaultCancelNotificationTemplate;
+        const msg = formatWhatsAppNotification(template, targetOrder, { reason });
+        if (msg) {
+          openWhatsAppChat(targetOrder.customer_phone, msg);
+          whatsAppOpened = true;
+        }
+      }
     }
 
-    // 2. الحفظ الدائم في السيرفر والسحابة والتخزين المحلي
+    if (newStatus === 'confirmed') {
+      showNotice(
+        whatsAppOpened
+          ? `تم تأكيد الأوردر #${String(orderId).slice(-6)} وفتح رسالة الواتساب للعميل 📲🔒`
+          : `تم تأكيد الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`,
+        'success'
+      );
+    } else if (newStatus === 'cancelled_before_dispatch') {
+      showNotice(
+        whatsAppOpened
+          ? `تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} وفتح رسالة الواتساب للعميل 📲🔒`
+          : `تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`,
+        'warn'
+      );
+    } else {
+      showNotice(
+        whatsAppOpened
+          ? `تم تسجيل عدم استلام الأوردر #${String(orderId).slice(-6)} وفتح رسالة الواتساب للعميل 📲🔒`
+          : `تم تسجيل عدم استلام الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`,
+        'error'
+      );
+    }
+
+    // 3. الحفظ الدائم في السيرفر والسحابة والتخزين المحلي
     try {
       await updateOrderStatusInDb(orderId, newStatus);
     } catch (err: any) {
