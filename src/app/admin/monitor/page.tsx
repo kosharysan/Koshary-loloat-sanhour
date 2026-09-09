@@ -827,32 +827,32 @@ export default function OrderMonitorPage() {
             </div>
           </div>
 
-          {/* Action Buttons & Desktop Clock: Organized with enlarged tools on one side, and close shift followed by logout on the other side */}
-          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
+          {/* Action Buttons & Desktop Clock: Strictly ONE single row on all screens including mobile */}
+          <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-3 w-full sm:w-auto flex-nowrap overflow-x-auto no-scrollbar py-0.5">
             
-            {/* 1. مجموعة الأدوات الثلاثة (تحديث، صوت، ليلي/نهاري) بحجم مكبّر ومريح للنقر */}
-            <div className={`flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-2xl border shrink-0 ${
+            {/* 1. مجموعة الأدوات الثلاثة (تحديث، صوت، ليلي/نهاري) في الناحية الأولى */}
+            <div className={`flex items-center gap-1 sm:gap-1.5 p-1 rounded-2xl border shrink-0 ${
               isLight ? 'bg-slate-100/90 border-slate-300' : 'bg-slate-800/80 border-slate-700'
             }`}>
               {/* زر التحديث */}
               <button
                 onClick={() => loadOrders(false)}
                 disabled={isRefreshing}
-                className={`py-2 sm:py-2.5 px-2.5 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95 shrink-0 ${
+                className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 active:scale-95 shrink-0 ${
                   isLight
                     ? 'bg-white hover:bg-slate-50 text-slate-800 shadow-xs border border-slate-200'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-200 shadow-xs border border-slate-700'
                 }`}
                 title="تحديث قائمة الطلبات"
               >
-                <RefreshCw className={`w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-500 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">تحديث 🔄</span>
+                <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">تحديث</span>
               </button>
 
               {/* زر الصوت */}
               <button
                 onClick={() => setSoundEnabled(!soundEnabled)}
-                className={`py-2 sm:py-2.5 px-2.5 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0 ${
+                className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shrink-0 ${
                   soundEnabled
                     ? isLight
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
@@ -864,11 +864,11 @@ export default function OrderMonitorPage() {
                 title={soundEnabled ? 'تنبيه الصوت مفعل للطلبات الجديدة' : 'تنبيه الصوت مكتوم'}
               >
                 {soundEnabled ? (
-                  <Volume2 className={`w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
+                  <Volume2 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
                 ) : (
-                  <VolumeX className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-400 shrink-0" />
+                  <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 shrink-0" />
                 )}
-                <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">{soundEnabled ? 'صوت 🔊' : 'صامت 🔇'}</span>
+                <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">{soundEnabled ? 'صوت' : 'صامت'}</span>
               </button>
 
               {/* زر الوضع النهاري / الليلي */}
@@ -881,7 +881,7 @@ export default function OrderMonitorPage() {
                     localStorage.setItem('loloat_monitor_theme', next);
                   }
                 }}
-                className={`py-2 sm:py-2.5 px-2.5 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0 ${
+                className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shrink-0 ${
                   isLight
                     ? 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 shadow-xs border border-amber-300'
                     : 'bg-slate-800 hover:bg-slate-700 text-amber-300 shadow-xs border border-slate-700'
@@ -890,13 +890,13 @@ export default function OrderMonitorPage() {
               >
                 {isLight ? (
                   <>
-                    <Moon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-800 shrink-0" />
-                    <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">نهاري ☀️</span>
+                    <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-800 shrink-0" />
+                    <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">نهاري</span>
                   </>
                 ) : (
                   <>
-                    <Sun className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-400 shrink-0" />
-                    <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">ليلي 🌙</span>
+                    <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
+                    <span className="whitespace-nowrap text-[11px] sm:text-xs font-bold">ليلي</span>
                   </>
                 )}
               </button>
@@ -910,29 +910,30 @@ export default function OrderMonitorPage() {
               <span>{currentTime.toLocaleTimeString('ar-EG', { hour12: true })}</span>
             </div>
 
-            {/* 2. مجموعة الإدارة: تقفيل الوردية يليه زر الخروج */}
+            {/* 2. مجموعة الإدارة: تقفيل الوردية يليه زر الخروج في نفس الصف */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {/* زر تقفيل الوردية أولاً */}
               <button
                 onClick={() => setIsShiftModalOpen(true)}
-                className="py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl border border-amber-500/50 text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-md bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold shrink-0 ring-2 ring-amber-400/30"
+                className="py-1.5 sm:py-2 px-2.5 sm:px-4 rounded-xl border border-amber-500/50 text-xs sm:text-sm font-black transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer active:scale-95 shadow-md bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold shrink-0 ring-2 ring-amber-400/30"
                 title={`تقفيل الوردية الحالية (#${currentShiftNumber}) وتصفير الفواتير`}
               >
-                <Lock className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-950 shrink-0" />
-                <span className="whitespace-nowrap font-black">تقفيل الوردية #{currentShiftNumber} 🔒</span>
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-950 shrink-0" />
+                <span className="whitespace-nowrap font-black hidden sm:inline">تقفيل الوردية #{currentShiftNumber} 🔒</span>
+                <span className="whitespace-nowrap font-black inline sm:hidden">تقفيل #{currentShiftNumber} 🔒</span>
               </button>
 
               {/* زر خروج بعد تقفيل الوردية */}
               <button
                 onClick={handleLogout}
-                className={`py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl border text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs shrink-0 ${
+                className={`py-1.5 sm:py-2 px-2.5 sm:px-3.5 rounded-xl border text-xs sm:text-sm font-black transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-xs shrink-0 ${
                   isLight
                     ? 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200'
                     : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/30'
                 }`}
                 title="تسجيل الخروج من شاشة المتابعة"
               >
-                <LogOut className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" />
+                <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                 <span className="whitespace-nowrap font-black">خروج</span>
               </button>
             </div>
