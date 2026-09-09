@@ -244,20 +244,45 @@ export const CartDrawer: React.FC = () => {
         if (item.selectedSize) text += ` (${item.selectedSize})`;
         const details: string[] = [];
 
-        // تفاصيل الطاجن المبتكر الخاص (المكونات والشطة)
+        // تفاصيل الطاجن المبتكر الخاص بالترتيب الدقيق المطلوب:
+        // 1. الأساس  2. بدون (التابعة للأساس)  3. البروتين  4. الشطة  5. الإضافات  6. ملاحظات
         if (item.customDishDetails) {
           const cd = item.customDishDetails;
-          if (cd.base) details.push(`أساس: ${cd.base}`);
-          if (cd.spice) details.push(`شطة: ${cd.spice}`);
-          if (cd.toppings && cd.toppings.length > 0) details.push(`إضافات: ${cd.toppings.join('، ')}`);
+          if (cd.base) details.push(`الأساس: ${cd.base}`);
           if (cd.noOptions && cd.noOptions.length > 0) details.push(`بدون: ${cd.noOptions.join('، ')}`);
-          if (cd.customNotes && cd.customNotes.length > 0) details.push(`ملاحظة: ${cd.customNotes.join('، ')}`);
+          if (cd.meat) details.push(`البروتين: ${cd.meat}`);
+          if (cd.spice) details.push(`الشطة: ${cd.spice}`);
+          if (cd.toppings && cd.toppings.length > 0) details.push(`إضافات: ${cd.toppings.join('، ')}`);
+          if (cd.customNotes && cd.customNotes.length > 0) details.push(`ملاحظات: ${cd.customNotes.join('، ')}`);
         } else {
+          // الأصناف العادية
           if (item.extras && item.extras.length > 0) {
             details.push(`إضافات: ${item.extras.map(e => e.name).join('، ')}`);
           }
-          if (item.itemNotes && item.itemNotes.length > 0) {
-            details.push(item.itemNotes.join('، '));
+
+          // تجميع وفصل المستبعدات (بدون) عن الملاحظات الأخرى
+          const allNotesList = [
+            ...(item.itemNotes || []),
+            ...(item.notes && !item.itemNotes?.includes(item.notes) ? [item.notes] : [])
+          ].filter(Boolean);
+
+          const withoutItems: string[] = [];
+          const otherNotes: string[] = [];
+
+          allNotesList.forEach(n => {
+            const trimmed = n.trim();
+            if (trimmed.startsWith('بدون') || trimmed.includes('بدون')) {
+              withoutItems.push(trimmed.replace(/^بدون:\s*/, ''));
+            } else {
+              otherNotes.push(trimmed);
+            }
+          });
+
+          if (withoutItems.length > 0) {
+            details.push(`بدون: ${withoutItems.join('، ')}`);
+          }
+          if (otherNotes.length > 0) {
+            details.push(`ملاحظات: ${otherNotes.join('، ')}`);
           }
         }
 
