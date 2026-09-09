@@ -261,20 +261,34 @@ export const CartDrawer: React.FC = () => {
           }
 
           // تجميع وفصل المستبعدات (بدون) عن الملاحظات الأخرى
-          const allNotesList = [
+          const rawNotes = [
             ...(item.itemNotes || []),
             ...(item.notes && !item.itemNotes?.includes(item.notes) ? [item.notes] : [])
           ].filter(Boolean);
+
+          const allNotesList: string[] = [];
+          rawNotes.forEach(r => {
+            if (typeof r === 'string') {
+              r.split(/[،,\n]/).forEach(sub => {
+                const trimmed = sub.trim();
+                if (trimmed) allNotesList.push(trimmed);
+              });
+            }
+          });
 
           const withoutItems: string[] = [];
           const otherNotes: string[] = [];
 
           allNotesList.forEach(n => {
-            const trimmed = n.trim();
-            if (trimmed.startsWith('بدون') || trimmed.includes('بدون')) {
-              withoutItems.push(trimmed.replace(/^بدون:\s*/, ''));
+            if (n.startsWith('بدون') || n.includes('بدون')) {
+              const cleaned = n.replace(/^بدون:?\s*/, '').replace(/^بدون\s*/, '').trim();
+              if (cleaned && !withoutItems.includes(cleaned)) {
+                withoutItems.push(cleaned);
+              }
             } else {
-              otherNotes.push(trimmed);
+              if (!otherNotes.includes(n)) {
+                otherNotes.push(n);
+              }
             }
           });
 

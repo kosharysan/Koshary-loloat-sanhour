@@ -880,53 +880,73 @@ export default function OrderMonitorPage() {
                                             × {itemInfo.quantity}
                                           </span>
 
-                                          {/* زر تفاعلي بلون روز تحذيري فقط للأصناف العادية إذا كان بها "بدون" */}
-                                          {itemInfo.without && !itemInfo.isCustom && (
-                                            <button
-                                              type="button"
-                                              onClick={() => setSelectedItemNote({
-                                                title: `${itemInfo.name} (الكمية: ${itemInfo.quantity})`,
-                                                without: itemInfo.without,
-                                                notes: itemInfo.notes
-                                              })}
-                                              title="اضغط لعرض تفاصيل المستبعدات بدقة"
-                                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[11px] font-black cursor-pointer transition active:scale-95 animate-pulse"
-                                            >
-                                              <span>🚫 بدون: {itemInfo.without}</span>
-                                            </button>
-                                          )}
+                                          </div>
 
-                                          {/* زر تفاعلي بلون أصفر ذهبي إذا كان به "ملاحظات" للصنف العادي */}
-                                          {itemInfo.notes && !itemInfo.isCustom && (
-                                            <button
-                                              type="button"
-                                              onClick={() => setSelectedItemNote({
-                                                title: `${itemInfo.name} (الكمية: ${itemInfo.quantity})`,
-                                                without: itemInfo.without,
-                                                notes: itemInfo.notes
-                                              })}
-                                              title="اضغط لعرض ملاحظات الصنف"
-                                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-black cursor-pointer transition active:scale-95"
-                                            >
-                                              <span>📝 {itemInfo.notes}</span>
-                                            </button>
-                                          )}
-
-                                          {/* شارة الإضافات الملكية للصنف العادي */}
-                                          {itemInfo.extras && !itemInfo.isCustom && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10.5px] font-bold">
-                                              <span>✨ {itemInfo.extras}</span>
+                                          {/* سعر الصنف في نهاية السطر */}
+                                          {itemInfo.price && (
+                                            <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-xs whitespace-nowrap shrink-0 shadow-xs">
+                                              {itemInfo.price}
                                             </span>
                                           )}
                                         </div>
 
-                                        {/* سعر الصنف في نهاية السطر */}
-                                        {itemInfo.price && (
-                                          <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-xs whitespace-nowrap shrink-0 shadow-xs">
-                                            {itemInfo.price}
-                                          </span>
+                                        {/* تنبيهات المستبعدات (بدون) والملاحظات للأصناف العادية بشكل بارز ومستقل */}
+                                        {!itemInfo.isCustom && (itemInfo.without || itemInfo.notes || itemInfo.extras) && (
+                                          <div className="pt-2 border-t border-slate-800/80 space-y-1.5 text-xs">
+                                            {/* 1. بدون (مستبعدات الصنف العادي) بلون تحذيري أحمر/روز */}
+                                            {itemInfo.without && (
+                                              <button
+                                                type="button"
+                                                onClick={() => setSelectedItemNote({
+                                                  title: `${itemInfo.name} (الكمية: ${itemInfo.quantity})`,
+                                                  without: itemInfo.without,
+                                                  notes: itemInfo.notes
+                                                })}
+                                                title="اضغط لتكبير تعليمات المطبخ"
+                                                className="w-full flex items-center justify-between gap-2 bg-rose-950/50 hover:bg-rose-950/70 p-2 rounded-xl border border-rose-500/50 text-rose-200 shadow-xs cursor-pointer transition text-right animate-pulse"
+                                              >
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-rose-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                                    <span>🚫 بدون:</span>
+                                                  </span>
+                                                  <span className="text-rose-100 font-black tracking-wide">{itemInfo.without}</span>
+                                                </div>
+                                                <span className="text-[10px] text-rose-400 font-bold underline shrink-0">تكبير</span>
+                                              </button>
+                                            )}
+
+                                            {/* 2. ملاحظات الصنف العادي بلون أصفر/ذهبي */}
+                                            {itemInfo.notes && (
+                                              <button
+                                                type="button"
+                                                onClick={() => setSelectedItemNote({
+                                                  title: `${itemInfo.name} (الكمية: ${itemInfo.quantity})`,
+                                                  without: itemInfo.without,
+                                                  notes: itemInfo.notes
+                                                })}
+                                                title="اضغط لتكبير ملاحظات الصنف"
+                                                className="w-full flex items-center justify-between gap-2 bg-amber-950/30 hover:bg-amber-950/50 p-2 rounded-xl border border-amber-500/30 text-amber-200 cursor-pointer transition text-right"
+                                              >
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-amber-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
+                                                    <span>📝 ملاحظة:</span>
+                                                  </span>
+                                                  <span className="text-white font-bold leading-relaxed">{itemInfo.notes}</span>
+                                                </div>
+                                                <span className="text-[10px] text-amber-400 font-bold underline shrink-0">تكبير</span>
+                                              </button>
+                                            )}
+
+                                            {/* 3. الإضافات الملكية للصنف العادي */}
+                                            {itemInfo.extras && (
+                                              <div className="flex items-center gap-2 bg-slate-950/70 p-2 rounded-xl border border-slate-800 text-xs">
+                                                <span className="text-emerald-400 font-black min-w-[75px] shrink-0">✨ الإضافات:</span>
+                                                <span className="text-emerald-200 font-bold">{itemInfo.extras}</span>
+                                              </div>
+                                            )}
+                                          </div>
                                         )}
-                                      </div>
 
                                       {/* تفاصيل الطاجن المخصوص مرتبة سطر بسطر بالترتيب المطلوب بدقة:
                                           1. الأساس  2. بدون (مستبعدات الأساس)  3. البروتين  4. الشطة  5. الإضافات  6. ملاحظات */}
