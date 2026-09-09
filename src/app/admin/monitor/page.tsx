@@ -1157,6 +1157,25 @@ export default function OrderMonitorPage() {
                       : 'bg-slate-850/80 border-2 border-red-500/50 shadow-md opacity-85 hover:border-red-400'
                   }`}
                 >
+                  {/* ختم الطلب الملغي: يظهر كختم رسمي مائل ومميز على كارت الطلب */}
+                  {isCancelled && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 pointer-events-none select-none z-20 animate-fadeIn">
+                      <div className={`px-4 sm:px-6 py-1.5 sm:py-2 rounded-2xl border-[3.5px] border-dashed text-center shadow-lg backdrop-blur-[0.5px] ${
+                        isCancelledNotReceived
+                          ? 'border-red-600 text-red-600 bg-red-600/10 dark:border-red-500 dark:text-red-400 dark:bg-red-500/15 shadow-red-500/20'
+                          : 'border-amber-600 text-amber-700 bg-amber-600/10 dark:border-amber-500 dark:text-amber-400 dark:bg-amber-500/15 shadow-amber-500/20'
+                      }`}>
+                        <div className="flex items-center justify-center gap-1.5 font-black text-sm sm:text-base tracking-wider">
+                          <Ban className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+                          <span>{isCancelledNotReceived ? 'مُـلـغـــى (عدم استلام)' : 'مُـلـغـــى (قبل الخروج)'}</span>
+                        </div>
+                        <div className="text-[9px] sm:text-[10.5px] font-mono font-black tracking-[0.25em] opacity-85 mt-0.5">
+                          ★ CANCELLED ★
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Card Header: ID, Time, Status Badge & Accordion Toggle Button */}
                   <div className="space-y-2">
                     <div className={`flex items-center justify-between gap-2 border-b pb-2.5 ${isLight ? 'border-slate-300/80' : 'border-slate-700/80'}`}>
