@@ -38,7 +38,8 @@ import {
   Gift,
   Tag,
   Percent,
-  Copy
+  Copy,
+  XCircle
 } from 'lucide-react';
 import { Coupon, DeliveryZone, StoreScheduleSettings } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
@@ -613,6 +614,37 @@ export default function AdminPortal() {
     });
   }, [orders, timeFilter, customStartDate, customEndDate, customerSearchQuery]);
 
+  // 1. إجمالي المبيعات والأرباح للطلبات المؤكدة فقط (التي تم الضغط على زر تأكيد لها ولم تُلغَ)
+  const confirmedOrders = useMemo(() => {
+    return filteredOrders.filter(o => o.status === 'confirmed');
+  }, [filteredOrders]);
+
+  const confirmedRevenue = useMemo(() => {
+    return confirmedOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  }, [confirmedOrders]);
+
+  const uniqueConfirmedCustomerCount = useMemo(() => {
+    const set = new Set(
+      confirmedOrders.map(o => (o.customer_phone || o.customer_name || '').trim()).filter(Boolean)
+    );
+    return set.size;
+  }, [confirmedOrders]);
+
+  // 2. الطلبات الملغية وإجمالي مبالغها
+  const cancelledOrders = useMemo(() => {
+    return filteredOrders.filter(o =>
+      o.status === 'cancelled_not_received' ||
+      o.status === 'cancelled_before_dispatch' ||
+      o.status === 'cancelled' ||
+      (typeof o.status === 'string' && o.status.startsWith('cancelled'))
+    );
+  }, [filteredOrders]);
+
+  const cancelledRevenue = useMemo(() => {
+    return cancelledOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  }, [cancelledOrders]);
+
+  // الإجماليات العامة لكامل نتائج الفلتر
   const totalRevenue = useMemo(() => {
     return filteredOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   }, [filteredOrders]);
@@ -849,12 +881,11 @@ export default function AdminPortal() {
 
         {activeTab === 'orders' && (
           <div className="space-y-6">
-            {/* المربعات الإحصائية العلوية: إجمالي المبيعات وعدد الأوردرات بخلفيات مميزة ودالة ومعبرة */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* المربعات الإحصائية العلوية: 1. إجمالي المبيعات المؤكدة - 2. عدد الأوردرات المؤكدة - 3. الأوردرات الملغية وإجمالي مبلغها */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
-              {/* المربع الأول: إجمالي المبيعات - خلفية متدرجة زمردية فخمة تدل على الأرباح والسيولة */}
+              {/* المربع الأول: إجمالي المبيعات المؤكدة - خلفية زمردية فخمة تدل على الأرباح والسيولة المحققة */}
               <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-emerald-500/40 bg-gradient-to-br from-emerald-950/90 via-slate-900/95 to-teal-950/80 hover:border-emerald-400 hover:shadow-emerald-500/10">
-                {/* تأثير إضاءة خلفي فخم */}
                 <div className="absolute -top-10 -right-10 w-44 h-44 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-teal-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -864,37 +895,36 @@ export default function AdminPortal() {
                       <DollarSign className="w-6 h-6 stroke-[2.5]" />
                     </div>
                     <div>
-                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">إجمالي المبيعات والأرباح</span>
+                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">إجمالي المبيعات (المؤكدة)</span>
                       <span className="text-[11px] text-emerald-200/70 font-bold">الفترة: {activePeriodLabel}</span>
                     </div>
                   </div>
-                  <span className="text-[11px] font-black px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 shadow-xs flex items-center gap-1">
+                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 shadow-xs flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>صافي التحصيل</span>
+                    <span>صافي التحصيل المؤكد</span>
                   </span>
                 </div>
                 
                 <div className="flex items-baseline gap-2 mb-3 relative z-10">
-                  <span className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm">
-                    {totalRevenue.toLocaleString('ar-EG')}
+                  <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm">
+                    {confirmedRevenue.toLocaleString('ar-EG')}
                   </span>
-                  <span className="text-base sm:text-lg font-black text-emerald-400">جنيه مصري</span>
+                  <span className="text-sm sm:text-base font-black text-emerald-400">جنيه مصري</span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-emerald-200/70 font-medium pt-3.5 border-t border-emerald-500/20 relative z-10">
                   <span className="flex items-center gap-1.5">
                     <span>💰</span>
-                    <span>إجمالي قيمة الطلبات المحققة</span>
+                    <span>قيمة الطلبات المؤكدة فقط</span>
                   </span>
                   <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30">
-                    {filteredOrders.length} طلب منفذ
+                    {confirmedOrders.length} طلب مؤكد
                   </span>
                 </div>
               </div>
 
-              {/* المربع الثاني: عدد الأوردرات ونشاط الزبائن - خلفية ياقوتية ملكية تدل على حركة ونشاط الطلبات */}
+              {/* المربع الثاني: عدد الأوردرات المؤكدة ونشاط الزبائن - خلفية ياقوتية ملكية تدل على حركة الطلبات المؤكدة */}
               <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-indigo-500/40 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-purple-950/80 hover:border-indigo-400 hover:shadow-indigo-500/10">
-                {/* تأثير إضاءة خلفي فخم */}
                 <div className="absolute -top-10 -right-10 w-44 h-44 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-purple-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -904,32 +934,32 @@ export default function AdminPortal() {
                       <ShoppingBag className="w-6 h-6 stroke-[2.5]" />
                     </div>
                     <div>
-                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">عدد الأوردرات ونشاط الزبائن</span>
+                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">عدد الأوردرات المؤكدة</span>
                       <span className="text-[11px] text-indigo-200/70 font-bold">الفترة: {activePeriodLabel}</span>
                     </div>
                   </div>
-                  <span className="text-[11px] font-black px-3.5 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 shadow-xs flex items-center gap-1">
+                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 shadow-xs flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                    <span>نشاط الطلبات</span>
+                    <span>تم الضغط على تأكيد</span>
                   </span>
                 </div>
 
                 <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm">
-                      {filteredOrders.length.toLocaleString('ar-EG')}
+                    <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm">
+                      {confirmedOrders.length.toLocaleString('ar-EG')}
                     </span>
-                    <span className="text-base sm:text-lg font-black text-indigo-400">أوردر</span>
+                    <span className="text-sm sm:text-base font-black text-indigo-400">أوردر</span>
                   </div>
 
-                  {/* كام شخص (عدد العملاء الفريدين) */}
-                  <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl px-3.5 sm:px-4 py-2 text-left shrink-0 shadow-inner">
+                  {/* كام شخص طلب؟ */}
+                  <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl px-3 py-1.5 text-left shrink-0 shadow-inner">
                     <div className="text-[10px] text-indigo-200/80 font-bold flex items-center gap-1 justify-end">
                       <Users className="w-3.5 h-3.5 text-amber-400" />
                       <span>كام شخص طلب؟</span>
                     </div>
-                    <div className="text-base sm:text-xl font-black text-amber-300 text-right">
-                      {uniqueCustomerCount.toLocaleString('ar-EG')} <span className="text-xs text-indigo-200/60 font-medium">عميل</span>
+                    <div className="text-sm sm:text-lg font-black text-amber-300 text-right">
+                      {uniqueConfirmedCustomerCount.toLocaleString('ar-EG')} <span className="text-xs text-indigo-200/60 font-medium">عميل</span>
                     </div>
                   </div>
                 </div>
@@ -937,10 +967,62 @@ export default function AdminPortal() {
                 <div className="flex items-center justify-between text-xs text-indigo-200/70 font-medium pt-3.5 border-t border-indigo-500/20 relative z-10">
                   <span className="flex items-center gap-1.5">
                     <span>👥</span>
-                    <span>نشاط وحجم العملاء الفريدين</span>
+                    <span>عملاء الطلبات المؤكدة</span>
                   </span>
                   <span className="text-amber-300 font-bold bg-slate-950/60 px-2.5 py-1 rounded-xl border border-indigo-500/30">
-                    من {uniqueCustomerCount} شخص مختلف
+                    من {uniqueConfirmedCustomerCount} شخص مختلف
+                  </span>
+                </div>
+              </div>
+
+              {/* المربع الثالث: الطلبات الملغية وإجمالي مبالغها - خلفية قرمزية/حمراء تحذيرية أنيقة */}
+              <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-rose-500/40 bg-gradient-to-br from-rose-950/90 via-slate-900/95 to-red-950/80 hover:border-rose-400 hover:shadow-rose-500/10">
+                <div className="absolute -top-10 -right-10 w-44 h-44 bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-red-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-400/25 to-red-500/10 text-rose-300 flex items-center justify-center border border-rose-400/30 shadow-lg shadow-rose-500/20">
+                      <XCircle className="w-6 h-6 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">الطلبات الملغية ومبالغها</span>
+                      <span className="text-[11px] text-rose-200/70 font-bold">الفترة: {activePeriodLabel}</span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 border border-rose-400/40 shadow-xs flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                    <span>ملغي / فاقد</span>
+                  </span>
+                </div>
+
+                <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-sm">
+                      {cancelledRevenue.toLocaleString('ar-EG')}
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-rose-400">جنيه</span>
+                  </div>
+
+                  {/* عدد الطلبات الملغية */}
+                  <div className="bg-slate-950/80 border border-rose-500/30 rounded-2xl px-3 py-1.5 text-left shrink-0 shadow-inner">
+                    <div className="text-[10px] text-rose-200/80 font-bold flex items-center gap-1 justify-end">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                      <span>عدد الملغي</span>
+                    </div>
+                    <div className="text-sm sm:text-lg font-black text-rose-300 text-right">
+                      {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-xs text-rose-200/60 font-medium">أوردر</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-rose-200/70 font-medium pt-3.5 border-t border-rose-500/20 relative z-10">
+                  <span className="flex items-center gap-1.5">
+                    <span>🚫</span>
+                    <span>قيمة المبيعات غير المحصلة</span>
+                  </span>
+                  <span className="text-rose-300 font-bold bg-rose-950/60 px-2.5 py-1 rounded-xl border border-rose-500/30">
+                    {cancelledOrders.length} طلب ملغي
                   </span>
                 </div>
               </div>
@@ -1085,8 +1167,29 @@ export default function AdminPortal() {
                           #{String(order.id).slice(-6)}
                         </span>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="text-base font-black text-white">{order.customer_name}</h4>
+                            {order.status === 'confirmed' ? (
+                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                <span>مؤكد</span>
+                              </span>
+                            ) : order.status === 'cancelled_not_received' ? (
+                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
+                                <XCircle className="w-3 h-3 text-red-400" />
+                                <span>ملغي (عدم استلام)</span>
+                              </span>
+                            ) : order.status === 'cancelled_before_dispatch' ? (
+                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3 text-amber-400" />
+                                <span>ملغي قبل الخروج</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-sky-400" />
+                                <span>جديد (بانتظار التأكيد)</span>
+                              </span>
+                            )}
                             {order.created_at && (
                               <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-bold flex items-center gap-1">
                                 <Clock className="w-2.5 h-2.5" />
