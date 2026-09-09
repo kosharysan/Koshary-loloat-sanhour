@@ -917,10 +917,29 @@ export default function OrderMonitorPage() {
         {/* Search & Filter Bar */}
         <div className={`rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 space-y-3.5 border-2 transition-all shadow-md ${
           isLight
-            ? 'bg-gradient-to-br from-amber-50/90 via-white to-amber-50/50 border-amber-300 shadow-amber-950/5 ring-1 ring-amber-400/20'
-            : 'bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 border-slate-800 shadow-xl shadow-black/50 ring-1 ring-white/5'
+            ? 'bg-gradient-to-br from-amber-100/90 via-amber-50/95 to-orange-100/90 border-amber-400 shadow-amber-950/10 ring-2 ring-amber-300/50'
+            : 'bg-gradient-to-r from-slate-900 via-[#1e293b] to-slate-900 border-amber-500/40 shadow-xl shadow-black/50 ring-1 ring-amber-500/20'
         }`}>
           
+          {/* Header of Search & Filter Bar */}
+          <div className="flex items-center justify-between gap-2 pb-0.5">
+            <div className="flex items-center gap-2">
+              <span className={`p-1.5 rounded-lg flex items-center justify-center ${
+                isLight ? 'bg-amber-500 text-slate-950 shadow-xs' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+              }`}>
+                <Search className="w-3.5 h-3.5 stroke-[2.5]" />
+              </span>
+              <h3 className={`text-xs sm:text-sm font-black ${isLight ? 'text-amber-950' : 'text-amber-300'}`}>
+                البحث السريع وتصفية الأوردرات
+              </h3>
+            </div>
+            <span className={`text-[11px] font-black px-2.5 py-0.5 rounded-full border ${
+              isLight ? 'bg-white/90 text-amber-900 border-amber-300 shadow-2xs' : 'bg-slate-950/80 text-slate-300 border-slate-700'
+            }`}>
+              النتائج: <strong className="font-mono font-black">{filteredOrders.length}</strong>
+            </span>
+          </div>
+
           {/* Top Search Input by Phone or Customer Name */}
           <div className="relative">
             <input
@@ -930,8 +949,8 @@ export default function OrderMonitorPage() {
               placeholder="🔍 ابحث برقم الهاتف أو اسم العميل أو العنوان أو رقم الطلب..."
               className={`w-full py-3 px-4 pr-11 pl-10 rounded-xl sm:rounded-2xl border-2 text-xs sm:text-sm font-bold transition focus:outline-none focus:ring-2 shadow-xs ${
                 isLight
-                  ? 'bg-white border-amber-200/90 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-amber-500/20 hover:border-amber-300'
-                  : 'bg-slate-950/80 border-slate-700/80 text-white placeholder-slate-400 focus:border-amber-400 focus:ring-amber-400/20'
+                  ? 'bg-white border-amber-300 text-slate-950 placeholder-slate-400 focus:border-amber-500 focus:ring-amber-500/20 hover:border-amber-400 shadow-2xs'
+                  : 'bg-slate-950 border-slate-700 text-white placeholder-slate-400 focus:border-amber-400 focus:ring-amber-400/20 hover:border-slate-600 shadow-inner'
               }`}
             />
             <Search className={`absolute top-3.5 right-3.5 w-4 h-4 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
@@ -948,16 +967,16 @@ export default function OrderMonitorPage() {
           </div>
 
           {/* Quick Status Filter Tabs with Counts */}
-          <div className={`flex flex-wrap items-center gap-2 pt-2 border-t ${isLight ? 'border-amber-200/80' : 'border-slate-800/80'}`}>
+          <div className={`flex flex-wrap items-center gap-2 pt-2 border-t ${isLight ? 'border-amber-300/80' : 'border-slate-800'}`}>
             
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 statusFilter === 'all'
-                  ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400/40'
+                  ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400/50'
                   : isLight
-                  ? 'bg-white hover:bg-amber-100/70 text-slate-800 border border-amber-200 shadow-2xs'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  ? 'bg-white hover:bg-amber-50 text-slate-900 border-2 border-amber-200/90 shadow-2xs'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
               }`}
             >
               <span>الكل</span>
@@ -965,7 +984,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'all'
                   ? 'bg-slate-950 text-amber-300'
                   : isLight
-                  ? 'bg-amber-100/80 text-amber-900 border border-amber-200/80'
+                  ? 'bg-amber-100 text-amber-950 border border-amber-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.all}
@@ -974,12 +993,12 @@ export default function OrderMonitorPage() {
 
             <button
               onClick={() => setStatusFilter('pending')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 statusFilter === 'pending'
-                  ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-400/40'
+                  ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-400/50'
                   : isLight
-                  ? 'bg-white hover:bg-rose-50 text-slate-800 border border-slate-200 shadow-2xs'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  ? 'bg-white hover:bg-rose-50 text-rose-950 border-2 border-rose-200/90 shadow-2xs'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
@@ -988,7 +1007,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'pending'
                   ? 'bg-white text-rose-700'
                   : isLight
-                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.pending}
@@ -997,12 +1016,12 @@ export default function OrderMonitorPage() {
 
             <button
               onClick={() => setStatusFilter('confirmed')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 statusFilter === 'confirmed'
-                  ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400/40'
+                  ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400/50'
                   : isLight
-                  ? 'bg-white hover:bg-emerald-50 text-slate-800 border border-slate-200 shadow-2xs'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  ? 'bg-white hover:bg-emerald-50 text-emerald-950 border-2 border-emerald-200/90 shadow-2xs'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1011,7 +1030,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'confirmed'
                   ? 'bg-white text-emerald-700'
                   : isLight
-                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.confirmed}
@@ -1020,12 +1039,12 @@ export default function OrderMonitorPage() {
 
             <button
               onClick={() => setStatusFilter('cancelled_before_dispatch')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 statusFilter === 'cancelled_before_dispatch'
-                  ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400/40'
+                  ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400/50'
                   : isLight
-                  ? 'bg-white hover:bg-amber-50 text-slate-800 border border-slate-200 shadow-2xs'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  ? 'bg-white hover:bg-amber-50 text-amber-950 border-2 border-amber-200/90 shadow-2xs'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
               }`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
@@ -1034,7 +1053,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'cancelled_before_dispatch'
                   ? 'bg-white text-amber-700'
                   : isLight
-                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.cancelled_before}
@@ -1043,12 +1062,12 @@ export default function OrderMonitorPage() {
 
             <button
               onClick={() => setStatusFilter('cancelled_not_received')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 statusFilter === 'cancelled_not_received'
-                  ? 'bg-red-700 text-white shadow-md ring-2 ring-red-400/40'
+                  ? 'bg-red-700 text-white shadow-md ring-2 ring-red-400/50'
                   : isLight
-                  ? 'bg-white hover:bg-red-50 text-slate-800 border border-slate-200 shadow-2xs'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  ? 'bg-white hover:bg-red-50 text-red-950 border-2 border-red-200/90 shadow-2xs'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
               }`}
             >
               <XCircle className="w-3.5 h-3.5" />
@@ -1057,7 +1076,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'cancelled_not_received'
                   ? 'bg-white text-red-800'
                   : isLight
-                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                  ? 'bg-red-100 text-red-800 border border-red-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.cancelled_not_received}
