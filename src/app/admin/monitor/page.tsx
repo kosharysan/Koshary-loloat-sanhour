@@ -679,8 +679,10 @@ export default function OrderMonitorPage() {
       <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6">
         
         {/* Search & Filter Bar */}
-        <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3 border transition-colors ${
-          isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/90 border-slate-800 shadow-xl'
+        <div className={`rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 space-y-3.5 border-2 transition-all shadow-md ${
+          isLight
+            ? 'bg-gradient-to-br from-amber-50/90 via-white to-amber-50/50 border-amber-300 shadow-amber-950/5 ring-1 ring-amber-400/20'
+            : 'bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 border-slate-800 shadow-xl shadow-black/50 ring-1 ring-white/5'
         }`}>
           
           {/* Top Search Input by Phone or Customer Name */}
@@ -690,9 +692,9 @@ export default function OrderMonitorPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="🔍 ابحث برقم الهاتف أو اسم العميل أو العنوان أو رقم الطلب..."
-              className={`w-full py-3 px-4 pr-11 pl-10 rounded-xl sm:rounded-2xl border text-xs sm:text-sm font-bold transition focus:outline-none focus:ring-2 ${
+              className={`w-full py-3 px-4 pr-11 pl-10 rounded-xl sm:rounded-2xl border-2 text-xs sm:text-sm font-bold transition focus:outline-none focus:ring-2 shadow-xs ${
                 isLight
-                  ? 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-amber-500/20'
+                  ? 'bg-white border-amber-200/90 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-amber-500/20 hover:border-amber-300'
                   : 'bg-slate-950/80 border-slate-700/80 text-white placeholder-slate-400 focus:border-amber-400 focus:ring-amber-400/20'
               }`}
             />
@@ -710,15 +712,15 @@ export default function OrderMonitorPage() {
           </div>
 
           {/* Quick Status Filter Tabs with Counts */}
-          <div className={`flex flex-wrap items-center gap-2 pt-1 border-t ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
+          <div className={`flex flex-wrap items-center gap-2 pt-2 border-t ${isLight ? 'border-amber-200/80' : 'border-slate-800/80'}`}>
             
             <button
               onClick={() => setStatusFilter('all')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'all'
-                  ? 'bg-amber-500 text-slate-950 shadow-md'
+                  ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400/40'
                   : isLight
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  ? 'bg-white hover:bg-amber-100/70 text-slate-800 border border-amber-200 shadow-2xs'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
@@ -727,7 +729,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'all'
                   ? 'bg-slate-950 text-amber-300'
                   : isLight
-                  ? 'bg-white text-slate-700 border border-slate-200'
+                  ? 'bg-amber-100/80 text-amber-900 border border-amber-200/80'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.all}
@@ -738,9 +740,9 @@ export default function OrderMonitorPage() {
               onClick={() => setStatusFilter('pending')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'pending'
-                  ? 'bg-rose-600 text-white shadow-md'
+                  ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-400/40'
                   : isLight
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  ? 'bg-white hover:bg-rose-50 text-slate-800 border border-slate-200 shadow-2xs'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
@@ -750,7 +752,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'pending'
                   ? 'bg-white text-rose-700'
                   : isLight
-                  ? 'bg-white text-slate-700 border border-slate-200'
+                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.pending}
@@ -761,9 +763,9 @@ export default function OrderMonitorPage() {
               onClick={() => setStatusFilter('confirmed')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'confirmed'
-                  ? 'bg-emerald-600 text-white shadow-md'
+                  ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400/40'
                   : isLight
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  ? 'bg-white hover:bg-emerald-50 text-slate-800 border border-slate-200 shadow-2xs'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
@@ -773,7 +775,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'confirmed'
                   ? 'bg-white text-emerald-700'
                   : isLight
-                  ? 'bg-white text-slate-700 border border-slate-200'
+                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.confirmed}
@@ -784,9 +786,9 @@ export default function OrderMonitorPage() {
               onClick={() => setStatusFilter('cancelled_before_dispatch')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'cancelled_before_dispatch'
-                  ? 'bg-amber-600 text-white shadow-md'
+                  ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400/40'
                   : isLight
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  ? 'bg-white hover:bg-amber-50 text-slate-800 border border-slate-200 shadow-2xs'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
@@ -796,7 +798,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'cancelled_before_dispatch'
                   ? 'bg-white text-amber-700'
                   : isLight
-                  ? 'bg-white text-slate-700 border border-slate-200'
+                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.cancelled_before}
@@ -807,9 +809,9 @@ export default function OrderMonitorPage() {
               onClick={() => setStatusFilter('cancelled_not_received')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'cancelled_not_received'
-                  ? 'bg-red-700 text-white shadow-md'
+                  ? 'bg-red-700 text-white shadow-md ring-2 ring-red-400/40'
                   : isLight
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  ? 'bg-white hover:bg-red-50 text-slate-800 border border-slate-200 shadow-2xs'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
@@ -819,7 +821,7 @@ export default function OrderMonitorPage() {
                 statusFilter === 'cancelled_not_received'
                   ? 'bg-white text-red-800'
                   : isLight
-                  ? 'bg-white text-slate-700 border border-slate-200'
+                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
                   : 'bg-slate-900 text-slate-400'
               }`}>
                 {counts.cancelled_not_received}
