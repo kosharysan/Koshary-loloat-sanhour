@@ -1415,66 +1415,46 @@ export default function OrderMonitorPage() {
                     </div>
                   </div>
 
-                  {/* THE 3 ACTION BUTTONS */}
+                  {/* THE 2 ACTION BUTTONS */}
                   <div className={`pt-2 border-t space-y-2 ${isLight ? 'border-slate-300/80' : 'border-slate-700/80'}`}>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 gap-2">
                       
                       {/* 1. Confirm Button */}
                       <button
                         type="button"
                         onClick={() => handleUpdateStatus(order.id, 'confirmed', 'مؤكد')}
                         disabled={isConfirmed}
-                        className={`py-2 px-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 ${
+                        className={`py-2.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-xs ${
                           isConfirmed
                             ? 'bg-emerald-600 text-white shadow-md opacity-100 ring-2 ring-emerald-400/50'
                             : isLight
-                            ? 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-400 shadow-2xs'
+                            ? 'bg-white hover:bg-emerald-50 text-emerald-800 border-2 border-emerald-400 shadow-2xs hover:border-emerald-500'
                             : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30'
                         }`}
                         title="تأكيد الأوردر وبدء التجهيز"
                       >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-[10px] sm:text-[11px]">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span className="text-xs font-black">
                           {isConfirmed ? 'تم التأكيد ✓' : 'تأكيد'}
                         </span>
                       </button>
 
-                      {/* 2. Cancel Before Dispatch */}
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateStatus(order.id, 'cancelled_before_dispatch', 'ملغي قبل الخروج')}
-                        disabled={isCancelledBefore}
-                        className={`py-2 px-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 ${
-                          isCancelledBefore
-                            ? 'bg-amber-600 text-white shadow-md opacity-100 ring-2 ring-amber-400/50'
-                            : isLight
-                            ? 'bg-white hover:bg-amber-50 text-amber-900 border border-amber-400 shadow-2xs'
-                            : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30'
-                        }`}
-                        title="إلغاء الطلب قبل خروجه من المطعم"
-                      >
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="text-[10px] sm:text-[11px]">
-                          {isCancelledBefore ? 'ملغي قبل الخروج' : 'إلغاء قبل خروجه'}
-                        </span>
-                      </button>
-
-                      {/* 3. Cancel Not Received */}
+                      {/* 2. Cancel Not Received Button */}
                       <button
                         type="button"
                         onClick={() => handleUpdateStatus(order.id, 'cancelled_not_received', 'عدم استلام')}
                         disabled={isCancelledNotReceived}
-                        className={`py-2 px-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 ${
+                        className={`py-2.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-xs ${
                           isCancelledNotReceived
                             ? 'bg-red-700 text-white shadow-md opacity-100 ring-2 ring-red-400/50'
                             : isLight
-                            ? 'bg-white hover:bg-red-50 text-red-800 border border-red-400 shadow-2xs'
+                            ? 'bg-white hover:bg-red-50 text-red-800 border-2 border-red-400 shadow-2xs hover:border-red-500'
                             : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30'
                         }`}
                         title="إلغاء الطلب بسبب عدم استلام العميل"
                       >
-                        <XCircle className="w-4 h-4" />
-                        <span className="text-[10px] sm:text-[11px]">
+                        <XCircle className="w-4 h-4 shrink-0" />
+                        <span className="text-xs font-black">
                           {isCancelledNotReceived ? 'عدم استلام' : 'إلغاء "عدم استلام"'}
                         </span>
                       </button>
