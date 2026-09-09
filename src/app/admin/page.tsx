@@ -3059,8 +3059,18 @@ export default function AdminPortal() {
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
               <div className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border-2 border-amber-500/50 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white shadow-2xl space-y-5 font-sans">
                 
+                {/* زر إغلاق X بارز ومثبت في الجانب الأيسر العلوي */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrderForDetails(null)}
+                  className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/80 transition cursor-pointer active:scale-90 shadow-lg flex items-center justify-center"
+                  title="إغلاق تفاصيل الفاتورة"
+                >
+                  <X className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+                </button>
+
                 {/* الترويسة وأزرار التحكم */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800 pl-12 sm:pl-16">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-black shrink-0">
                       <Receipt className="w-6 h-6" />
@@ -3297,11 +3307,51 @@ export default function AdminPortal() {
                                     )}
                                   </div>
                                 ) : (
-                                  parsedItem.details && (
-                                    <p className="text-[11px] text-slate-400 mt-1">
-                                      [{parsedItem.details}]
-                                    </p>
-                                  )
+                                  (parsedItem.without || parsedItem.notes || (parsedItem.extrasList && parsedItem.extrasList.length > 0) || parsedItem.details) ? (
+                                    <div className="mt-2 pt-2 border-t border-slate-800/80 space-y-1.5 text-xs">
+                                      {/* بدون (المستبعدات للأصناف العادية) */}
+                                      {parsedItem.without && (
+                                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200">
+                                          <span className="font-black text-rose-400 min-w-[65px] shrink-0 flex items-center gap-1">
+                                            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                            <span>🚫 بدون:</span>
+                                          </span>
+                                          <span className="font-black tracking-wide text-rose-100">{parsedItem.without}</span>
+                                        </div>
+                                      )}
+
+                                      {/* إضافات الصنف إن وجدت */}
+                                      {parsedItem.extrasList && parsedItem.extrasList.length > 0 && (
+                                        <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                                          <div className="flex items-center gap-1.5 font-black text-emerald-400">
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                            <span>✨ إضافات ({parsedItem.extrasList.length}):</span>
+                                          </div>
+                                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                            {parsedItem.extrasList.map((extraItem, eIdx) => (
+                                              <span key={eIdx} className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-[11px] font-bold">
+                                                {extraItem}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* ملاحظات الصنف العادي */}
+                                      {parsedItem.notes && (
+                                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200">
+                                          <span className="font-black text-amber-400 min-w-[65px] shrink-0">💬 ملاحظة:</span>
+                                          <span className="font-bold text-white">{parsedItem.notes}</span>
+                                        </div>
+                                      )}
+
+                                      {!parsedItem.without && !parsedItem.notes && (!parsedItem.extrasList || parsedItem.extrasList.length === 0) && parsedItem.details && (
+                                        <p className="text-[11px] text-slate-400 mt-1">
+                                          [{parsedItem.details}]
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : null
                                 )}
                               </div>
                             </div>
@@ -3411,9 +3461,53 @@ export default function AdminPortal() {
                                     )}
                                   </div>
                                 ) : (
-                                  it.notes && (
-                                    <p className="text-[11px] text-slate-400 mt-1">ملاحظة: {it.notes}</p>
-                                  )
+                                  (() => {
+                                    const itemWithout = (it.itemNotes || []).filter((n: string) => n.includes('بدون')).map((n: string) => n.replace(/^بدون:?\s*/, '').trim()).join('، ');
+                                    const itemOtherNotes = [
+                                      ...(it.itemNotes || []).filter((n: string) => !n.includes('بدون')),
+                                      it.notes
+                                    ].filter(Boolean).join('، ');
+                                    const hasExtras = it.extras && it.extras.length > 0;
+
+                                    if (!itemWithout && !itemOtherNotes && !hasExtras) return null;
+
+                                    return (
+                                      <div className="mt-2 pt-2 border-t border-slate-800/80 space-y-1.5 text-xs">
+                                        {itemWithout && (
+                                          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200">
+                                            <span className="font-black text-rose-400 min-w-[65px] shrink-0 flex items-center gap-1">
+                                              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                              <span>🚫 بدون:</span>
+                                            </span>
+                                            <span className="font-black tracking-wide text-rose-100">{itemWithout}</span>
+                                          </div>
+                                        )}
+
+                                        {hasExtras && (
+                                          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                                            <div className="flex items-center gap-1.5 font-black text-emerald-400">
+                                              <Sparkles className="w-3.5 h-3.5" />
+                                              <span>✨ الإضافات:</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                              {it.extras.map((extra: any, eIdx: number) => (
+                                                <span key={`ex-${eIdx}`} className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-[11px] font-bold">
+                                                  {extra.name} {extra.price ? `(+${extra.price} ج)` : ''}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {itemOtherNotes && (
+                                          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200">
+                                            <span className="font-black text-amber-400 min-w-[65px] shrink-0">💬 ملاحظة:</span>
+                                            <span className="font-bold text-white">{itemOtherNotes}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()
                                 )}
                               </div>
                             </div>
