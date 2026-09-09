@@ -559,47 +559,47 @@ export default function OrderMonitorPage() {
           </div>
 
           {/* Action Buttons & Desktop Clock: 100% visible on all screens */}
-          <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto">
+          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
             
             {/* Desktop Live Clock Badge */}
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700/80 text-amber-300 font-mono text-xs font-bold shadow-xs">
-              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700/80 text-amber-300 font-mono text-xs font-bold shadow-xs">
+              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
               <span>{currentTime.toLocaleTimeString('ar-EG', { hour12: true })}</span>
             </div>
 
             {/* Sound Alerts Toggle */}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`flex-1 sm:flex-none py-1.5 px-2.5 sm:px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 sm:flex-none py-2 px-4 sm:px-5 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-xs ${
                 soundEnabled
                   ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/30'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
               }`}
               title={soundEnabled ? 'تنبيه الصوت مفعل للطلبات الجديدة' : 'تنبيه الصوت مكتوم'}
             >
-              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />}
-              <span className="text-[11px] sm:text-xs">{soundEnabled ? 'التنبيه: يعمل 🔊' : 'مكتوم 🔇'}</span>
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />}
+              <span className="text-xs font-bold whitespace-nowrap">{soundEnabled ? 'التنبيه: يعمل 🔊' : 'مكتوم 🔇'}</span>
             </button>
 
             {/* Manual Refresh Button */}
             <button
               onClick={() => loadOrders(false)}
               disabled={isRefreshing}
-              className="flex-1 sm:flex-none py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+              className="flex-1 sm:flex-none py-2 px-4 sm:px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
               title="تحديث قائمة الطلبات"
             >
-              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="text-[11px] sm:text-xs">تحديث 🔄</span>
+              <RefreshCw className={`w-4 h-4 text-amber-400 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="text-xs font-bold whitespace-nowrap">تحديث 🔄</span>
             </button>
 
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="py-1.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+              className="py-2 px-4 sm:px-5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs shrink-0"
               title="تسجيل الخروج من شاشة المتابعة"
             >
-              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-[11px] sm:text-xs">خروج</span>
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-bold whitespace-nowrap">خروج</span>
             </button>
 
           </div>
@@ -637,21 +637,21 @@ export default function OrderMonitorPage() {
             
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'all'
                   ? 'bg-amber-500 text-slate-950 shadow-md'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
               <span>الكل</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === 'all' ? 'bg-slate-950 text-amber-300' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'all' ? 'bg-slate-950 text-amber-300' : 'bg-slate-900 text-slate-400'}`}>
                 {counts.all}
               </span>
             </button>
 
             <button
               onClick={() => setStatusFilter('pending')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'pending'
                   ? 'bg-rose-600 text-white shadow-md'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -659,14 +659,14 @@ export default function OrderMonitorPage() {
             >
               <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
               <span>بانتظار التأكيد (جديد)</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === 'pending' ? 'bg-white text-rose-700' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'pending' ? 'bg-white text-rose-700' : 'bg-slate-900 text-slate-400'}`}>
                 {counts.pending}
               </span>
             </button>
 
             <button
               onClick={() => setStatusFilter('confirmed')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'confirmed'
                   ? 'bg-emerald-600 text-white shadow-md'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -674,14 +674,14 @@ export default function OrderMonitorPage() {
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>المؤكدة / جاري التحضير</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === 'confirmed' ? 'bg-white text-emerald-700' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'confirmed' ? 'bg-white text-emerald-700' : 'bg-slate-900 text-slate-400'}`}>
                 {counts.confirmed}
               </span>
             </button>
 
             <button
               onClick={() => setStatusFilter('cancelled_before_dispatch')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'cancelled_before_dispatch'
                   ? 'bg-amber-600 text-white shadow-md'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -689,14 +689,14 @@ export default function OrderMonitorPage() {
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               <span>ملغي قبل الخروج</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === 'cancelled_before_dispatch' ? 'bg-white text-amber-700' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'cancelled_before_dispatch' ? 'bg-white text-amber-700' : 'bg-slate-900 text-slate-400'}`}>
                 {counts.cancelled_before}
               </span>
             </button>
 
             <button
               onClick={() => setStatusFilter('cancelled_not_received')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'cancelled_not_received'
                   ? 'bg-red-700 text-white shadow-md'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -704,7 +704,7 @@ export default function OrderMonitorPage() {
             >
               <XCircle className="w-3.5 h-3.5" />
               <span>ملغي لعدم الاستلام</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === 'cancelled_not_received' ? 'bg-white text-red-800' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'cancelled_not_received' ? 'bg-white text-red-800' : 'bg-slate-900 text-slate-400'}`}>
                 {counts.cancelled_not_received}
               </span>
             </button>
