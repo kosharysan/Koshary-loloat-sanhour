@@ -573,7 +573,7 @@ export default function OrderMonitorPage() {
       nameAndDetails = nameAndDetails.replace(/[×xX]\s*\d+/, '').trim();
     }
 
-    const isCustom = nameAndDetails.includes('طاجن مبتكر') || detailsStr.includes('الأساس:') || detailsStr.includes('أساس:');
+    const isCustom = nameAndDetails.includes('طاجن') || detailsStr.includes('الأساس:') || detailsStr.includes('أساس:') || detailsStr.includes('البروتين:') || detailsStr.includes('بروتين:');
 
     // 4. Extract size or protein from parentheses
     let size: string | undefined = undefined;
@@ -583,11 +583,13 @@ export default function OrderMonitorPage() {
     if (parenMatch) {
       const inside = parenMatch[1].trim();
       if (isCustom) {
-        proteinFromTitle = inside;
+        if (!detailsStr.includes('البروتين') && !detailsStr.includes('بروتين')) {
+          proteinFromTitle = inside;
+        }
       } else {
         size = inside;
       }
-      nameAndDetails = nameAndDetails.replace(/\([^)]+\)/, '').trim();
+      nameAndDetails = nameAndDetails.replace(/\([^)]+\)/g, '').trim();
     }
 
     const name = isCustom ? 'طاجن مبتكر خاص' : nameAndDetails.trim();
@@ -1716,7 +1718,7 @@ export default function OrderMonitorPage() {
                                                   {itemInfo.name}
                                                 </span>
 
-                                              {itemInfo.size && (
+                                              {!itemInfo.isCustom && !itemInfo.base && !itemInfo.protein && itemInfo.size && (
                                                 <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
                                                   isLight
                                                     ? 'bg-slate-100 text-slate-700 border-slate-200'

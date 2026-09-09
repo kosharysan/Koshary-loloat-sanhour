@@ -116,15 +116,17 @@ function parseItemLine(itemStr: string) {
   const parenMatch = nameAndDetails.match(/\(([^)]+)\)/);
   if (parenMatch) {
     const inside = parenMatch[1].trim();
-    if (isCustom && !detailsStr.includes('البروتين') && !detailsStr.includes('بروتين')) {
-      proteinFromTitle = inside;
+    if (isCustom) {
+      if (!detailsStr.includes('البروتين') && !detailsStr.includes('بروتين')) {
+        proteinFromTitle = inside;
+      }
     } else {
       size = inside;
     }
-    nameAndDetails = nameAndDetails.replace(/\([^)]+\)/, '').trim();
+    nameAndDetails = nameAndDetails.replace(/\([^)]+\)/g, '').trim();
   }
 
-  const name = isCustom && (nameAndDetails.includes('طاجن مبتكر') || nameAndDetails === '') ? 'طاجن مبتكر خاص' : nameAndDetails.trim();
+  const name = isCustom ? 'طاجن مبتكر خاص' : nameAndDetails.trim();
 
   let base: string | undefined = undefined;
   let without: string | undefined = undefined;
@@ -3233,7 +3235,7 @@ export default function AdminPortal() {
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-black text-white">{parsedItem.name}</span>
-                                  {parsedItem.size && (
+                                  {!isCasserole && parsedItem.size && (
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
                                       {parsedItem.size}
                                     </span>
@@ -3380,7 +3382,7 @@ export default function AdminPortal() {
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-black text-white">{it.name || it.item_name || 'صنف'}</span>
-                                  {it.selectedSize && (
+                                  {!hasCustomDish && it.selectedSize && (
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
                                       {it.selectedSize}
                                     </span>
