@@ -51,7 +51,12 @@ import {
   MapPin,
   User,
   TrendingUp,
-  Trophy
+  Trophy,
+  UserCheck,
+  UserX,
+  Crown,
+  Star,
+  Filter
 } from 'lucide-react';
 import { Coupon, DeliveryZone, StoreScheduleSettings, ClosedShift } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
@@ -253,6 +258,12 @@ export default function AdminPortal() {
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
   const [orderToDelete, setOrderToDelete] = useState<any | null>(null);
   const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
+
+  // فلاتر وتحليلات التقرير الشهري والسنوي
+  const [reportSelectedYear, setReportSelectedYear] = useState<string>('all');
+  const [reportSelectedMonth, setReportSelectedMonth] = useState<string>('all');
+  const [reportCustomerTab, setReportCustomerTab] = useState<'active' | 'inactive'>('active');
+  const [reportSelectedItemForChart, setReportSelectedItemForChart] = useState<string | null>(null);
 
   const [storeStatus, setStoreStatus] = useState<boolean>(defaultInfo.isOpen);
   const [walletPhone, setWalletPhone] = useState(defaultInfo.cashWalletNumber);
@@ -1318,14 +1329,37 @@ export default function AdminPortal() {
     setTimeout(() => setSavedNotice(false), 2500);
   };
 
+  // السنوات المتاحة في الطلبات المسجلة للتقرير
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    orders.forEach(o => {
+      if (o.created_at) {
+        const y = new Date(o.created_at).getFullYear();
+        if (!isNaN(y)) years.add(y);
+      }
+    });
+    if (years.size === 0) years.add(new Date().getFullYear());
+    return Array.from(years).sort((a, b) => b - a);
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     const now = new Date();
 
     return orders.filter(o => {
+      const orderDate = new Date(o.created_at || Date.now());
+
+      // فلترة مخصصة لتبويبة التقارير (سنة محددة أو شهر محدد)
+      if (ordersSubTab === 'reports') {
+        if (reportSelectedYear !== 'all') {
+          if (orderDate.getFullYear() !== Number(reportSelectedYear)) return false;
+        }
+        if (reportSelectedMonth !== 'all') {
+          if (orderDate.getMonth() + 1 !== Number(reportSelectedMonth)) return false;
+        }
+      }
+
       // 1. Time filter
       if (timeFilter !== 'all') {
-        const orderDate = new Date(o.created_at || Date.now());
-
         if (timeFilter === 'today') {
           const isToday =
             orderDate.getFullYear() === now.getFullYear() &&
@@ -1369,7 +1403,7 @@ export default function AdminPortal() {
 
       return true;
     });
-  }, [orders, timeFilter, customStartDate, customEndDate, customerSearchQuery]);
+  }, [orders, timeFilter, customStartDate, customEndDate, customerSearchQuery, ordersSubTab, reportSelectedYear, reportSelectedMonth]);
 
   // 1. إجمالي المبيعات والأرباح للطلبات المؤكدة فقط (التي تم الضغط على زر تأكيد لها ولم تُلغَ)
   const confirmedOrders = useMemo(() => {
@@ -1414,6 +1448,28 @@ export default function AdminPortal() {
   }, [filteredOrders]);
 
   const activePeriodLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (ordersSubTab === 'reports') {
+      if (reportSelectedYear !== 'all') parts.push(`سنة ${reportSelectedYear}`);
+      if (reportSelectedMonth !== 'all') {
+        const monthNames = [
+          'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
+          'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+        ];
+        const mIdx = Number(reportSelectedMonth) - 1;
+        if (monthNames[mIdx]) parts.push(`شهر ${monthNames[mIdx]}`);
+      }
+    }
+
+    if (parts.length > 0) {
+      if (timeFilter !== 'all') {
+        if (timeFilter === 'custom' && (customStartDate || customEndDate)) {
+          parts.push(`(من ${customStartDate || 'البداية'} إلى ${customEndDate || 'الآن'})`);
+        }
+      }
+      return parts.join(' - ');
+    }
+
     switch (timeFilter) {
       case 'today': return 'اليوم';
       case 'week': return 'هذا الأسبوع';
@@ -1424,44 +1480,368 @@ export default function AdminPortal() {
         if (customStartDate) return `من ${customStartDate}`;
         if (customEndDate) return `حتى ${customEndDate}`;
         return 'فترة مخصصة';
-      default: return 'كل الأوقات';
+      default: return 'كل الأوقات (الأرشيف الكامل)';
     }
-  }, [timeFilter, customStartDate, customEndDate]);
+  }, [timeFilter, customStartDate, customEndDate, ordersSubTab, reportSelectedYear, reportSelectedMonth]);
 
-  // إحصائيات الشهور للسنة الحالية للتقرير السنوي
-  const monthlyStats = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const monthNames = [
-      'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ];
-    const stats = monthNames.map((name, index) => ({
-      monthIndex: index,
-      name,
-      orderCount: 0,
-      confirmedCount: 0,
-      confirmedRevenue: 0,
-      cancelledRevenue: 0,
-    }));
+  // الرسم البياني التفاعلي للمبيعات بدءاً من أول طلب فعلي في الفترة
+  const salesTrendChartData = useMemo(() => {
+    if (confirmedOrders.length === 0) {
+      return {
+        buckets: [] as Array<{
+          key: string;
+          label: string;
+          name: string;
+          date: Date;
+          revenue: number;
+          confirmedRevenue: number;
+          orderCount: number;
+          confirmedCount: number;
+        }>,
+        isDaily: true,
+        maxRev: 1,
+        maxRevenue: 1,
+        totalRev: 0,
+        totalRevenue: 0,
+        avgRev: 0,
+        avgRevenue: 0,
+        topBucket: null,
+        topPeriod: null,
+        startDateStr: 'لا يوجد',
+        endDateStr: 'لا يوجد'
+      };
+    }
 
-    orders.forEach(o => {
-      if (!o.created_at) return;
+    const sorted = [...confirmedOrders].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    const firstDate = new Date(sorted[0].created_at);
+    const lastDate = new Date(sorted[sorted.length - 1].created_at);
+    const diffDays = Math.max(1, Math.round((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+    // إذا كانت الفترة شهراً واحداً أو أقل من 40 يوماً، قسّم حسب الأيام، وإلا حسب الشهور
+    const isDaily = diffDays <= 40 || reportSelectedMonth !== 'all';
+
+    const bucketsMap = new Map<string, {
+      key: string;
+      label: string;
+      name: string;
+      date: Date;
+      revenue: number;
+      confirmedRevenue: number;
+      orderCount: number;
+      confirmedCount: number;
+    }>();
+
+    sorted.forEach(o => {
       const d = new Date(o.created_at);
-      if (d.getFullYear() === currentYear) {
-        const m = d.getMonth();
-        if (stats[m]) {
-          stats[m].orderCount += 1;
-          if (o.status === 'confirmed') {
-            stats[m].confirmedCount += 1;
-            stats[m].confirmedRevenue += Number(o.total_amount) || 0;
-          } else if (typeof o.status === 'string' && o.status.startsWith('cancelled')) {
-            stats[m].cancelledRevenue += Number(o.total_amount) || 0;
+      const amt = Number(o.total_amount) || 0;
+      let key = '';
+      let label = '';
+
+      if (isDaily) {
+        key = d.toISOString().slice(0, 10);
+        label = d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+      } else {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        label = d.toLocaleDateString('ar-EG', { month: 'short', year: 'numeric' });
+      }
+
+      if (!bucketsMap.has(key)) {
+        bucketsMap.set(key, {
+          key,
+          label,
+          name: label,
+          date: d,
+          revenue: 0,
+          confirmedRevenue: 0,
+          orderCount: 0,
+          confirmedCount: 0
+        });
+      }
+      const b = bucketsMap.get(key)!;
+      b.revenue += amt;
+      b.confirmedRevenue += amt;
+      b.orderCount += 1;
+      b.confirmedCount += 1;
+    });
+
+    const buckets = Array.from(bucketsMap.values()).sort(
+      (a, b) => a.date.getTime() - b.date.getTime()
+    );
+
+    const revenues = buckets.map(b => b.revenue);
+    const maxRev = Math.max(...revenues, 1);
+    const totalRev = revenues.reduce((acc, v) => acc + v, 0);
+    const avgRev = Math.round(totalRev / (buckets.length || 1));
+
+    let topBucket = buckets[0];
+    buckets.forEach(b => {
+      if (b.revenue > (topBucket ? topBucket.revenue : 0)) topBucket = b;
+    });
+
+    const topPeriod = topBucket ? {
+      name: topBucket.label,
+      confirmedRevenue: topBucket.revenue,
+      confirmedCount: topBucket.orderCount
+    } : null;
+
+    return {
+      buckets,
+      isDaily,
+      maxRev,
+      maxRevenue: maxRev,
+      totalRev,
+      totalRevenue: totalRev,
+      avgRev,
+      avgRevenue: avgRev,
+      topBucket,
+      topPeriod,
+      startDateStr: firstDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' }),
+      endDateStr: lastDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' })
+    };
+  }, [confirmedOrders, reportSelectedMonth]);
+
+  // إجمالي صافي المبيعات لكل صنف بالترتيب والأفضل مبيعاً
+  const menuItemsRankingData = useMemo(() => {
+    const itemMap = new Map<string, {
+      name: string;
+      quantity: number;
+      revenue: number;
+      orderCount: number;
+      ordersList: any[];
+    }>();
+
+    let grandTotalItemsRevenue = 0;
+
+    confirmedOrders.forEach(order => {
+      const parsedDetails = parseOrderDetails(order.special_notes);
+      const itemsList = Array.isArray(order.items) && order.items.length > 0
+        ? order.items
+        : parsedDetails.items;
+
+      if (Array.isArray(itemsList)) {
+        itemsList.forEach((it: any) => {
+          let itemName = '';
+          let itemQty = 1;
+          let itemPrice = 0;
+
+          if (typeof it === 'string') {
+            const pi = parseItemLine(it);
+            itemName = pi.name;
+            itemQty = Number(pi.quantity) || 1;
+            if (pi.price) {
+              const cleanedPrice = Number(pi.price.replace(/[^\d\.]/g, ''));
+              if (!isNaN(cleanedPrice)) itemPrice = cleanedPrice;
+            }
+          } else if (it && typeof it === 'object') {
+            itemName = it.name || it.item_name || 'صنف';
+            itemQty = Number(it.quantity) || 1;
+            itemPrice = Number(it.total_price || it.price) || 0;
           }
-        }
+
+          if (itemName) {
+            if (!itemMap.has(itemName)) {
+              itemMap.set(itemName, {
+                name: itemName,
+                quantity: 0,
+                revenue: 0,
+                orderCount: 0,
+                ordersList: []
+              });
+            }
+            const record = itemMap.get(itemName)!;
+            record.quantity += itemQty;
+            record.revenue += itemPrice;
+            record.orderCount += 1;
+            record.ordersList.push(order);
+            grandTotalItemsRevenue += itemPrice;
+          }
+        });
       }
     });
 
-    return stats;
+    const list = Array.from(itemMap.values()).sort((a, b) => {
+      if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+      return b.quantity - a.quantity;
+    });
+
+    const maxItemRev = list.length > 0 ? Math.max(...list.map(i => i.revenue), 1) : 1;
+    const totalSoldAllItems = list.reduce((acc, i) => acc + i.quantity, 0);
+
+    return {
+      items: list,
+      rankedItems: list,
+      totalItemsRevenue: grandTotalItemsRevenue,
+      totalRevenueAllItems: grandTotalItemsRevenue,
+      totalSoldAllItems,
+      topItem: list.length > 0 ? list[0] : null,
+      maxItemRev
+    };
+  }, [confirmedOrders]);
+
+  // رسم بياني مخصص لصنف معين عند اختياره
+  const selectedItemChartData = useMemo(() => {
+    if (!reportSelectedItemForChart) return null;
+    const itemInfo = menuItemsRankingData.items.find(i => i.name === reportSelectedItemForChart);
+    if (!itemInfo) return null;
+
+    const timeBucketsMap = new Map<string, { label: string; date: Date; quantity: number; revenue: number }>();
+
+    itemInfo.ordersList.forEach(order => {
+      const d = new Date(order.created_at);
+      const key = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+
+      const parsedDetails = parseOrderDetails(order.special_notes);
+      const itemsList = Array.isArray(order.items) && order.items.length > 0
+        ? order.items
+        : parsedDetails.items;
+
+      let thisOrderQty = 0;
+      let thisOrderRev = 0;
+
+      if (Array.isArray(itemsList)) {
+        itemsList.forEach((it: any) => {
+          let name = '';
+          let q = 1;
+          let p = 0;
+          if (typeof it === 'string') {
+            const pi = parseItemLine(it);
+            name = pi.name;
+            q = Number(pi.quantity) || 1;
+            if (pi.price) {
+              const cleaned = Number(pi.price.replace(/[^\d\.]/g, ''));
+              if (!isNaN(cleaned)) p = cleaned;
+            }
+          } else if (it && typeof it === 'object') {
+            name = it.name || it.item_name || '';
+            q = Number(it.quantity) || 1;
+            p = Number(it.total_price || it.price) || 0;
+          }
+
+          if (name === reportSelectedItemForChart) {
+            thisOrderQty += q;
+            thisOrderRev += p;
+          }
+        });
+      }
+
+      if (!timeBucketsMap.has(key)) {
+        timeBucketsMap.set(key, { label, date: d, quantity: 0, revenue: 0 });
+      }
+      const b = timeBucketsMap.get(key)!;
+      b.quantity += thisOrderQty;
+      b.revenue += thisOrderRev;
+    });
+
+    const buckets = Array.from(timeBucketsMap.values()).sort(
+      (a, b) => a.date.getTime() - b.date.getTime()
+    );
+
+    const maxQty = Math.max(...buckets.map(b => b.quantity), 1);
+    const maxRev = Math.max(...buckets.map(b => b.revenue), 1);
+
+    return {
+      itemInfo,
+      buckets,
+      maxQty,
+      maxRev
+    };
+  }, [reportSelectedItemForChart, menuItemsRankingData]);
+
+  // إحصائيات وتحليلات العملاء: النشطين والخاملين
+  const customerAnalyticsData = useMemo(() => {
+    const customerMap = new Map<string, {
+      phone: string;
+      name: string;
+      orderCount: number;
+      confirmedCount: number;
+      totalSpent: number;
+      firstOrderAt: string;
+      lastOrderAt: string;
+      daysSinceLastOrder: number;
+      lastAddress: string;
+    }>();
+
+    const nowTime = Date.now();
+
+    orders.forEach(o => {
+      const phone = (o.customer_phone || '').trim();
+      if (!phone) return;
+      const amt = Number(o.total_amount) || 0;
+      const isConfirmed = o.status === 'confirmed';
+
+      if (!customerMap.has(phone)) {
+        customerMap.set(phone, {
+          phone,
+          name: o.customer_name || 'عميل',
+          orderCount: 0,
+          confirmedCount: 0,
+          totalSpent: 0,
+          firstOrderAt: o.created_at || new Date().toISOString(),
+          lastOrderAt: o.created_at || new Date().toISOString(),
+          daysSinceLastOrder: 0,
+          lastAddress: o.delivery_address || ''
+        });
+      }
+
+      const c = customerMap.get(phone)!;
+      c.orderCount += 1;
+      if (isConfirmed) {
+        c.confirmedCount += 1;
+        c.totalSpent += amt;
+      }
+      if (o.customer_name && o.customer_name !== 'عميل') {
+        c.name = o.customer_name;
+      }
+      if (o.delivery_address) {
+        c.lastAddress = o.delivery_address;
+      }
+
+      const orderTime = new Date(o.created_at).getTime();
+      if (orderTime < new Date(c.firstOrderAt).getTime()) {
+        c.firstOrderAt = o.created_at;
+      }
+      if (orderTime > new Date(c.lastOrderAt).getTime()) {
+        c.lastOrderAt = o.created_at;
+      }
+    });
+
+    const activeList: any[] = [];
+    const inactiveList: any[] = [];
+
+    customerMap.forEach(c => {
+      const lastTime = new Date(c.lastOrderAt).getTime();
+      const diffDays = Math.floor((nowTime - lastTime) / (1000 * 60 * 60 * 24));
+      c.daysSinceLastOrder = diffDays;
+
+      // نشط: طلب خلال آخر 30 يوماً
+      if (diffDays <= 30) {
+        activeList.push(c);
+      } else {
+        inactiveList.push(c);
+      }
+    });
+
+    // ترتيب النشطين حسب إجمالي ما أنفقوه ثم عدد طلباتهم (VIPs)
+    activeList.sort((a, b) => b.totalSpent - a.totalSpent || b.orderCount - a.orderCount);
+
+    // ترتيب الخاملين حسب الأيام منذ آخر طلب تنازلياً (الأكثر انقطاعاً)
+    inactiveList.sort((a, b) => b.daysSinceLastOrder - a.daysSinceLastOrder);
+
+    const totalCustomers = customerMap.size;
+    const activePercent = totalCustomers > 0 ? Math.round((activeList.length / totalCustomers) * 100) : 0;
+    const inactivePercent = totalCustomers > 0 ? Math.round((inactiveList.length / totalCustomers) * 100) : 0;
+
+    return {
+      activeList,
+      inactiveList,
+      totalCustomers,
+      activePercent,
+      inactivePercent
+    };
   }, [orders]);
 
   // إحصائيات طرق الدفع للتقرير
@@ -2736,14 +3116,186 @@ export default function AdminPortal() {
 
               </div>
             )}
-
-            {/* ========================================================================= */}
+{/* ========================================================================= */}
             {/* التبويبة الثالثة: 📊 التقرير الشهري والسنوي (التحليلات الشاملة) */}
             {/* ========================================================================= */}
             {ordersSubTab === 'reports' && (
-              <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="space-y-6 animate-in fade-in duration-300 font-sans">
                 
-                {/* المربعات الإحصائية العلوية الشاملة */}
+                {/* 1. شريط الفلاتر الشاملة العلوية: فلتر السنة، فلتر الشهر، والفترات المحددة */}
+                <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
+                        <Filter className="w-5 h-5 stroke-[2.5]" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-black text-white">تصفية التقارير والتحليلات</h3>
+                        <p className="text-xs text-slate-400 font-bold">الفترة المعروضة حالياً: <span className="text-rose-400 font-black">{activePeriodLabel}</span></p>
+                      </div>
+                    </div>
+
+                    {/* أزرار سريعة لإعادة ضبط الفلاتر */}
+                    <div className="flex items-center gap-2 self-end md:self-auto">
+                      {(reportSelectedYear !== 'all' || reportSelectedMonth !== 'all' || timeFilter !== 'month') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReportSelectedYear('all');
+                            setReportSelectedMonth('all');
+                            setTimeFilter('all');
+                            setCustomStartDate('');
+                            setCustomEndDate('');
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>إعادة ضبط الفلاتر</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* سطر الاختيارات المحددة: اختيار سنة، اختيار شهر، وفترات مسبقة */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    
+                    {/* اختيار سنة محددة */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                        <span>سنة محددة:</span>
+                      </label>
+                      <select
+                        value={reportSelectedYear}
+                        onChange={(e) => {
+                          setReportSelectedYear(e.target.value);
+                          if (e.target.value !== 'all') {
+                            setTimeFilter('year');
+                          }
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500 cursor-pointer transition shadow-inner"
+                      >
+                        <option value="all">كل السنوات المتاحة</option>
+                        {availableYears.map(yr => (
+                          <option key={yr} value={yr}>سنة {yr}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* اختيار شهر محدد */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                        <span>شهر محدد:</span>
+                      </label>
+                      <select
+                        value={reportSelectedMonth}
+                        onChange={(e) => {
+                          setReportSelectedMonth(e.target.value);
+                          if (e.target.value !== 'all') {
+                            setTimeFilter('month');
+                          }
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500 cursor-pointer transition shadow-inner"
+                      >
+                        <option value="all">كل الشهور</option>
+                        <option value="1">1 - يناير</option>
+                        <option value="2">2 - فبراير</option>
+                        <option value="3">3 - مارس</option>
+                        <option value="4">4 - أبريل</option>
+                        <option value="5">5 - مايو</option>
+                        <option value="6">6 - يونيو</option>
+                        <option value="7">7 - يوليو</option>
+                        <option value="8">8 - أغسطس</option>
+                        <option value="9">9 - سبتمبر</option>
+                        <option value="10">10 - أكتوبر</option>
+                        <option value="11">11 - نوفمبر</option>
+                        <option value="12">12 - ديسمبر</option>
+                      </select>
+                    </div>
+
+                    {/* الفلاتر الزمنية السريعة */}
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <label className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-rose-400" />
+                        <span>فترات مسبقة وسريعة:</span>
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          { id: 'all', label: 'كل الأوقات' },
+                          { id: 'year', label: 'هذه السنة' },
+                          { id: 'month', label: 'هذا الشهر' },
+                          { id: 'week', label: 'هذا الأسبوع' },
+                          { id: 'today', label: 'اليوم' },
+                          { id: 'custom', label: '📅 فترة مخصصة' }
+                        ].map((btn) => (
+                          <button
+                            key={btn.id}
+                            type="button"
+                            onClick={() => {
+                              setTimeFilter(btn.id as any);
+                              if (btn.id !== 'year' && btn.id !== 'month') {
+                                setReportSelectedYear('all');
+                                setReportSelectedMonth('all');
+                              }
+                            }}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              timeFilter === btn.id
+                                ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-600/30'
+                                : 'bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* في حال اختيار فترة مخصصة بالتواريخ */}
+                  {timeFilter === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-950/80 border border-rose-500/30 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>تحديد نطاق التواريخ من وإلى:</span>
+                      </span>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-slate-400 font-bold">من تاريخ:</label>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-slate-400 font-bold">إلى تاريخ:</label>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
+                        />
+                      </div>
+
+                      {(customStartDate || customEndDate) && (
+                        <button
+                          type="button"
+                          onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                          className="text-xs text-rose-400 hover:text-rose-300 underline font-bold"
+                        >
+                          مسح التواريخ
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+                
+                {/* 2. المربعات الإحصائية العلوية الشاملة - بخط التطبيق العادي بدون font-mono */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   
                   {/* المربع الأول: إجمالي المبيعات المؤكدة */}
@@ -2768,7 +3320,7 @@ export default function AdminPortal() {
                     </div>
                     
                     <div className="flex items-baseline gap-2 mb-3 relative z-10">
-                      <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm font-mono">
+                      <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm font-sans">
                         {confirmedRevenue.toLocaleString('ar-EG')}
                       </span>
                       <span className="text-sm sm:text-base font-black text-emerald-400">جنيه مصري</span>
@@ -2779,8 +3331,8 @@ export default function AdminPortal() {
                         <span>💰</span>
                         <span>قيمة الطلبات المؤكدة فقط</span>
                       </span>
-                      <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30 font-mono">
-                        {confirmedOrders.length} طلب مؤكد
+                      <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30 font-sans">
+                        {confirmedOrders.length.toLocaleString('ar-EG')} طلب مؤكد
                       </span>
                     </div>
                   </div>
@@ -2802,13 +3354,13 @@ export default function AdminPortal() {
                       </div>
                       <span className="text-[11px] font-black px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 shadow-xs flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                        <span>تم الضغط على تأكيد</span>
+                        <span>طلبات فعلية</span>
                       </span>
                     </div>
 
                     <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm font-mono">
+                        <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm font-sans">
                           {confirmedOrders.length.toLocaleString('ar-EG')}
                         </span>
                         <span className="text-sm sm:text-base font-black text-indigo-400">أوردر</span>
@@ -2817,9 +3369,9 @@ export default function AdminPortal() {
                       <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl px-3 py-1.5 text-left shrink-0 shadow-inner">
                         <div className="text-[10px] text-indigo-200/80 font-bold flex items-center gap-1 justify-end">
                           <Users className="w-3.5 h-3.5 text-amber-400" />
-                          <span>كام شخص طلب؟</span>
+                          <span>العملاء المؤكدون</span>
                         </div>
-                        <div className="text-sm sm:text-lg font-black text-amber-300 text-right font-mono">
+                        <div className="text-sm sm:text-lg font-black text-amber-300 text-right font-sans">
                           {uniqueConfirmedCustomerCount.toLocaleString('ar-EG')} <span className="text-xs text-indigo-200/60 font-medium">عميل</span>
                         </div>
                       </div>
@@ -2828,10 +3380,10 @@ export default function AdminPortal() {
                     <div className="flex items-center justify-between text-xs text-indigo-200/70 font-medium pt-3.5 border-t border-indigo-500/20 relative z-10">
                       <span className="flex items-center gap-1.5">
                         <span>👥</span>
-                        <span>عملاء الطلبات المؤكدة</span>
+                        <span>عملاء مميزون</span>
                       </span>
-                      <span className="text-amber-300 font-bold bg-slate-950/60 px-2.5 py-1 rounded-xl border border-indigo-500/30 font-mono">
-                        من {uniqueConfirmedCustomerCount} شخص مختلف
+                      <span className="text-amber-300 font-bold bg-slate-950/60 px-2.5 py-1 rounded-xl border border-indigo-500/30 font-sans">
+                        من {uniqueConfirmedCustomerCount.toLocaleString('ar-EG')} شخص مختلف
                       </span>
                     </div>
                   </div>
@@ -2853,13 +3405,13 @@ export default function AdminPortal() {
                       </div>
                       <span className="text-[11px] font-black px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 border border-rose-400/40 shadow-xs flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                        <span>ملغي / فاقد</span>
+                        <span>ملغي / لم يكتمل</span>
                       </span>
                     </div>
 
                     <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-sm font-mono">
+                        <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-sm font-sans">
                           {cancelledRevenue.toLocaleString('ar-EG')}
                         </span>
                         <span className="text-sm sm:text-base font-black text-rose-400">جنيه</span>
@@ -2870,7 +3422,7 @@ export default function AdminPortal() {
                           <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
                           <span>عدد الملغي</span>
                         </div>
-                        <div className="text-sm sm:text-lg font-black text-rose-300 text-right font-mono">
+                        <div className="text-sm sm:text-lg font-black text-rose-300 text-right font-sans">
                           {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-xs text-rose-200/60 font-medium">أوردر</span>
                         </div>
                       </div>
@@ -2881,50 +3433,589 @@ export default function AdminPortal() {
                         <span>🚫</span>
                         <span>قيمة المبيعات غير المحصلة</span>
                       </span>
-                      <span className="text-rose-300 font-bold bg-rose-950/60 px-2.5 py-1 rounded-xl border border-rose-500/30 font-mono">
-                        {cancelledOrders.length} طلب ملغي
+                      <span className="text-rose-300 font-bold bg-rose-950/60 px-2.5 py-1 rounded-xl border border-rose-500/30 font-sans">
+                        {cancelledOrders.length.toLocaleString('ar-EG')} طلب ملغي
                       </span>
                     </div>
                   </div>
 
                 </div>
 
-                {/* التحليل الشهري للسنة الحالية (جدول شهور السنة وتوزيع المبيعات) */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <div className="flex items-center gap-2 text-sm font-black text-white">
-                      <Calendar className="w-4 h-4 text-amber-500" />
-                      <span>تقرير مبيعات أشهر العام الحالي ({new Date().getFullYear()}):</span>
+                {/* 3. الرسم البياني الشيك الفخم لمسار المبيعات (يبدأ من بداية الفترة الفعلية للطلبات) */}
+                <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 stroke-[2.5]" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                          <span>مسار وحركة صافي المبيعات للفترة المحددة</span>
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                            رسم بياني تفاعلي
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-400 font-bold mt-0.5">
+                          يبدأ من التاريخ الفعلي لأول طلب مسجل: <span className="text-emerald-400 font-black">{salesTrendChartData.startDateStr}</span> إلى <span className="text-emerald-400 font-black">{salesTrendChartData.endDateStr}</span>
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-xs text-slate-400 font-bold">12 شهر</span>
-                  </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-                    {monthlyStats.map(m => (
-                      <div
-                        key={m.name}
-                        className={`p-3 rounded-2xl border transition ${
-                          m.confirmedRevenue > 0
-                            ? 'bg-gradient-to-br from-emerald-950/40 to-slate-900 border-emerald-500/40'
-                            : 'bg-slate-950/40 border-slate-800/80 opacity-70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-1">
-                          <span>{m.name}</span>
-                          <span className="font-mono text-[11px] text-amber-400">{m.confirmedCount} طلب</span>
+                    {/* أعلى فترة ومتوسط المبيعات */}
+                    {salesTrendChartData.buckets.length > 0 && salesTrendChartData.topPeriod && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="px-3.5 py-1.5 rounded-2xl bg-slate-950/80 border border-amber-500/30 text-xs flex items-center gap-1.5">
+                          <Trophy className="w-4 h-4 text-amber-400" />
+                          <span className="text-slate-400 font-bold">الأعلى تحصيلاً:</span>
+                          <span className="text-amber-300 font-black">{salesTrendChartData.topPeriod.name}</span>
+                          <span className="text-emerald-400 font-black font-sans">({salesTrendChartData.topPeriod.confirmedRevenue.toLocaleString('ar-EG')} ج.م)</span>
                         </div>
-                        <div className="text-sm font-black text-emerald-400 font-mono">
-                          {m.confirmedRevenue.toLocaleString()} ج.م
+                        <div className="px-3.5 py-1.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs flex items-center gap-1.5">
+                          <span className="text-slate-400 font-bold">المتوسط:</span>
+                          <span className="text-white font-black font-sans">{Math.round(salesTrendChartData.avgRevenue).toLocaleString('ar-EG')} ج.م</span>
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
+
+                  {salesTrendChartData.buckets.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 space-y-2">
+                      <BarChart3 className="w-12 h-12 mx-auto text-slate-600 stroke-1" />
+                      <p className="text-sm font-bold">لا توجد طلبات مؤكدة في هذه الفترة لعرض الرسم البياني.</p>
+                      <p className="text-xs text-slate-600 font-medium">جرب اختيار فترة أوسع أو اختيار &quot;كل الأوقات&quot; من الفلاتر أعلاه.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* منطقة الرسم البياني العمودي المتناسق */}
+                      <div className="pt-8 pb-4 px-2 sm:px-4 bg-slate-950/70 border border-slate-800/80 rounded-2xl overflow-x-auto">
+                        <div className="min-w-[500px] flex items-end justify-between gap-2 sm:gap-4 h-64 sm:h-72 px-2">
+                          {salesTrendChartData.buckets.map((bucket, idx) => {
+                            const heightPct = salesTrendChartData.maxRevenue > 0
+                              ? Math.max(Math.round((bucket.confirmedRevenue / salesTrendChartData.maxRevenue) * 100), 4)
+                              : 4;
+                            const isTop = salesTrendChartData.topPeriod && bucket.name === salesTrendChartData.topPeriod.name && bucket.confirmedRevenue > 0;
+
+                            return (
+                              <div
+                                key={bucket.key || idx}
+                                className="flex-1 flex flex-col items-center h-full justify-end group relative cursor-pointer"
+                              >
+                                {/* نافذة التفاصيل عند التمرير (Tooltip) */}
+                                <div className="absolute -top-12 z-30 opacity-0 group-hover:opacity-100 transition-all pointer-events-none bg-slate-800 text-white text-[11px] font-bold rounded-xl px-3 py-1.5 shadow-2xl border border-slate-700 whitespace-nowrap">
+                                  <div>{bucket.name}</div>
+                                  <div className="text-emerald-400 font-sans">{bucket.confirmedRevenue.toLocaleString('ar-EG')} ج.م ({bucket.confirmedCount} طلب)</div>
+                                </div>
+
+                                {/* قيمة المبيعات فوق العمود */}
+                                <div className="mb-2 text-center">
+                                  {isTop && (
+                                    <div className="text-amber-400 text-[10px] font-black flex items-center justify-center gap-0.5 mb-0.5 animate-bounce">
+                                      <Crown className="w-3 h-3 text-amber-400" />
+                                      <span>الأعلى</span>
+                                    </div>
+                                  )}
+                                  <span className={`text-[10px] sm:text-xs font-black block font-sans transition-colors ${
+                                    isTop ? 'text-amber-300 font-black' : bucket.confirmedRevenue > 0 ? 'text-emerald-300' : 'text-slate-600'
+                                  }`}>
+                                    {bucket.confirmedRevenue > 0 ? bucket.confirmedRevenue.toLocaleString('ar-EG') : '0'}
+                                  </span>
+                                </div>
+
+                                {/* العمود نفسه */}
+                                <div className="w-full max-w-[48px] bg-slate-900 rounded-t-2xl overflow-hidden relative border border-slate-800/80 group-hover:border-emerald-500/50 transition-all">
+                                  <div
+                                    style={{ height: `${heightPct}%` }}
+                                    className={`w-full rounded-t-xl transition-all duration-700 ease-out relative ${
+                                      isTop
+                                        ? 'bg-gradient-to-t from-amber-600 via-amber-400 to-yellow-300 shadow-lg shadow-amber-500/30'
+                                        : bucket.confirmedRevenue > 0
+                                        ? 'bg-gradient-to-t from-emerald-700 via-emerald-500 to-teal-300 group-hover:from-emerald-600 group-hover:to-teal-200'
+                                        : 'bg-slate-800/40'
+                                    }`}
+                                  >
+                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </div>
+
+                                {/* اسم الفترة بالأسفل وعدد الطلبات */}
+                                <div className="mt-3 text-center w-full">
+                                  <span className="text-[11px] font-black text-slate-300 block truncate group-hover:text-white transition-colors" title={bucket.name}>
+                                    {bucket.name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-bold block font-sans">
+                                    {bucket.confirmedCount} طلب
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* وسيلة إيضاح أسفل الرسم */}
+                      <div className="flex items-center justify-center gap-6 text-xs text-slate-400 font-bold pt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-md bg-gradient-to-t from-emerald-600 to-teal-400"></span>
+                          <span>صافي المبيعات المحصلة</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-md bg-gradient-to-t from-amber-500 to-yellow-300"></span>
+                          <span>أعلى فترة مبيعاً 🏆</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* توزيع طرق الدفع ونوع الطلب (دليفري vs تيك أواي) */}
+                {/* 4. قسم تحليل الأصناف: ترتيب الأصناف بالصافي وتحديد الصنف الأكثر مبيعاً ودخلاً */}
+                <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                        <Trophy className="w-5 h-5 stroke-[2.5]" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                          <span>ترتيب الأصناف حسب صافي المبيعات والأكثر طلباً</span>
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold font-sans">
+                            {menuItemsRankingData.rankedItems.length} صنف مسجل
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-400 font-bold mt-0.5">
+                          إجمالي الكميات المباعة: <span className="text-amber-400 font-black font-sans">{menuItemsRankingData.totalSoldAllItems.toLocaleString('ar-EG')} قطعة/طاجن</span> | صافي دخل الأصناف: <span className="text-emerald-400 font-black font-sans">{menuItemsRankingData.totalRevenueAllItems.toLocaleString('ar-EG')} ج.م</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {reportSelectedItemForChart && (
+                      <button
+                        type="button"
+                        onClick={() => setReportSelectedItemForChart(null)}
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700"
+                      >
+                        <X className="w-3.5 h-3.5 text-rose-400" />
+                        <span>إغلاق تحليل الصنف المحدد</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* كارت الصنف الفائز بالمركز الأول 🏆 */}
+                  {menuItemsRankingData.topItem && (
+                    <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/50 border-2 border-amber-500/50 shadow-xl relative overflow-hidden group">
+                      <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/15 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                      
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center font-black text-2xl shadow-lg shadow-amber-500/30 shrink-0">
+                            🥇
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                👑 الصنف الأكثر مبيعاً والأعلى دخلاً في هذه الفترة
+                              </span>
+                            </div>
+                            <h4 className="text-xl sm:text-2xl font-black text-white mt-1">
+                              {menuItemsRankingData.topItem.name}
+                            </h4>
+                            <p className="text-xs text-slate-300 font-bold mt-0.5">
+                              حقق <span className="text-amber-300 font-black font-sans">{menuItemsRankingData.topItem.quantity.toLocaleString('ar-EG')}</span> طلب بإجمالي مبيعات <span className="text-emerald-400 font-black font-sans">{menuItemsRankingData.topItem.revenue.toLocaleString('ar-EG')} ج.م</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 sm:self-center">
+                          <button
+                            type="button"
+                            onClick={() => setReportSelectedItemForChart(menuItemsRankingData.topItem!.name)}
+                            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-xs hover:brightness-110 transition shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer"
+                          >
+                            <TrendingUp className="w-4 h-4 stroke-[2.5]" />
+                            <span>عرض الرسم البياني الخاص بهذا الصنف</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* إذا تم اختيار صنف محدد لعرض رسمه البياني */}
+                  {reportSelectedItemForChart && selectedItemChartData && (
+                    <div className="p-5 sm:p-6 rounded-3xl bg-slate-950 border-2 border-indigo-500/50 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 flex items-center justify-center">
+                            <BarChart3 className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm sm:text-base font-black text-white">
+                              تحليل حركة ومبيعات صنف: <span className="text-indigo-400 font-black">&quot;{reportSelectedItemForChart}&quot;</span>
+                            </h4>
+                            <p className="text-xs text-slate-400 font-bold">
+                              إجمالي المباع: <span className="text-amber-300 font-black font-sans">{selectedItemChartData.itemInfo?.quantity || 0} قطعة/طاجن</span> | إجمالي العائد: <span className="text-emerald-400 font-black font-sans">{(selectedItemChartData.itemInfo?.revenue || 0).toLocaleString('ar-EG')} ج.م</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setReportSelectedItemForChart(null)}
+                          className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
+                          title="إغلاق"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {selectedItemChartData.buckets.length === 0 ? (
+                        <p className="text-xs text-slate-500 py-6 text-center font-bold">لا توجد بيانات بيانية مسجلة لهذا الصنف في هذه الفترة.</p>
+                      ) : (
+                        <div className="pt-6 pb-2 px-2 bg-slate-900/60 rounded-2xl overflow-x-auto">
+                          <div className="min-w-[450px] flex items-end justify-between gap-3 h-48 px-2">
+                            {selectedItemChartData.buckets.map((b, idx) => {
+                              const hPct = selectedItemChartData.maxRev > 0
+                                ? Math.max(Math.round((b.revenue / selectedItemChartData.maxRev) * 100), 6)
+                                : 6;
+                              return (
+                                <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer">
+                                  <div className="mb-1.5 text-center">
+                                    <span className="text-[10px] font-black text-indigo-300 block font-sans">
+                                      {b.revenue > 0 ? `${b.revenue.toLocaleString('ar-EG')} ج.م` : '0'}
+                                    </span>
+                                  </div>
+                                  <div className="w-full max-w-[36px] bg-slate-950 rounded-t-xl overflow-hidden border border-slate-800">
+                                    <div
+                                      style={{ height: `${hPct}%` }}
+                                      className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-sky-400 group-hover:from-indigo-500 group-hover:to-sky-300 transition-all duration-500"
+                                    />
+                                  </div>
+                                  <div className="mt-2 text-center w-full">
+                                    <span className="text-[10px] font-bold text-slate-400 block truncate">
+                                      {b.label}
+                                    </span>
+                                    <span className="text-[9px] text-amber-400 font-black font-sans block">
+                                      {b.quantity} ق
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* جدول وقائمة الأصناف المرتبة */}
+                  {menuItemsRankingData.rankedItems.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500 text-xs font-bold">
+                      لا توجد أصناف مسجلة في طلبات هذه الفترة.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {menuItemsRankingData.rankedItems.map((item, idx) => {
+                        const pctOfTotal = menuItemsRankingData.totalRevenueAllItems > 0
+                          ? Math.round((item.revenue / menuItemsRankingData.totalRevenueAllItems) * 100)
+                          : 0;
+
+                        const rankBadge = idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`;
+                        const isSelected = reportSelectedItemForChart === item.name;
+
+                        return (
+                          <div
+                            key={item.name}
+                            className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-indigo-950/40 border-indigo-500/70 shadow-lg shadow-indigo-500/10'
+                                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <span className={`text-xs font-black px-2.5 py-1 rounded-xl font-sans shrink-0 ${
+                                  idx === 0
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    : idx === 1
+                                    ? 'bg-slate-300/20 text-slate-200 border border-slate-300/30'
+                                    : idx === 2
+                                    ? 'bg-amber-800/30 text-amber-400 border border-amber-700/30'
+                                    : 'bg-slate-800 text-slate-400'
+                                }`}>
+                                  {rankBadge}
+                                </span>
+                                <div>
+                                  <h5 className="text-sm font-black text-white">{item.name}</h5>
+                                  <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+                                    الكمية المباعة: <span className="text-amber-400 font-black font-sans">{item.quantity.toLocaleString('ar-EG')}</span> قطعة/طاجن
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="text-left shrink-0">
+                                <span className="text-base font-black text-emerald-400 block font-sans">
+                                  {item.revenue.toLocaleString('ar-EG')} ج.م
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-bold font-sans">
+                                  {pctOfTotal}% من دخل الأصناف
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* شريط نسبة مساهمة الصنف في المبيعات */}
+                            <div className="space-y-1">
+                              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                                <div
+                                  style={{ width: `${Math.max(pctOfTotal, 2)}%` }}
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    idx === 0 ? 'bg-amber-400' : 'bg-emerald-500'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                متوسط سعر الصنف: <span className="text-white font-bold font-sans">{item.quantity > 0 ? Math.round(item.revenue / item.quantity).toLocaleString('ar-EG') : 0} ج.م</span>
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => setReportSelectedItemForChart(isSelected ? null : item.name)}
+                                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                                }`}
+                              >
+                                <TrendingUp className="w-3 h-3" />
+                                <span>{isSelected ? 'إلغاء التحديد' : 'رسم بياني للصنف'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. قسم تحليل نشاط الزبائن: العملاء النشطون والخاملون مع إمكانية تنشيطهم بضغطة زر */}
+                <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center">
+                        <Users className="w-5 h-5 stroke-[2.5]" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                          <span>تحليل نشاط العملاء: النشطون والخاملون</span>
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold font-sans">
+                            {customerAnalyticsData.totalCustomers} عميل إجمالي
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-400 font-bold mt-0.5">
+                          تتبع زبائنك المميزين، وإعادة استهداف العملاء المنقطعين لزيادة الطلبات عبر رسائل واتساب المباشرة
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* تبديل التبويب بين النشطين والخاملين */}
+                    <div className="flex items-center gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setReportCustomerTab('active')}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                          reportCustomerTab === 'active'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <UserCheck className="w-4 h-4" />
+                        <span>النشطون ({customerAnalyticsData.activeList.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setReportCustomerTab('inactive')}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                          reportCustomerTab === 'inactive'
+                            ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <UserX className="w-4 h-4" />
+                        <span>الخاملون ({customerAnalyticsData.inactiveList.length})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* بطاقات الإحصاء السريع للعملاء */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-emerald-400 block">🟢 العملاء النشطون (طلبوا خلال آخر 30 يوم)</span>
+                        <span className="text-2xl font-black text-white mt-1 block font-sans">
+                          {customerAnalyticsData.activeList.length.toLocaleString('ar-EG')} <span className="text-xs text-emerald-300 font-bold font-sans">({customerAnalyticsData.activePercent}%)</span>
+                        </span>
+                      </div>
+                      <div className="text-left">
+                        <span className="text-[11px] text-slate-400 font-bold block">أعلى زبون إنفاقاً:</span>
+                        <span className="text-sm font-black text-amber-300 font-sans">
+                          {customerAnalyticsData.activeList[0] ? `${customerAnalyticsData.activeList[0].totalSpent.toLocaleString('ar-EG')} ج.م` : '0'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-500/30 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-rose-400 block">💤 العملاء الخاملون (لم يطلبوا منذ أكثر من 30 يوم)</span>
+                        <span className="text-2xl font-black text-white mt-1 block font-sans">
+                          {customerAnalyticsData.inactiveList.length.toLocaleString('ar-EG')} <span className="text-xs text-rose-300 font-bold font-sans">({customerAnalyticsData.inactivePercent}%)</span>
+                        </span>
+                      </div>
+                      <div className="text-left">
+                        <span className="text-[11px] text-slate-400 font-bold block">فرصة إعادة التنشيط:</span>
+                        <span className="text-xs font-bold text-sky-400">عروض وخصومات خاصة</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* عرض قائمة العملاء النشطين (VIPs) */}
+                  {reportCustomerTab === 'active' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                          <Crown className="w-4 h-4 text-amber-400" />
+                          <span>قائمة أفضل العملاء النشطين الأكثر طلباً وإنفاقاً (VIPs):</span>
+                        </h4>
+                        <span className="text-[11px] text-slate-500 font-bold">مرتبين تنازلياً حسب إجمالي الشراء</span>
+                      </div>
+
+                      {customerAnalyticsData.activeList.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500 text-xs font-bold">لا يوجد عملاء نشطون مسجلون في آخر 30 يوماً.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {customerAnalyticsData.activeList.slice(0, 15).map((cust, idx) => (
+                            <div key={cust.phone} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3 hover:border-emerald-500/40 transition">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-black text-xs font-sans">
+                                    #{idx + 1}
+                                  </div>
+                                  <div>
+                                    <h5 className="text-xs font-black text-white flex items-center gap-1.5">
+                                      <span>{cust.name}</span>
+                                      {idx < 3 && <Star className="w-3 h-3 text-amber-400 fill-amber-400" />}
+                                    </h5>
+                                    <span className="text-[11px] text-slate-400 font-bold font-sans dir-ltr block text-right">
+                                      {cust.phone}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="text-left">
+                                  <span className="text-xs font-black text-emerald-400 font-sans block">
+                                    {cust.totalSpent.toLocaleString('ar-EG')} ج.م
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-bold font-sans block">
+                                    {cust.confirmedCount} طلب مؤكد
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
+                                <span>آخر طلب: {cust.daysSinceLastOrder === 0 ? 'اليوم' : `منذ ${cust.daysSinceLastOrder} يوم`}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <a
+                                    href={`tel:${cust.phone}`}
+                                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                                    title="اتصال"
+                                  >
+                                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                                  </a>
+                                  <a
+                                    href={`https://wa.me/2${cust.phone.replace(/^0/, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition"
+                                    title="واتساب"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* عرض قائمة العملاء الخاملين مع زر تنشيط عبر واتساب */}
+                  {reportCustomerTab === 'inactive' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                          <UserX className="w-4 h-4 text-rose-400" />
+                          <span>قائمة العملاء الخاملين (فرصة تنشيطهم بكوبون أو رسالة ترحيب):</span>
+                        </h4>
+                        <span className="text-[11px] text-slate-500 font-bold">مرتبين حسب الأيام منذ آخر طلب</span>
+                      </div>
+
+                      {customerAnalyticsData.inactiveList.length === 0 ? (
+                        <div className="text-center py-8 text-emerald-400 text-xs font-bold">رائع! لا يوجد أي عملاء خاملين حتى الآن. كل عملائك نشطون.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {customerAnalyticsData.inactiveList.slice(0, 15).map((cust) => {
+                            const reactivationMsg = encodeURIComponent(
+                              `أهلاً بحضرتك يا فندم! وحشتنا في مطعم لؤلؤة سنهور ❤️ يسعدنا نرجع نخدمك ومعانا كود خصم خاص لطلبك القادم! اطلب دلوقتي واستمتع بأشهى طواجن وكشري.`
+                            );
+                            const waLink = `https://wa.me/2${cust.phone.replace(/^0/, '')}?text=${reactivationMsg}`;
+
+                            return (
+                              <div key={cust.phone} className="p-4 rounded-2xl bg-slate-950/60 border border-rose-500/20 space-y-3 hover:border-rose-500/40 transition">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <h5 className="text-xs font-black text-white">{cust.name}</h5>
+                                    <span className="text-[11px] text-slate-400 font-bold font-sans dir-ltr block text-right">
+                                      {cust.phone}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-left">
+                                    <span className="text-xs font-black text-rose-400 font-sans block">
+                                      منذ {cust.daysSinceLastOrder} يوم
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 font-bold font-sans block">
+                                      {cust.orderCount} طلب سابق
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
+                                  <span>إنفاق سابق: <strong className="text-white font-sans">{cust.totalSpent.toLocaleString('ar-EG')} ج.م</strong></span>
+                                  
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-black transition flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>تنشيط واتساب</span>
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 6. توزيع طرق الدفع ونوع الطلب (دليفري vs تيك أواي) بخط التطبيق النظيف بدون font-mono */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* طرق الدفع */}
-                  <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-lg">
+                  <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl">
                     <div className="flex items-center gap-2 text-xs font-black text-white pb-2 border-b border-slate-800">
                       <Coins className="w-4 h-4 text-emerald-400" />
                       <span>توزيع طرق الدفع (الفترة المحددة):</span>
@@ -2932,260 +4023,36 @@ export default function AdminPortal() {
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">كاش (نقدي)</span>
-                        <span className="text-base font-black text-emerald-400 font-mono block mt-1">{paymentMethodStats.cash.toLocaleString()} ج.م</span>
+                        <span className="text-base font-black text-emerald-400 font-sans block mt-1">{paymentMethodStats.cash.toLocaleString('ar-EG')} ج.م</span>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">محافظ إلكترونية</span>
-                        <span className="text-base font-black text-amber-400 font-mono block mt-1">{paymentMethodStats.wallet.toLocaleString()} ج.م</span>
+                        <span className="text-base font-black text-amber-400 font-sans block mt-1">{paymentMethodStats.wallet.toLocaleString('ar-EG')} ج.م</span>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">إنستاباي</span>
-                        <span className="text-base font-black text-cyan-400 font-mono block mt-1">{paymentMethodStats.instapay.toLocaleString()} ج.م</span>
+                        <span className="text-base font-black text-cyan-400 font-sans block mt-1">{paymentMethodStats.instapay.toLocaleString('ar-EG')} ج.م</span>
                       </div>
                     </div>
                   </div>
 
                   {/* نوع الطلب */}
-                  <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-lg">
+                  <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl">
                     <div className="flex items-center gap-2 text-xs font-black text-white pb-2 border-b border-slate-800">
                       <Bike className="w-4 h-4 text-sky-400" />
-                      <span>نوع الطلب (توصيل vs استلام):</span>
+                      <span>نوع الطلب (توصيل دليفري vs استلام فرع):</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-center text-xs">
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">🛵 طلبات الدليفري</span>
-                        <span className="text-base font-black text-sky-400 font-mono block mt-1">{orderTypeStats.delivery} طلب</span>
+                        <span className="text-base font-black text-sky-400 font-sans block mt-1">{orderTypeStats.delivery.toLocaleString('ar-EG')} طلب</span>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
                         <span className="text-[11px] text-slate-400 block font-bold">🏬 استلام من الفرع</span>
-                        <span className="text-base font-black text-purple-400 font-mono block mt-1">{orderTypeStats.pickup} طلب</span>
+                        <span className="text-base font-black text-purple-400 font-sans block mt-1">{orderTypeStats.pickup.toLocaleString('ar-EG')} طلب</span>
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* وحدة الفلترة التفاعلية وقائمة الطلبات المسجلة تاريخياً */}
-                <div className="space-y-4">
-                  
-                  {/* الفلاتر التفاعلية: اليوم، الأسبوع، الشهر، السنة، مخصص */}
-                  <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-lg">
-                    
-                    {/* السطر الأول: فلاتر الوقت */}
-                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
-                      <div className="flex items-center gap-2 text-xs font-black text-slate-300">
-                        <Calendar className="w-4 h-4 text-rose-500" />
-                        <span>تصفية التحليلات حسب الوقت:</span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                        {[
-                          { id: 'today', label: 'اليوم' },
-                          { id: 'week', label: 'هذا الأسبوع' },
-                          { id: 'month', label: 'هذا الشهر' },
-                          { id: 'year', label: 'هذه السنة' },
-                          { id: 'all', label: 'كل الأوقات' },
-                          { id: 'custom', label: '📅 فترة مخصصة (من يوم كذا لكذا)' }
-                        ].map((btn) => (
-                          <button
-                            key={btn.id}
-                            type="button"
-                            onClick={() => setTimeFilter(btn.id as any)}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                              timeFilter === btn.id
-                                ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-600/30'
-                                : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/70'
-                            }`}
-                          >
-                            {btn.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* السطر الثاني: إذا تم اختيار فترة مخصصة */}
-                    {timeFilter === 'custom' && (
-                      <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-950/70 border border-rose-500/30 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>تحديد التواريخ من وإلى:</span>
-                        </span>
-                        
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-400 font-bold">من يوم:</label>
-                          <input
-                            type="date"
-                            value={customStartDate}
-                            onChange={(e) => setCustomStartDate(e.target.value)}
-                            className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-400 font-bold">إلى يوم:</label>
-                          <input
-                            type="date"
-                            value={customEndDate}
-                            onChange={(e) => setCustomEndDate(e.target.value)}
-                            className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
-                          />
-                        </div>
-
-                        {(customStartDate || customEndDate) && (
-                          <button
-                            type="button"
-                            onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
-                            className="text-xs text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
-                          >
-                            إعادة ضبط التواريخ
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* السطر الثالث: البحث بالاسم ورقم الهاتف وزر التحديث */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                      <div className="relative w-full sm:w-96">
-                        <input
-                          type="text"
-                          value={customerSearchQuery}
-                          onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                          placeholder="فلترة بالاسم أو رقم الهاتف..."
-                          className="w-full py-2.5 px-4 pr-10 pl-8 rounded-xl bg-slate-800/90 border border-slate-700 text-white placeholder-slate-500 text-xs font-bold focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
-                        />
-                        <Search className="absolute top-3 right-3.5 w-4 h-4 text-slate-400" />
-                        {customerSearchQuery && (
-                          <button
-                            onClick={() => setCustomerSearchQuery('')}
-                            className="absolute top-2.5 left-3 text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                        <div className="text-xs text-slate-400 font-bold bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800">
-                          النتائج: <span className="text-white font-black font-mono">{filteredOrders.length}</span> طلب • <span className="text-amber-400 font-black font-mono">{uniqueCustomerCount}</span> عميل
-                        </div>
-                        <button
-                          onClick={loadOrders}
-                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition cursor-pointer"
-                          title="تحديث فوري للطلبات"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
-                          <span className="hidden sm:inline">تحديث</span>
-                        </button>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* قائمة جميع الطلبات المفلترة */}
-                  {filteredOrders.length === 0 ? (
-                    <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
-                      <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-500">
-                        <ShoppingBag className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-base font-bold text-slate-300">لا توجد طلبات مسجلة حالياً لهذه الفترة</h3>
-                      <p className="text-xs text-slate-500">جرب اختيار فترة زمنية أخرى أو إزالة قيود البحث.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredOrders.map(order => (
-                        <div key={order.id} className="bg-slate-900/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition space-y-4">
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-mono">
-                                #{String(order.id).slice(-6)}
-                              </span>
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="text-base font-black text-white">{order.customer_name}</h4>
-                                  {order.status === 'confirmed' ? (
-                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                                      <span>مؤكد</span>
-                                    </span>
-                                  ) : order.status === 'cancelled_not_received' ? (
-                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
-                                      <XCircle className="w-3 h-3 text-red-400" />
-                                      <span>ملغي (عدم استلام)</span>
-                                    </span>
-                                  ) : order.status === 'cancelled_before_dispatch' ? (
-                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3 text-amber-400" />
-                                      <span>ملغي قبل الخروج</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
-                                      <Clock className="w-3 h-3 text-sky-400" />
-                                      <span>جديد (بانتظار التأكيد)</span>
-                                    </span>
-                                  )}
-                                  {order.created_at && (
-                                    <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-bold flex items-center gap-1">
-                                      <Clock className="w-2.5 h-2.5" />
-                                      {formatOrderTime(order.created_at)}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2 mt-1">
-                                  <span className="text-xs text-slate-300 font-bold flex items-center gap-1.5 bg-slate-950/70 px-2.5 py-1 rounded-xl border border-slate-800 font-mono dir-ltr">
-                                    <Phone className="w-3 h-3 text-emerald-400" />
-                                    <span>{order.customer_phone}</span>
-                                  </span>
-                                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/20">
-                                    {order.order_type === 'takeaway' || order.delivery_zone === 'استلام من المطعم' || !order.delivery_zone || order.delivery_zone === 'غير محدد'
-                                      ? '🏬 استلام تيك أواي من المحل'
-                                      : `🛵 دليفري: ${order.delivery_zone}`}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* زر حذف الطلب */}
-                            <button
-                              type="button"
-                              onClick={() => setOrderToDelete(order)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/80 transition cursor-pointer text-xs font-bold shrink-0"
-                              title="حذف هذا الطلب من السجل"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>حذف الطلب</span>
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                            <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
-                              <span className="text-slate-500 block font-bold">العنوان بالتفصيل:</span>
-                              <p className="text-slate-200 font-medium">{order.delivery_address || 'استلام من المطعم'}</p>
-                              {order.building_notes && <span className="text-[11px] text-amber-400/80 block">ملاحظات: {order.building_notes}</span>}
-                            </div>
-                            <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
-                              <span className="text-slate-500 block font-bold">الدفع والإجمالي:</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-base font-black text-rose-400 font-mono">{order.total_amount} ج.م</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
-                                  {order.payment_method === 'vodafone_cash' ? 'محفظة كاش' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش عند الاستلام'}
-                                </span>
-                              </div>
-                              <span className="text-[11px] text-slate-400 block">عدد الأصناف: {order.items_count} | توصيل: {order.delivery_fee} ج.م</span>
-                            </div>
-                            <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 flex items-center justify-around gap-2">
-                              <a href={`tel:${order.customer_phone}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition text-xs">
-                                <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>اتصال</span>
-                              </a>
-                              <a href={`https://wa.me/2${(order.customer_phone || '').replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold transition text-xs">
-                                <MessageCircle className="w-3.5 h-3.5" />
-                                <span>واتساب</span>
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
               </div>
