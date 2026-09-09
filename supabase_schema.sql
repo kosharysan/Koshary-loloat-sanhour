@@ -33,11 +33,35 @@ ON public.orders FOR INSERT
 WITH CHECK (true);
 
 -- السماح للمشرف بقراءة الطلبات
+DROP POLICY IF EXISTS "Allow read orders" ON public.orders;
 CREATE POLICY "Allow read orders"
 ON public.orders FOR SELECT
 USING (true);
 
+-- السماح بتحديث حالة الطلبات من لوحة التحكم وشاشة المتابعة (تأكيد / إلغاء)
+DROP POLICY IF EXISTS "Allow update orders" ON public.orders;
+CREATE POLICY "Allow update orders"
+ON public.orders FOR UPDATE
+USING (true)
+WITH CHECK (true);
+
+-- السماح بحذف الطلبات من السجل
+DROP POLICY IF EXISTS "Allow delete orders" ON public.orders;
+CREATE POLICY "Allow delete orders"
+ON public.orders FOR DELETE
+USING (true);
+
 -- 2. تفعيل الإشعارات اللحظية للطلبات (Realtime Subscriptions)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'orders'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+  END IF;
+END $$;
 
 -- تم إعداد المخطط بنجاح لمطعم لؤلؤة سنهور!

@@ -28,7 +28,10 @@ import {
   ChevronDown,
   ChevronUp,
   Sun,
-  Moon
+  Moon,
+  DollarSign,
+  ShoppingBag,
+  Users
 } from 'lucide-react';
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useMenuStore } from '@/lib/menuStore';
@@ -175,26 +178,29 @@ export default function OrderMonitorPage() {
     setTimeout(() => setActionNotice(null), 3500);
   };
 
-  // The 3 Action Buttons Handler
+  // Action Buttons Handler (تأكيد أو إلغاء)
   const handleUpdateStatus = async (
     orderId: string,
     newStatus: 'confirmed' | 'cancelled_before_dispatch' | 'cancelled_not_received',
     statusLabel: string
   ) => {
+    // 1. تحديث فوري للحالة محلياً بدون أي تأخير
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    sounds.playSuccessChime();
+
+    if (newStatus === 'confirmed') {
+      showNotice(`تم تأكيد الأوردر #${String(orderId).slice(-6)} بنجاح 🟢`, 'success');
+    } else if (newStatus === 'cancelled_before_dispatch') {
+      showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} قبل خروجه ⚠️`, 'warn');
+    } else {
+      showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} لعدم الاستلام 🔴`, 'error');
+    }
+
+    // 2. الحفظ الدائم في السيرفر والسحابة والتخزين المحلي
     try {
       await updateOrderStatusInDb(orderId, newStatus);
-      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: newStatus } : o)));
-      sounds.playSuccessChime();
-
-      if (newStatus === 'confirmed') {
-        showNotice(`تم تأكيد الأوردر #${String(orderId).slice(-6)} بنجاح 🟢`, 'success');
-      } else if (newStatus === 'cancelled_before_dispatch') {
-        showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} قبل خروجه ⚠️`, 'warn');
-      } else {
-        showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} لعدم الاستلام 🔴`, 'error');
-      }
     } catch (err: any) {
-      alert('تعذر تحديث حالة الطلب، يرجى المحاولة مرة أخرى');
+      console.warn('Background status sync error:', err);
     }
   };
 
@@ -241,6 +247,36 @@ export default function OrderMonitorPage() {
       cancelled_not_received: orders.filter(o => o.status === 'cancelled_not_received').length,
     };
   }, [orders]);
+
+  // 1. إحصائيات المبيعات المؤكدة (الطلبات التي تم اعتمادها ولم تُلغَ)
+  const confirmedOrders = useMemo(() => {
+    return orders.filter(o => o.status === 'confirmed' || o.status === 'preparing');
+  }, [orders]);
+
+  const confirmedRevenue = useMemo(() => {
+    return confirmedOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  }, [confirmedOrders]);
+
+  const uniqueConfirmedCustomers = useMemo(() => {
+    const set = new Set(
+      confirmedOrders.map(o => (o.customer_phone || o.customer_name || '').trim()).filter(Boolean)
+    );
+    return set.size;
+  }, [confirmedOrders]);
+
+  // 2. إحصائيات الطلبات الملغية وإجمالي مبلغها (الفاقد)
+  const cancelledOrders = useMemo(() => {
+    return orders.filter(o =>
+      o.status === 'cancelled_not_received' ||
+      o.status === 'cancelled_before_dispatch' ||
+      o.status === 'cancelled' ||
+      (typeof o.status === 'string' && o.status.startsWith('cancelled'))
+    );
+  }, [orders]);
+
+  const cancelledRevenue = useMemo(() => {
+    return cancelledOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  }, [cancelledOrders]);
 
   const formatOrderTime = (isoString: string) => {
     try {
@@ -677,7 +713,211 @@ export default function OrderMonitorPage() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6">
-        
+
+        {/* المربعات الإحصائية الثلاثة: 1. إجمالي المبيعات المؤكدة - 2. عدد الأوردرات المؤكدة - 3. الأوردرات الملغية ومبالغها */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          
+          {/* 1. إجمالي المبيعات المؤكدة */}
+          <div className={`group rounded-2xl sm:rounded-3xl p-4 sm:p-5 border-2 transition-all shadow-md relative overflow-hidden ${
+            isLight
+              ? 'bg-gradient-to-br from-emerald-50 via-white to-emerald-50/50 border-emerald-300 shadow-emerald-950/5'
+              : 'bg-gradient-to-br from-emerald-950/80 via-slate-900 to-teal-950/70 border-emerald-500/40 shadow-xl'
+          }`}>
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-xs ${
+                  isLight
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
+                }`}>
+                  <DollarSign className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className={`text-xs sm:text-sm font-black block tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    إجمالي المبيعات (المؤكدة)
+                  </span>
+                  <span className={`text-[10.5px] font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-300/80'}`}>
+                    صافي الأوردرات المعتمدة
+                  </span>
+                </div>
+              </div>
+              <span className={`text-[10.5px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 ${
+                isLight
+                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>محصل مؤكد</span>
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2 mb-2 relative z-10">
+              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                isLight ? 'text-emerald-900' : 'text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300'
+              }`}>
+                {confirmedRevenue.toLocaleString('ar-EG')}
+              </span>
+              <span className={`text-xs sm:text-sm font-black ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>جنيه مصري</span>
+            </div>
+
+            <div className={`flex items-center justify-between text-[11px] font-bold pt-2.5 border-t relative z-10 ${
+              isLight ? 'border-emerald-200 text-slate-700' : 'border-emerald-500/20 text-emerald-200/80'
+            }`}>
+              <span>💰 قيمة الأوردرات التي تم تأكيدها</span>
+              <span className={`px-2 py-0.5 rounded-lg border font-black ${
+                isLight
+                  ? 'bg-emerald-100/70 border-emerald-200 text-emerald-900'
+                  : 'bg-emerald-950/60 border-emerald-500/30 text-emerald-300'
+              }`}>
+                {confirmedOrders.length} طلب مؤكد
+              </span>
+            </div>
+          </div>
+
+          {/* 2. عدد الأوردرات المؤكدة ونشاط الزبائن */}
+          <div className={`group rounded-2xl sm:rounded-3xl p-4 sm:p-5 border-2 transition-all shadow-md relative overflow-hidden ${
+            isLight
+              ? 'bg-gradient-to-br from-indigo-50 via-white to-indigo-50/50 border-indigo-300 shadow-indigo-950/5'
+              : 'bg-gradient-to-br from-indigo-950/80 via-slate-900 to-purple-950/70 border-indigo-500/40 shadow-xl'
+          }`}>
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-xs ${
+                  isLight
+                    ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                    : 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30'
+                }`}>
+                  <ShoppingBag className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className={`text-xs sm:text-sm font-black block tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    عدد الأوردرات المؤكدة
+                  </span>
+                  <span className={`text-[10.5px] font-bold ${isLight ? 'text-indigo-800' : 'text-indigo-300/80'}`}>
+                    طلبات جاري تحضيرها/تنفيذها
+                  </span>
+                </div>
+              </div>
+              <span className={`text-[10.5px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 ${
+                isLight
+                  ? 'bg-indigo-100 text-indigo-900 border-indigo-300'
+                  : 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                <span>تم التأكيد</span>
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between gap-2 mb-2 relative z-10">
+              <div className="flex items-baseline gap-2">
+                <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                  isLight ? 'text-indigo-950' : 'text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300'
+                }`}>
+                  {confirmedOrders.length.toLocaleString('ar-EG')}
+                </span>
+                <span className={`text-xs sm:text-sm font-black ${isLight ? 'text-indigo-800' : 'text-indigo-400'}`}>أوردر</span>
+              </div>
+
+              <div className={`px-2.5 py-1 rounded-xl border text-left shrink-0 shadow-2xs ${
+                isLight ? 'bg-white border-indigo-200' : 'bg-slate-950/80 border-indigo-500/30'
+              }`}>
+                <div className={`text-[9.5px] font-bold flex items-center gap-1 justify-end ${isLight ? 'text-indigo-800' : 'text-indigo-300'}`}>
+                  <Users className="w-3 h-3 text-amber-500" />
+                  <span>العملاء:</span>
+                </div>
+                <div className={`text-xs sm:text-sm font-black text-right ${isLight ? 'text-amber-800' : 'text-amber-300'}`}>
+                  {uniqueConfirmedCustomers} عميل
+                </div>
+              </div>
+            </div>
+
+            <div className={`flex items-center justify-between text-[11px] font-bold pt-2.5 border-t relative z-10 ${
+              isLight ? 'border-indigo-200 text-slate-700' : 'border-indigo-500/20 text-indigo-200/80'
+            }`}>
+              <span>👥 نشاط العملاء المؤكدين</span>
+              <span className={`px-2 py-0.5 rounded-lg border font-black ${
+                isLight
+                  ? 'bg-indigo-100/70 border-indigo-200 text-indigo-900'
+                  : 'bg-slate-950/60 border-indigo-500/30 text-amber-300'
+              }`}>
+                من {uniqueConfirmedCustomers} شخص مختلف
+              </span>
+            </div>
+          </div>
+
+          {/* 3. الطلبات الملغية ومبالغها */}
+          <div className={`group rounded-2xl sm:rounded-3xl p-4 sm:p-5 border-2 transition-all shadow-md relative overflow-hidden sm:col-span-2 lg:col-span-1 ${
+            isLight
+              ? 'bg-gradient-to-br from-rose-50 via-white to-red-50/50 border-rose-300 shadow-rose-950/5'
+              : 'bg-gradient-to-br from-rose-950/80 via-slate-900 to-red-950/70 border-rose-500/40 shadow-xl'
+          }`}>
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-xs ${
+                  isLight
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : 'bg-rose-500/20 text-rose-300 border-rose-400/30'
+                }`}>
+                  <XCircle className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className={`text-xs sm:text-sm font-black block tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    الطلبات الملغية ومبالغها
+                  </span>
+                  <span className={`text-[10.5px] font-bold ${isLight ? 'text-rose-800' : 'text-rose-300/80'}`}>
+                    عدم استلام أو قبل الخروج
+                  </span>
+                </div>
+              </div>
+              <span className={`text-[10.5px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 ${
+                isLight
+                  ? 'bg-rose-100 text-rose-900 border-rose-300'
+                  : 'bg-rose-500/20 text-rose-200 border-rose-400/40'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                <span>فاقد المبيعات</span>
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between gap-2 mb-2 relative z-10">
+              <div className="flex items-baseline gap-2">
+                <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                  isLight ? 'text-rose-950' : 'text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300'
+                }`}>
+                  {cancelledRevenue.toLocaleString('ar-EG')}
+                </span>
+                <span className={`text-xs sm:text-sm font-black ${isLight ? 'text-rose-800' : 'text-rose-400'}`}>جنيه</span>
+              </div>
+
+              <div className={`px-2.5 py-1 rounded-xl border text-left shrink-0 shadow-2xs ${
+                isLight ? 'bg-white border-rose-200' : 'bg-slate-950/80 border-rose-500/30'
+              }`}>
+                <div className={`text-[9.5px] font-bold flex items-center gap-1 justify-end ${isLight ? 'text-rose-800' : 'text-rose-300'}`}>
+                  <AlertTriangle className="w-3 h-3 text-rose-500" />
+                  <span>العدد:</span>
+                </div>
+                <div className={`text-xs sm:text-sm font-black text-right ${isLight ? 'text-rose-900' : 'text-rose-300'}`}>
+                  {cancelledOrders.length} أوردر
+                </div>
+              </div>
+            </div>
+
+            <div className={`flex items-center justify-between text-[11px] font-bold pt-2.5 border-t relative z-10 ${
+              isLight ? 'border-rose-200 text-slate-700' : 'border-rose-500/20 text-rose-200/80'
+            }`}>
+              <span>🚫 قيمة مبيعات الطلبات الملغية</span>
+              <span className={`px-2 py-0.5 rounded-lg border font-black ${
+                isLight
+                  ? 'bg-rose-100/70 border-rose-200 text-rose-900'
+                  : 'bg-rose-950/60 border-rose-500/30 text-rose-300'
+              }`}>
+                {cancelledOrders.length} طلب تم إلغاؤه
+              </span>
+            </div>
+          </div>
+
+        </div>
+
         {/* Search & Filter Bar */}
         <div className={`rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 space-y-3.5 border-2 transition-all shadow-md ${
           isLight

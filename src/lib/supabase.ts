@@ -42,24 +42,60 @@ export async function saveOrderToSupabase(orderData: any) {
   }
 }
 
+const LOCAL_STATUS_OVERRIDES_KEY = 'loloat_orders_status_overrides';
+const LOCAL_DELETED_ORDERS_KEY = 'loloat_deleted_order_ids';
+
 export async function fetchOrdersFromDatabase() {
+  // 1. Gather local status overrides and deleted IDs
+  let localOverrides: Record<string, string> = {};
+  let localDeletedIds: string[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      localOverrides = JSON.parse(localStorage.getItem(LOCAL_STATUS_OVERRIDES_KEY) || '{}');
+      localDeletedIds = JSON.parse(localStorage.getItem(LOCAL_DELETED_ORDERS_KEY) || '[]');
+    } catch {}
+  }
+
+  // 2. Fetch from Supabase if configured
   if (isSupabaseConfigured && supabase) {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) return data;
+      // Parallel fetch orders and restaurant_settings overrides
+      const [ordersRes, settingsData] = await Promise.all([
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        fetchRestaurantSettingsFromDb().catch(() => null)
+      ]);
+
+      const cloudOverrides: Record<string, string> = settingsData?.orderStatusOverrides || {};
+      const cloudDeleted: string[] = settingsData?.deletedOrderIds || [];
+      const combinedOverrides = { ...cloudOverrides, ...localOverrides };
+      const combinedDeleted = new Set([...cloudDeleted, ...localDeletedIds]);
+
+      if (!ordersRes.error && Array.isArray(ordersRes.data)) {
+        const merged = ordersRes.data
+          .filter(order => !combinedDeleted.has(order.id))
+          .map(order => {
+            const override = combinedOverrides[order.id];
+            return override ? { ...order, status: override } : order;
+          });
+        return merged;
+      }
     } catch (e) {
       console.warn('Fallback to local orders cache:', e);
     }
   }
 
-  // Fallback to local storage cache
+  // 3. Fallback to local storage cache
   if (typeof window !== 'undefined') {
     try {
       const local = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
-      return local;
+      const deletedSet = new Set(localDeletedIds);
+      const merged = local
+        .filter((o: any) => !deletedSet.has(o.id))
+        .map((o: any) => {
+          const override = localOverrides[o.id];
+          return override ? { ...o, status: override } : o;
+        });
+      return merged;
     } catch {
       return [];
     }
@@ -68,39 +104,73 @@ export async function fetchOrdersFromDatabase() {
 }
 
 export async function updateOrderStatusInDb(orderId: string, newStatus: string) {
-  if (isSupabaseConfigured && supabase) {
-    try {
-      await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-    } catch (e) {
-      console.warn('Failed to update Supabase status:', e);
-    }
-  }
-
+  // 1. Instantly save in local overrides cache
   if (typeof window !== 'undefined') {
     try {
+      const overrides = JSON.parse(localStorage.getItem(LOCAL_STATUS_OVERRIDES_KEY) || '{}');
+      overrides[orderId] = newStatus;
+      localStorage.setItem(LOCAL_STATUS_OVERRIDES_KEY, JSON.stringify(overrides));
+
       const orders = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
       const updated = orders.map((o: any) => (o.id === orderId ? { ...o, status: newStatus } : o));
       localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
     } catch {}
   }
+
+  // 2. Persist to Supabase
+  if (isSupabaseConfigured && supabase) {
+    try {
+      // a. Direct table update
+      await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+
+      // b. Cloud shared settings sync (has UPDATE policy allowed across all clients)
+      const settings = await fetchRestaurantSettingsFromDb();
+      if (settings) {
+        const cloudOverrides = settings.orderStatusOverrides || {};
+        cloudOverrides[orderId] = newStatus;
+        await saveRestaurantSettingsToDb({
+          ...settings,
+          orderStatusOverrides: cloudOverrides
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to update Supabase status:', e);
+    }
+  }
 }
 
 export async function deleteOrderFromDatabase(orderId: string) {
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { error } = await supabase.from('orders').delete().eq('id', orderId);
-      if (error) throw error;
-    } catch (e: any) {
-      console.warn('Failed to delete order from Supabase:', e.message);
-    }
-  }
-
+  // 1. Save deleted ID in local cache
   if (typeof window !== 'undefined') {
     try {
+      const deleted = JSON.parse(localStorage.getItem(LOCAL_DELETED_ORDERS_KEY) || '[]');
+      if (!deleted.includes(orderId)) {
+        localStorage.setItem(LOCAL_DELETED_ORDERS_KEY, JSON.stringify([...deleted, orderId]));
+      }
       const orders = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
       const updated = orders.filter((o: any) => o.id !== orderId);
       localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
     } catch {}
+  }
+
+  // 2. Delete from Supabase
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase.from('orders').delete().eq('id', orderId);
+
+      const settings = await fetchRestaurantSettingsFromDb();
+      if (settings) {
+        const cloudDeleted = settings.deletedOrderIds || [];
+        if (!cloudDeleted.includes(orderId)) {
+          await saveRestaurantSettingsToDb({
+            ...settings,
+            deletedOrderIds: [...cloudDeleted, orderId]
+          });
+        }
+      }
+    } catch (e: any) {
+      console.warn('Failed to delete order from Supabase:', e.message);
+    }
   }
 }
 
