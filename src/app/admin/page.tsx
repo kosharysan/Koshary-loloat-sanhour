@@ -39,11 +39,18 @@ import {
   Tag,
   Percent,
   Copy,
-  XCircle
+  XCircle,
+  Printer,
+  FileText,
+  BarChart3,
+  History,
+  Coins,
+  Bike,
+  AlertTriangle
 } from 'lucide-react';
-import { Coupon, DeliveryZone, StoreScheduleSettings } from '@/types';
+import { Coupon, DeliveryZone, StoreScheduleSettings, ClosedShift } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
-import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase } from '@/lib/supabase';
+import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase, fetchShiftsData, closeShiftInDatabase } from '@/lib/supabase';
 import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
 import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, defaultWhatsAppNotificationSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat, sendWhatsAppMessageApi } from '@/lib/whatsapp';
@@ -56,6 +63,19 @@ export default function AdminPortal() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'orders' | 'menu' | 'coupons' | 'settings'>('orders');
+
+  // تبويبات قسم الطلبات والمبيعات: 1. الوردية الحالية 2. فواتير الورديات 3. التقرير الشهري والسنوي
+  const [ordersSubTab, setOrdersSubTab] = useState<'current_shift' | 'shifts_history' | 'reports'>('current_shift');
+  const [closedShifts, setClosedShifts] = useState<ClosedShift[]>([]);
+  const [currentShiftStartTime, setCurrentShiftStartTime] = useState<string>('');
+  const [currentShiftNumber, setCurrentShiftNumber] = useState<number>(1);
+  const [archivedOrderIds, setArchivedOrderIds] = useState<string[]>([]);
+  const [selectedShiftForView, setSelectedShiftForView] = useState<ClosedShift | null>(null);
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [isClosingShift, setIsClosingShift] = useState(false);
+  const [shiftInvoicesSearchQuery, setShiftInvoicesSearchQuery] = useState('');
+  const [shiftInvoicesStatusFilter, setShiftInvoicesStatusFilter] = useState<'all' | 'confirmed' | 'cancelled'>('all');
+  const [currentShiftSearchQuery, setCurrentShiftSearchQuery] = useState('');
 
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -515,14 +535,244 @@ export default function AdminPortal() {
   const loadOrders = async () => {
     setOrdersLoading(true);
     try {
-      const data = await fetchOrdersFromDatabase();
+      const [data, shiftsInfo] = await Promise.all([
+        fetchOrdersFromDatabase(),
+        fetchShiftsData()
+      ]);
       setOrders(data || []);
+      if (shiftsInfo) {
+        setClosedShifts(shiftsInfo.closedShifts || []);
+        setCurrentShiftStartTime(shiftsInfo.currentShiftStartTime || '');
+        setCurrentShiftNumber(shiftsInfo.currentShiftNumber || 1);
+        setArchivedOrderIds(shiftsInfo.archivedOrderIds || []);
+      }
     } catch (e) {
       console.error(e);
       setOrders([]);
     } finally {
       setOrdersLoading(false);
     }
+  };
+
+  // مجموعة معرفات الفواتير المؤرشفة للورديات السابقة
+  const archivedSet = useMemo(() => new Set(archivedOrderIds.map(String)), [archivedOrderIds]);
+
+  // فواتير الوردية المفتوحة الحالية (المستثنى منها فواتير الورديات السابقة المقفلة)
+  const currentShiftOrders = useMemo(() => {
+    return orders.filter(o => !archivedSet.has(String(o.id)));
+  }, [orders, archivedSet]);
+
+  // إحصائيات وأرقام الوردية الحالية
+  const currentShiftStats = useMemo(() => {
+    let totalRev = 0, cancelRev = 0, cash = 0, wallet = 0, instapay = 0;
+    let confirmedCount = 0, cancelCount = 0, pendingCount = 0, delCount = 0, pickCount = 0;
+
+    currentShiftOrders.forEach(o => {
+      const amt = Number(o.total_amount) || 0;
+      if (o.status === 'confirmed') {
+        confirmedCount++;
+        totalRev += amt;
+        if (o.payment_method === 'vodafone_cash') wallet += amt;
+        else if (o.payment_method === 'instapay') instapay += amt;
+        else cash += amt;
+      } else if (typeof o.status === 'string' && o.status.startsWith('cancelled')) {
+        cancelCount++;
+        cancelRev += amt;
+      } else {
+        pendingCount++;
+      }
+
+      if (o.order_type === 'delivery') delCount++;
+      else pickCount++;
+    });
+
+    return {
+      activeOrders: currentShiftOrders,
+      totalOrders: currentShiftOrders.length,
+      confirmedOrders: confirmedCount,
+      cancelledOrders: cancelCount,
+      pendingOrders: pendingCount,
+      totalRevenue: totalRev,
+      totalCancelledRevenue: cancelRev,
+      cashAmount: cash,
+      walletAmount: wallet,
+      instapayAmount: instapay,
+      deliveryCount: delCount,
+      pickupCount: pickCount,
+    };
+  }, [currentShiftOrders]);
+
+  // فلترة فواتير الوردية الحالية بالبحث
+  const currentShiftFilteredOrders = useMemo(() => {
+    if (!currentShiftSearchQuery.trim()) return currentShiftOrders;
+    const q = currentShiftSearchQuery.toLowerCase().trim();
+    return currentShiftOrders.filter(o => {
+      const matchName = o.customer_name?.toLowerCase().includes(q);
+      const matchPhone = o.customer_phone?.includes(q);
+      const matchId = String(o.id).toLowerCase().includes(q);
+      return matchName || matchPhone || matchId;
+    });
+  }, [currentShiftOrders, currentShiftSearchQuery]);
+
+  // فلترة فواتير الوردية المختارة للعرض في المودال
+  const shiftInvoicesFilteredOrders = useMemo(() => {
+    if (!selectedShiftForView || !selectedShiftForView.orders) return [];
+    let list = selectedShiftForView.orders;
+
+    if (shiftInvoicesStatusFilter === 'confirmed') {
+      list = list.filter(o => o.status === 'confirmed');
+    } else if (shiftInvoicesStatusFilter === 'cancelled') {
+      list = list.filter(o => typeof o.status === 'string' && o.status.startsWith('cancelled'));
+    }
+
+    if (shiftInvoicesSearchQuery.trim()) {
+      const q = shiftInvoicesSearchQuery.toLowerCase().trim();
+      list = list.filter(o => {
+        const matchName = o.customer_name?.toLowerCase().includes(q);
+        const matchPhone = o.customer_phone?.includes(q);
+        const matchId = String(o.id).toLowerCase().includes(q);
+        return matchName || matchPhone || matchId;
+      });
+    }
+
+    return list;
+  }, [selectedShiftForView, shiftInvoicesStatusFilter, shiftInvoicesSearchQuery]);
+
+  // إجمالي الإحصائيات التاريخية للورديات المقفلة
+  const closedShiftsTotalStats = useMemo(() => {
+    let totalRev = 0, totalOrdersCount = 0, totalConfirmed = 0;
+    closedShifts.forEach(shift => {
+      totalRev += Number(shift.summary?.totalRevenue || 0);
+      totalOrdersCount += Number(shift.summary?.totalOrders || shift.orders?.length || 0);
+      totalConfirmed += Number(shift.summary?.confirmedOrders || 0);
+    });
+    return { totalRev, totalOrdersCount, totalConfirmed };
+  }, [closedShifts]);
+
+  // تنفيذ تقفيل الوردية من لوحة الإدارة وتصفير الفواتير فوراً
+  const handleAdminConfirmCloseShift = async () => {
+    if (currentShiftOrders.length === 0) {
+      alert('الوردية الحالية فارغة بالفعل ولا تحتوي على أي فواتير لتقفيلها!');
+      return;
+    }
+    setIsClosingShift(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const newShiftNum = currentShiftNumber + 1;
+      const newArchivedIds = [
+        ...archivedOrderIds,
+        ...currentShiftOrders.map(o => String(o.id))
+      ];
+
+      const closedShiftRecord: ClosedShift = {
+        id: `shift-${Date.now()}-${currentShiftNumber}`,
+        shiftNumber: currentShiftNumber,
+        openedAt: currentShiftStartTime || nowIso,
+        closedAt: nowIso,
+        closedBy: 'لوحة الإدارة',
+        orderIds: currentShiftOrders.map(o => String(o.id)),
+        orders: JSON.parse(JSON.stringify(currentShiftOrders)),
+        summary: {
+          totalOrders: currentShiftStats.totalOrders,
+          confirmedOrders: currentShiftStats.confirmedOrders,
+          cancelledOrders: currentShiftStats.cancelledOrders,
+          pendingOrders: currentShiftStats.pendingOrders,
+          totalRevenue: currentShiftStats.totalRevenue,
+          totalCancelledRevenue: currentShiftStats.totalCancelledRevenue,
+          cashAmount: currentShiftStats.cashAmount,
+          walletAmount: currentShiftStats.walletAmount,
+          instapayAmount: currentShiftStats.instapayAmount,
+          deliveryCount: currentShiftStats.deliveryCount,
+          pickupCount: currentShiftStats.pickupCount,
+        }
+      };
+
+      await closeShiftInDatabase(closedShiftRecord, nowIso, newShiftNum, newArchivedIds);
+
+      // تصفير فوري
+      setArchivedOrderIds(newArchivedIds);
+      setCurrentShiftStartTime(nowIso);
+      setCurrentShiftNumber(newShiftNum);
+      setClosedShifts(prev => [closedShiftRecord, ...prev]);
+      setIsShiftModalOpen(false);
+
+      alert(`تم تقفيل الوردية رقم #${currentShiftNumber} بنجاح وتصفير الفواتير لبدء الوردية #${newShiftNum} 🔒✓`);
+    } catch (err: any) {
+      console.error('Error closing shift:', err);
+      alert('حدث خطأ أثناء تقفيل الوردية: ' + (err.message || err));
+    } finally {
+      setIsClosingShift(false);
+    }
+  };
+
+  // طباعة كشف الوردية
+  const handlePrintShiftSummary = (shift: ClosedShift) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('يرجى السماح بالنوافذ المنبثقة لإتمام الطباعة');
+      return;
+    }
+    const s = shift.summary || ({} as any);
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8">
+        <title>تقرير الوردية #${shift.shiftNumber} - كشري لؤلؤة سنهور</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; padding: 24px; direction: rtl; color: #1e293b; max-width: 600px; margin: 0 auto; line-height: 1.5; }
+          .header { text-align: center; border-bottom: 2px dashed #94a3b8; padding-bottom: 16px; margin-bottom: 16px; }
+          .header h1 { margin: 0 0 6px 0; font-size: 20px; font-weight: 900; }
+          .header p { margin: 2px 0; font-size: 13px; color: #64748b; }
+          .badge { display: inline-block; padding: 6px 14px; background: #fef3c7; color: #92400e; border-radius: 9999px; font-weight: 900; margin: 10px 0; font-size: 14px; border: 1px solid #fde68a; }
+          .section { margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
+          .section-title { font-weight: 800; font-size: 14px; margin-bottom: 8px; color: #0f172a; }
+          .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+          .row.total { font-size: 16px; font-weight: 900; color: #059669; border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 8px; }
+          .footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>كشري لؤلؤة سنهور 🍲</h1>
+          <p>تقرير تقفيل الوردية</p>
+          <div class="badge">الوردية رقم #${shift.shiftNumber}</div>
+          <p>من: ${formatOrderTime(shift.openedAt)}</p>
+          <p>إلى: ${formatOrderTime(shift.closedAt)}</p>
+          <p>تم الإغلاق بواسطة: ${shift.closedBy || 'شاشة المتابعة'}</p>
+        </div>
+
+        <div class="section">
+          <div class="section-title">📊 ملخص الفواتير</div>
+          <div class="row"><span>إجمالي الفواتير:</span><span><strong>${s.totalOrders || 0}</strong> فاتورة</span></div>
+          <div class="row"><span>الفواتير المؤكدة:</span><span><strong>${s.confirmedOrders || 0}</strong> طلب</span></div>
+          <div class="row"><span>الفواتير الملغية:</span><span><strong>${s.cancelledOrders || 0}</strong> طلب</span></div>
+          <div class="row"><span>طلبات التوصيل (دليفري):</span><span><strong>${s.deliveryCount || 0}</strong></span></div>
+          <div class="row"><span>طلبات الاستلام بالمطعم:</span><span><strong>${s.pickupCount || 0}</strong></span></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">💰 تفصيل طرق الدفع</div>
+          <div class="row"><span>نقدي (كاش):</span><span><strong>${(s.cashAmount || 0).toLocaleString()}</strong> ج.م</span></div>
+          <div class="row"><span>محافظ إلكترونية / فودافون كاش:</span><span><strong>${(s.walletAmount || 0).toLocaleString()}</strong> ج.م</span></div>
+          <div class="row"><span>إنستاباي:</span><span><strong>${(s.instapayAmount || 0).toLocaleString()}</strong> ج.م</span></div>
+          <div class="row total"><span>صافي المبيعات المحصلة:</span><span>${(s.totalRevenue || 0).toLocaleString()} ج.م</span></div>
+          ${s.totalCancelledRevenue ? `<div class="row" style="color: #dc2626; font-size: 12px;"><span>قيمة الطلبات الملغية:</span><span>${s.totalCancelledRevenue.toLocaleString()} ج.م</span></div>` : ''}
+        </div>
+
+        <div class="footer">
+          <p>تاريخ الطباعة: ${new Date().toLocaleString('ar-EG')}</p>
+          <p>كشري لؤلؤة سنهور - نظام إدارة المطعم</p>
+        </div>
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   useEffect(() => {
@@ -728,6 +978,64 @@ export default function AdminPortal() {
       default: return 'كل الأوقات';
     }
   }, [timeFilter, customStartDate, customEndDate]);
+
+  // إحصائيات الشهور للسنة الحالية للتقرير السنوي
+  const monthlyStats = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const monthNames = [
+      'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+    const stats = monthNames.map((name, index) => ({
+      monthIndex: index,
+      name,
+      orderCount: 0,
+      confirmedCount: 0,
+      confirmedRevenue: 0,
+      cancelledRevenue: 0,
+    }));
+
+    orders.forEach(o => {
+      if (!o.created_at) return;
+      const d = new Date(o.created_at);
+      if (d.getFullYear() === currentYear) {
+        const m = d.getMonth();
+        if (stats[m]) {
+          stats[m].orderCount += 1;
+          if (o.status === 'confirmed') {
+            stats[m].confirmedCount += 1;
+            stats[m].confirmedRevenue += Number(o.total_amount) || 0;
+          } else if (typeof o.status === 'string' && o.status.startsWith('cancelled')) {
+            stats[m].cancelledRevenue += Number(o.total_amount) || 0;
+          }
+        }
+      }
+    });
+
+    return stats;
+  }, [orders]);
+
+  // إحصائيات طرق الدفع للتقرير
+  const paymentMethodStats = useMemo(() => {
+    let cash = 0, wallet = 0, instapay = 0;
+    confirmedOrders.forEach(o => {
+      const amt = Number(o.total_amount) || 0;
+      if (o.payment_method === 'vodafone_cash') wallet += amt;
+      else if (o.payment_method === 'instapay') instapay += amt;
+      else cash += amt;
+    });
+    return { cash, wallet, instapay };
+  }, [confirmedOrders]);
+
+  // إحصائيات التوصيل والاستلام للتقرير
+  const orderTypeStats = useMemo(() => {
+    let delivery = 0, pickup = 0;
+    confirmedOrders.forEach(o => {
+      if (o.order_type === 'delivery') delivery += 1;
+      else pickup += 1;
+    });
+    return { delivery, pickup };
+  }, [confirmedOrders]);
 
   const formatOrderTime = (dateStr: string) => {
     if (!dateStr) return '';
@@ -939,382 +1247,1270 @@ export default function AdminPortal() {
 
         {activeTab === 'orders' && (
           <div className="space-y-6">
-            {/* المربعات الإحصائية العلوية: 1. إجمالي المبيعات المؤكدة - 2. عدد الأوردرات المؤكدة - 3. الأوردرات الملغية وإجمالي مبلغها */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              
-              {/* المربع الأول: إجمالي المبيعات المؤكدة - خلفية زمردية فخمة تدل على الأرباح والسيولة المحققة */}
-              <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-emerald-500/40 bg-gradient-to-br from-emerald-950/90 via-slate-900/95 to-teal-950/80 hover:border-emerald-400 hover:shadow-emerald-500/10">
-                <div className="absolute -top-10 -right-10 w-44 h-44 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-teal-500/15 rounded-full blur-2xl pointer-events-none" />
-
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400/25 to-teal-500/10 text-emerald-300 flex items-center justify-center border border-emerald-400/30 shadow-lg shadow-emerald-500/20">
-                      <DollarSign className="w-6 h-6 stroke-[2.5]" />
-                    </div>
-                    <div>
-                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">إجمالي المبيعات (المؤكدة)</span>
-                      <span className="text-[11px] text-emerald-200/70 font-bold">الفترة: {activePeriodLabel}</span>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 shadow-xs flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>صافي التحصيل المؤكد</span>
-                  </span>
-                </div>
+            
+            {/* شريط التنقل بين التبويبات الفرعية الثلاثة للطلبات والمبيعات */}
+            <div className="bg-slate-900/95 border border-slate-800 p-2 rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shadow-xl backdrop-blur-md">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-1">
                 
-                <div className="flex items-baseline gap-2 mb-3 relative z-10">
-                  <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm">
-                    {confirmedRevenue.toLocaleString('ar-EG')}
+                {/* 1. تبويبة الوردية الحالية */}
+                <button
+                  type="button"
+                  onClick={() => setOrdersSubTab('current_shift')}
+                  className={`flex-1 py-3 px-3 sm:px-5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    ordersSubTab === 'current_shift'
+                      ? 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full ${ordersSubTab === 'current_shift' ? 'bg-white animate-pulse' : 'bg-emerald-500'}`} />
+                  <span>الوردية الحالية</span>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                    ordersSubTab === 'current_shift' ? 'bg-emerald-800 text-emerald-100' : 'bg-slate-800 text-emerald-400 border border-emerald-500/20'
+                  }`}>
+                    #{currentShiftNumber} ({currentShiftOrders.length})
                   </span>
-                  <span className="text-sm sm:text-base font-black text-emerald-400">جنيه مصري</span>
-                </div>
+                </button>
 
-                <div className="flex items-center justify-between text-xs text-emerald-200/70 font-medium pt-3.5 border-t border-emerald-500/20 relative z-10">
-                  <span className="flex items-center gap-1.5">
-                    <span>💰</span>
-                    <span>قيمة الطلبات المؤكدة فقط</span>
+                {/* 2. تبويبة فواتير الورديات */}
+                <button
+                  type="button"
+                  onClick={() => setOrdersSubTab('shifts_history')}
+                  className={`flex-1 py-3 px-3 sm:px-5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    ordersSubTab === 'shifts_history'
+                      ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  <span>فواتير الورديات</span>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                    ordersSubTab === 'shifts_history' ? 'bg-amber-800 text-amber-100' : 'bg-slate-800 text-amber-400 border border-amber-500/20'
+                  }`}>
+                    {closedShifts.length} وردية
                   </span>
-                  <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30">
-                    {confirmedOrders.length} طلب مؤكد
-                  </span>
-                </div>
+                </button>
+
+                {/* 3. تبويبة التقرير الشهري والسنوي */}
+                <button
+                  type="button"
+                  onClick={() => setOrdersSubTab('reports')}
+                  className={`flex-1 py-3 px-3 sm:px-5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    ordersSubTab === 'reports'
+                      ? 'bg-gradient-to-r from-rose-600 via-red-500 to-rose-600 text-white shadow-lg shadow-rose-600/30 ring-1 ring-rose-400/40'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span>التقرير الشهري والسنوي</span>
+                </button>
+
               </div>
 
-              {/* المربع الثاني: عدد الأوردرات المؤكدة ونشاط الزبائن - خلفية ياقوتية ملكية تدل على حركة الطلبات المؤكدة */}
-              <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-indigo-500/40 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-purple-950/80 hover:border-indigo-400 hover:shadow-indigo-500/10">
-                <div className="absolute -top-10 -right-10 w-44 h-44 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-purple-500/15 rounded-full blur-2xl pointer-events-none" />
-
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-400/25 to-purple-500/10 text-indigo-300 flex items-center justify-center border border-indigo-400/30 shadow-lg shadow-indigo-500/20">
-                      <ShoppingBag className="w-6 h-6 stroke-[2.5]" />
-                    </div>
-                    <div>
-                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">عدد الأوردرات المؤكدة</span>
-                      <span className="text-[11px] text-indigo-200/70 font-bold">الفترة: {activePeriodLabel}</span>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 shadow-xs flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                    <span>تم الضغط على تأكيد</span>
-                  </span>
-                </div>
-
-                <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm">
-                      {confirmedOrders.length.toLocaleString('ar-EG')}
-                    </span>
-                    <span className="text-sm sm:text-base font-black text-indigo-400">أوردر</span>
-                  </div>
-
-                  {/* كام شخص طلب؟ */}
-                  <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl px-3 py-1.5 text-left shrink-0 shadow-inner">
-                    <div className="text-[10px] text-indigo-200/80 font-bold flex items-center gap-1 justify-end">
-                      <Users className="w-3.5 h-3.5 text-amber-400" />
-                      <span>كام شخص طلب؟</span>
-                    </div>
-                    <div className="text-sm sm:text-lg font-black text-amber-300 text-right">
-                      {uniqueConfirmedCustomerCount.toLocaleString('ar-EG')} <span className="text-xs text-indigo-200/60 font-medium">عميل</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-indigo-200/70 font-medium pt-3.5 border-t border-indigo-500/20 relative z-10">
-                  <span className="flex items-center gap-1.5">
-                    <span>👥</span>
-                    <span>عملاء الطلبات المؤكدة</span>
-                  </span>
-                  <span className="text-amber-300 font-bold bg-slate-950/60 px-2.5 py-1 rounded-xl border border-indigo-500/30">
-                    من {uniqueConfirmedCustomerCount} شخص مختلف
-                  </span>
-                </div>
-              </div>
-
-              {/* المربع الثالث: الطلبات الملغية وإجمالي مبالغها - خلفية قرمزية/حمراء تحذيرية أنيقة */}
-              <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-rose-500/40 bg-gradient-to-br from-rose-950/90 via-slate-900/95 to-red-950/80 hover:border-rose-400 hover:shadow-rose-500/10">
-                <div className="absolute -top-10 -right-10 w-44 h-44 bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-red-500/15 rounded-full blur-2xl pointer-events-none" />
-
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-400/25 to-red-500/10 text-rose-300 flex items-center justify-center border border-rose-400/30 shadow-lg shadow-rose-500/20">
-                      <XCircle className="w-6 h-6 stroke-[2.5]" />
-                    </div>
-                    <div>
-                      <span className="text-sm sm:text-base font-black text-white block tracking-wide">الطلبات الملغية ومبالغها</span>
-                      <span className="text-[11px] text-rose-200/70 font-bold">الفترة: {activePeriodLabel}</span>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 border border-rose-400/40 shadow-xs flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                    <span>ملغي / فاقد</span>
-                  </span>
-                </div>
-
-                <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-sm">
-                      {cancelledRevenue.toLocaleString('ar-EG')}
-                    </span>
-                    <span className="text-sm sm:text-base font-black text-rose-400">جنيه</span>
-                  </div>
-
-                  {/* عدد الطلبات الملغية */}
-                  <div className="bg-slate-950/80 border border-rose-500/30 rounded-2xl px-3 py-1.5 text-left shrink-0 shadow-inner">
-                    <div className="text-[10px] text-rose-200/80 font-bold flex items-center gap-1 justify-end">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                      <span>عدد الملغي</span>
-                    </div>
-                    <div className="text-sm sm:text-lg font-black text-rose-300 text-right">
-                      {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-xs text-rose-200/60 font-medium">أوردر</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-rose-200/70 font-medium pt-3.5 border-t border-rose-500/20 relative z-10">
-                  <span className="flex items-center gap-1.5">
-                    <span>🚫</span>
-                    <span>قيمة المبيعات غير المحصلة</span>
-                  </span>
-                  <span className="text-rose-300 font-bold bg-rose-950/60 px-2.5 py-1 rounded-xl border border-rose-500/30">
-                    {cancelledOrders.length} طلب ملغي
-                  </span>
-                </div>
-              </div>
-
+              {/* رابط سريع لشاشة متابعة الطلبات المباشرة */}
+              <Link
+                href="/admin/monitor"
+                target="_blank"
+                className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-black border border-slate-700/80 transition flex items-center justify-center gap-1.5 shrink-0"
+              >
+                <span>شاشة المتابعة الكبيرة 🖥️</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
             </div>
 
-        {/* وحدة الفلترة التفاعلية وقائمة الطلبات الحية */}
-        <div className="space-y-4">
-            
-            {/* وحدة الفلترة التفاعلية: اليوم، الأسبوع، الشهر، السنة، من تاريخ إلى تاريخ، والأسماء ورقم الهاتف */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-lg">
-              
-              {/* السطر الأول: فلاتر الوقت (اليوم، الأسبوع، الشهر، السنة، الكل، فترة مخصصة) */}
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
-                <div className="flex items-center gap-2 text-xs font-black text-slate-300">
-                  <Calendar className="w-4 h-4 text-rose-500" />
-                  <span>تصفية حسب الوقت:</span>
+            {/* ========================================================================= */}
+            {/* التبويبة الأولى: 🟢 الوردية الحالية */}
+            {/* ========================================================================= */}
+            {ordersSubTab === 'current_shift' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                
+                {/* كارت إدارة الوردية الحالية وزر تقفيل الوردية */}
+                <div className="bg-gradient-to-br from-slate-900 via-[#0c1f2d] to-slate-950 border-2 border-emerald-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  
+                  <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-slate-950 shadow-xl shadow-emerald-500/20 font-black">
+                        <Lock className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xl sm:text-2xl font-black text-white">الوردية الحالية رقم #{currentShiftNumber}</h3>
+                          <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-black flex items-center gap-1.5 animate-pulse">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span>مفتوحة وتستقبل الطلبات</span>
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <span>بدأت الوردية في: {currentShiftStartTime ? formatOrderTime(currentShiftStartTime) : 'بداية اليوم'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                      {/* زر تقفيل الوردية الحالية وتصفير الفواتير */}
+                      <button
+                        type="button"
+                        onClick={() => setIsShiftModalOpen(true)}
+                        className="flex-1 lg:flex-none py-3 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-amber-400"
+                        title={`تقفيل الوردية الحالية (#${currentShiftNumber}) وتصفير الفواتير لبدء وردية جديدة`}
+                      >
+                        <Lock className="w-4 h-4 text-slate-950" />
+                        <span>تقفيل الوردية #{currentShiftNumber} وتصفير الفواتير 🔒</span>
+                      </button>
+
+                      <button
+                        onClick={loadOrders}
+                        className="py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        title="تحديث فوري للفواتير"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+                        <span>تحديث</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* إحصائيات الوردية المفتوحة الحالية */}
+                  <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5">
+                    <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800/90 space-y-1">
+                      <span className="text-slate-400 text-xs font-bold block">فواتير الوردية الحالية</span>
+                      <div className="text-2xl font-black text-amber-400 font-mono">{currentShiftStats.totalOrders} <span className="text-xs text-slate-400 font-medium">فاتورة</span></div>
+                      <span className="text-[11px] text-slate-500 block font-bold">{currentShiftStats.pendingOrders} بانتظار التأكيد</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 space-y-1">
+                      <span className="text-emerald-300 text-xs font-bold block">المبيعات المؤكدة (الصافي)</span>
+                      <div className="text-2xl font-black text-emerald-400 font-mono">{currentShiftStats.totalRevenue.toLocaleString()} <span className="text-xs text-emerald-300 font-medium">ج.م</span></div>
+                      <span className="text-[11px] text-emerald-400/80 block font-bold">{currentShiftStats.confirmedOrders} طلب مؤكد</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800/90 space-y-1">
+                      <span className="text-slate-400 text-xs font-bold block">تفصيل طرق الدفع</span>
+                      <div className="text-xs text-slate-300 font-bold space-y-0.5">
+                        <div className="flex justify-between"><span>كاش:</span><span className="text-emerald-400 font-mono">{currentShiftStats.cashAmount.toLocaleString()} ج</span></div>
+                        <div className="flex justify-between"><span>محافظ:</span><span className="text-amber-400 font-mono">{currentShiftStats.walletAmount.toLocaleString()} ج</span></div>
+                        <div className="flex justify-between"><span>إنستاباي:</span><span className="text-cyan-400 font-mono">{currentShiftStats.instapayAmount.toLocaleString()} ج</span></div>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-1">
+                      <span className="text-rose-300 text-xs font-bold block">فواتير ملغية</span>
+                      <div className="text-2xl font-black text-rose-400 font-mono">{currentShiftStats.cancelledOrders} <span className="text-xs text-rose-300 font-medium">طلب</span></div>
+                      <span className="text-[11px] text-rose-400/80 block font-bold">{currentShiftStats.totalCancelledRevenue.toLocaleString()} ج.م ملغية</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                  {[
-                    { id: 'today', label: 'اليوم' },
-                    { id: 'week', label: 'هذا الأسبوع' },
-                    { id: 'month', label: 'هذا الشهر' },
-                    { id: 'year', label: 'هذه السنة' },
-                    { id: 'all', label: 'كل الأوقات' },
-                    { id: 'custom', label: '📅 فترة مخصصة (من يوم كذا لكذا)' }
-                  ].map((btn) => (
+                {/* شريط البحث في فواتير الوردية الحالية */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                  <div className="relative w-full sm:w-96">
+                    <input
+                      type="text"
+                      value={currentShiftSearchQuery}
+                      onChange={(e) => setCurrentShiftSearchQuery(e.target.value)}
+                      placeholder="بحث في فواتير الوردية بالاسم أو الهاتف..."
+                      className="w-full py-2.5 px-4 pr-10 pl-8 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-xs font-bold focus:outline-none focus:border-emerald-500"
+                    />
+                    <Search className="absolute top-3 right-3.5 w-4 h-4 text-slate-400" />
+                    {currentShiftSearchQuery && (
+                      <button
+                        onClick={() => setCurrentShiftSearchQuery('')}
+                        className="absolute top-2.5 left-3 text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-slate-400 font-bold">
+                    فواتير الوردية الحالية المعروضة: <span className="text-emerald-400 font-black">{currentShiftFilteredOrders.length}</span> فاتورة
+                  </div>
+                </div>
+
+                {/* قائمة فواتير الوردية الحالية */}
+                {currentShiftFilteredOrders.length === 0 ? (
+                  <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
+                    <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
+                      <CheckCircle2 className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-black text-white">الوردية الحالية رقم #{currentShiftNumber} جاهزة ونظيفة 🟢</h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      {currentShiftOrders.length === 0
+                        ? 'تم تصفير الفواتير بنجاح، وستظهر أي طلبات جديدة يقوم الزبائن بطلبها هنا فوراً. يمكنك الرجوع لجميع الفواتير السابقة في تبويبة (فواتير الورديات).'
+                        : 'لا توجد فواتير تطابق نص البحث الحالي في هذه الوردية.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {currentShiftFilteredOrders.map(order => (
+                      <div key={order.id} className="bg-slate-900/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition space-y-4 shadow-md">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                              #{String(order.id).slice(-6)}
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-base font-black text-white">{order.customer_name}</h4>
+                                {order.status === 'confirmed' ? (
+                                  <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                    <span>مؤكد</span>
+                                  </span>
+                                ) : order.status === 'cancelled_not_received' ? (
+                                  <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
+                                    <XCircle className="w-3 h-3 text-red-400" />
+                                    <span>ملغي (عدم استلام)</span>
+                                  </span>
+                                ) : order.status === 'cancelled_before_dispatch' ? (
+                                  <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3 text-amber-400" />
+                                    <span>ملغي قبل الخروج</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
+                                    <Clock className="w-3 h-3 text-sky-400" />
+                                    <span>جديد (بانتظار التأكيد)</span>
+                                  </span>
+                                )}
+                                {order.created_at && (
+                                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-bold flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    {formatOrderTime(order.created_at)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <span className="text-xs text-slate-300 font-bold flex items-center gap-1.5 bg-slate-950/70 px-2.5 py-1 rounded-xl border border-slate-800 font-mono dir-ltr">
+                                  <Phone className="w-3 h-3 text-emerald-400" />
+                                  <span>{order.customer_phone}</span>
+                                </span>
+                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                                  {order.order_type === 'takeaway' || order.delivery_zone === 'استلام من المطعم' || !order.delivery_zone || order.delivery_zone === 'غير محدد'
+                                    ? '🏬 استلام تيك أواي من المحل'
+                                    : `🛵 دليفري: ${order.delivery_zone}`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* زر حذف الطلب */}
+                          <button
+                            type="button"
+                            onClick={() => setOrderToDelete(order)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/80 transition cursor-pointer text-xs font-bold shrink-0"
+                            title="حذف هذا الطلب من السجل"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>حذف الطلب</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
+                            <span className="text-slate-500 block font-bold">العنوان بالتفصيل:</span>
+                            <p className="text-slate-200 font-medium">{order.delivery_address || 'استلام من المطعم'}</p>
+                            {order.building_notes && <span className="text-[11px] text-amber-400/80 block">ملاحظات: {order.building_notes}</span>}
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
+                            <span className="text-slate-500 block font-bold">الدفع والإجمالي:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-black text-rose-400 font-mono">{order.total_amount} ج.م</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                                {order.payment_method === 'vodafone_cash' ? 'محفظة كاش' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش عند الاستلام'}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-400 block">عدد الأصناف: {order.items_count} | توصيل: {order.delivery_fee} ج.م</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 flex items-center justify-around gap-2">
+                            <a href={`tel:${order.customer_phone}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition text-xs">
+                              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>اتصال</span>
+                            </a>
+                            <a href={`https://wa.me/2${(order.customer_phone || '').replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold transition text-xs">
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>واتساب</span>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* التبويبة الثانية: 📋 فواتير الورديات (أرشيف الورديات المقفلة) */}
+            {/* ========================================================================= */}
+            {ordersSubTab === 'shifts_history' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                
+                {/* بانر إجمالي الورديات المقفلة */}
+                <div className="bg-gradient-to-br from-slate-900 via-[#1e170c] to-slate-950 border border-amber-500/30 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+                  
+                  <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20">
+                        <History className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-white">سجل فواتير الورديات المقفلة</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          أرشيف دائم بجميع الفواتير والمبالغ لكل وردية تم تقفيلها مع إمكانية عرض الفواتير وطباعتها
+                        </p>
+                      </div>
+                    </div>
+
                     <button
-                      key={btn.id}
-                      type="button"
-                      onClick={() => setTimeFilter(btn.id as any)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                        timeFilter === btn.id
-                          ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-600/30'
-                          : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/70'
-                      }`}
+                      onClick={loadOrders}
+                      className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
                     >
-                      {btn.label}
+                      <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
+                      <span>تحديث الأرشيف</span>
                     </button>
-                  ))}
+                  </div>
+
+                  {/* إحصائيات عامة عن كل الورديات المقفلة */}
+                  <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+                    <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+                      <span className="text-xs text-slate-400 font-bold block">إجمالي الورديات المقفلة</span>
+                      <div className="text-2xl font-black text-amber-400 font-mono mt-1">{closedShifts.length} <span className="text-xs text-slate-400 font-medium">وردية</span></div>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30">
+                      <span className="text-xs text-emerald-300 font-bold block">إجمالي الإيراد المحصل بالورديات</span>
+                      <div className="text-2xl font-black text-emerald-400 font-mono mt-1">{closedShiftsTotalStats.totalRev.toLocaleString()} <span className="text-xs text-emerald-300 font-medium">ج.م</span></div>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+                      <span className="text-xs text-slate-400 font-bold block">إجمالي الفواتير المؤرشفة</span>
+                      <div className="text-2xl font-black text-white font-mono mt-1">{closedShiftsTotalStats.totalOrdersCount} <span className="text-xs text-slate-400 font-medium">فاتورة</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* قائمة كروت الورديات المقفلة */}
+                {closedShifts.length === 0 ? (
+                  <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
+                    <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
+                      <History className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-black text-white">لا توجد أي ورديات مقفلة حتى الآن</h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      بمجرد الضغط على زر "تقفيل الوردية" من شاشة المتابعة أو من تبويبة الوردية الحالية، سيتم تصفير فواتير الشاشة ونقل تفاصيل الوردية كاملة إلى هنا فوراً.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {closedShifts.map((shift, idx) => {
+                      const s = shift.summary || ({} as any);
+                      const ordersCount = shift.orders?.length || shift.orderIds?.length || s.totalOrders || 0;
+                      return (
+                        <div
+                          key={shift.id || idx}
+                          className="bg-slate-900/85 border border-slate-800 hover:border-amber-500/40 rounded-3xl p-5 sm:p-6 transition-all duration-300 space-y-4 shadow-xl relative overflow-hidden group"
+                        >
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                            <div className="flex items-center gap-3">
+                              <span className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-sm font-black font-mono">
+                                الوردية #{shift.shiftNumber}
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-black text-slate-200">
+                                    من: {formatOrderTime(shift.openedAt)}
+                                  </span>
+                                  <span className="text-slate-500">←</span>
+                                  <span className="text-xs font-black text-amber-400">
+                                    إلى: {formatOrderTime(shift.closedAt)}
+                                  </span>
+                                </div>
+                                <span className="text-[11px] text-slate-500 block mt-0.5">
+                                  أغلقت بواسطة: {shift.closedBy || 'شاشة المتابعة'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              {/* زر استعراض فواتير الوردية بالتفصيل */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedShiftForView(shift);
+                                  setShiftInvoicesSearchQuery('');
+                                  setShiftInvoicesStatusFilter('all');
+                                }}
+                                className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                              >
+                                <Eye className="w-4 h-4" />
+                                <span>عرض فواتير الوردية ({ordersCount}) 🧾</span>
+                              </button>
+
+                              {/* زر طباعة تقرير الوردية */}
+                              <button
+                                type="button"
+                                onClick={() => handlePrintShiftSummary(shift)}
+                                className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                                title="طباعة كشف الوردية"
+                              >
+                                <Printer className="w-4 h-4" />
+                                <span>طباعة 🖨️</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* شبكة الأرقام والإحصائيات للوردية */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                              <span className="text-slate-400 font-bold block">إجمالي الفواتير:</span>
+                              <span className="text-lg font-black text-white font-mono mt-0.5 block">{ordersCount} فاتورة</span>
+                              <span className="text-[10.5px] text-emerald-400 font-bold">{s.confirmedOrders || 0} مؤكد</span>
+                            </div>
+
+                            <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/20">
+                              <span className="text-emerald-300 font-bold block">صافي التحصيل المؤكد:</span>
+                              <span className="text-lg font-black text-emerald-400 font-mono mt-0.5 block">{(s.totalRevenue || 0).toLocaleString()} ج.م</span>
+                            </div>
+
+                            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                              <span className="text-slate-400 font-bold block">طرق الدفع المحصلة:</span>
+                              <div className="text-[11px] text-slate-300 font-bold mt-1 space-y-0.5">
+                                <div className="flex justify-between"><span>كاش:</span><span className="text-emerald-400 font-mono">{(s.cashAmount || 0).toLocaleString()} ج</span></div>
+                                <div className="flex justify-between"><span>محافظ:</span><span className="text-amber-400 font-mono">{(s.walletAmount || 0).toLocaleString()} ج</span></div>
+                                <div className="flex justify-between"><span>إنستاباي:</span><span className="text-cyan-400 font-mono">{(s.instapayAmount || 0).toLocaleString()} ج</span></div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 rounded-2xl bg-rose-950/20 border border-rose-500/20">
+                              <span className="text-rose-300 font-bold block">الملغي / نوع الطلب:</span>
+                              <div className="text-[11px] font-bold mt-1 space-y-0.5">
+                                <div className="text-rose-400 font-mono">{s.cancelledOrders || 0} طلب ملغي ({(s.totalCancelledRevenue || 0).toLocaleString()} ج)</div>
+                                <div className="text-slate-400">{s.deliveryCount || 0} دليفري • {s.pickupCount || 0} استلام</div>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* التبويبة الثالثة: 📊 التقرير الشهري والسنوي (التحليلات الشاملة) */}
+            {/* ========================================================================= */}
+            {ordersSubTab === 'reports' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                
+                {/* المربعات الإحصائية العلوية الشاملة */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  
+                  {/* المربع الأول: إجمالي المبيعات المؤكدة */}
+                  <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-emerald-500/40 bg-gradient-to-br from-emerald-950/90 via-slate-900/95 to-teal-950/80 hover:border-emerald-400 hover:shadow-emerald-500/10">
+                    <div className="absolute -top-10 -right-10 w-44 h-44 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                    <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-teal-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400/25 to-teal-500/10 text-emerald-300 flex items-center justify-center border border-emerald-400/30 shadow-lg shadow-emerald-500/20">
+                          <DollarSign className="w-6 h-6 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <span className="text-sm sm:text-base font-black text-white block tracking-wide">إجمالي المبيعات (المؤكدة)</span>
+                          <span className="text-[11px] text-emerald-200/70 font-bold">الفترة: {activePeriodLabel}</span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 shadow-xs flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>صافي التحصيل المؤكد</span>
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-baseline gap-2 mb-3 relative z-10">
+                      <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-sm font-mono">
+                        {confirmedRevenue.toLocaleString('ar-EG')}
+                      </span>
+                      <span className="text-sm sm:text-base font-black text-emerald-400">جنيه مصري</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-emerald-200/70 font-medium pt-3.5 border-t border-emerald-500/20 relative z-10">
+                      <span className="flex items-center gap-1.5">
+                        <span>💰</span>
+                        <span>قيمة الطلبات المؤكدة فقط</span>
+                      </span>
+                      <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30 font-mono">
+                        {confirmedOrders.length} طلب مؤكد
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* المربع الثاني: عدد الأوردرات المؤكدة ونشاط الزبائن */}
+                  <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-indigo-500/40 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-purple-950/80 hover:border-indigo-400 hover:shadow-indigo-500/10">
+                    <div className="absolute -top-10 -right-10 w-44 h-44 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                    <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-purple-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-400/25 to-purple-500/10 text-indigo-300 flex items-center justify-center border border-indigo-400/30 shadow-lg shadow-indigo-500/20">
+                          <ShoppingBag className="w-6 h-6 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <span className="text-sm sm:text-base font-black text-white block tracking-wide">عدد الأوردرات المؤكدة</span>
+                          <span className="text-[11px] text-indigo-200/70 font-bold">الفترة: {activePeriodLabel}</span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 shadow-xs flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                        <span>تم الضغط على تأكيد</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-sm font-mono">
+                          {confirmedOrders.length.toLocaleString('ar-EG')}
+                        </span>
+                        <span className="text-sm sm:text-base font-black text-indigo-400">أوردر</span>
+                      </div>
+
+                      <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl px-3 py-1.5 text-left shrink-0 shadow-inner">
+                        <div className="text-[10px] text-indigo-200/80 font-bold flex items-center gap-1 justify-end">
+                          <Users className="w-3.5 h-3.5 text-amber-400" />
+                          <span>كام شخص طلب؟</span>
+                        </div>
+                        <div className="text-sm sm:text-lg font-black text-amber-300 text-right font-mono">
+                          {uniqueConfirmedCustomerCount.toLocaleString('ar-EG')} <span className="text-xs text-indigo-200/60 font-medium">عميل</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-indigo-200/70 font-medium pt-3.5 border-t border-indigo-500/20 relative z-10">
+                      <span className="flex items-center gap-1.5">
+                        <span>👥</span>
+                        <span>عملاء الطلبات المؤكدة</span>
+                      </span>
+                      <span className="text-amber-300 font-bold bg-slate-950/60 px-2.5 py-1 rounded-xl border border-indigo-500/30 font-mono">
+                        من {uniqueConfirmedCustomerCount} شخص مختلف
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* المربع الثالث: الطلبات الملغية وإجمالي مبالغها */}
+                  <div className="group rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300 border border-rose-500/40 bg-gradient-to-br from-rose-950/90 via-slate-900/95 to-red-950/80 hover:border-rose-400 hover:shadow-rose-500/10">
+                    <div className="absolute -top-10 -right-10 w-44 h-44 bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                    <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-red-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-400/25 to-red-500/10 text-rose-300 flex items-center justify-center border border-rose-400/30 shadow-lg shadow-rose-500/20">
+                          <XCircle className="w-6 h-6 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <span className="text-sm sm:text-base font-black text-white block tracking-wide">الطلبات الملغية ومبالغها</span>
+                          <span className="text-[11px] text-rose-200/70 font-bold">الفترة: {activePeriodLabel}</span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 border border-rose-400/40 shadow-xs flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                        <span>ملغي / فاقد</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between gap-3 mb-3 relative z-10">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-sm font-mono">
+                          {cancelledRevenue.toLocaleString('ar-EG')}
+                        </span>
+                        <span className="text-sm sm:text-base font-black text-rose-400">جنيه</span>
+                      </div>
+
+                      <div className="bg-slate-950/80 border border-rose-500/30 rounded-2xl px-3 py-1.5 text-left shrink-0 shadow-inner">
+                        <div className="text-[10px] text-rose-200/80 font-bold flex items-center gap-1 justify-end">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                          <span>عدد الملغي</span>
+                        </div>
+                        <div className="text-sm sm:text-lg font-black text-rose-300 text-right font-mono">
+                          {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-xs text-rose-200/60 font-medium">أوردر</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-rose-200/70 font-medium pt-3.5 border-t border-rose-500/20 relative z-10">
+                      <span className="flex items-center gap-1.5">
+                        <span>🚫</span>
+                        <span>قيمة المبيعات غير المحصلة</span>
+                      </span>
+                      <span className="text-rose-300 font-bold bg-rose-950/60 px-2.5 py-1 rounded-xl border border-rose-500/30 font-mono">
+                        {cancelledOrders.length} طلب ملغي
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* التحليل الشهري للسنة الحالية (جدول شهور السنة وتوزيع المبيعات) */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-2 text-sm font-black text-white">
+                      <Calendar className="w-4 h-4 text-amber-500" />
+                      <span>تقرير مبيعات أشهر العام الحالي ({new Date().getFullYear()}):</span>
+                    </div>
+                    <span className="text-xs text-slate-400 font-bold">12 شهر</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                    {monthlyStats.map(m => (
+                      <div
+                        key={m.name}
+                        className={`p-3 rounded-2xl border transition ${
+                          m.confirmedRevenue > 0
+                            ? 'bg-gradient-to-br from-emerald-950/40 to-slate-900 border-emerald-500/40'
+                            : 'bg-slate-950/40 border-slate-800/80 opacity-70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-1">
+                          <span>{m.name}</span>
+                          <span className="font-mono text-[11px] text-amber-400">{m.confirmedCount} طلب</span>
+                        </div>
+                        <div className="text-sm font-black text-emerald-400 font-mono">
+                          {m.confirmedRevenue.toLocaleString()} ج.م
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* توزيع طرق الدفع ونوع الطلب (دليفري vs تيك أواي) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* طرق الدفع */}
+                  <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-lg">
+                    <div className="flex items-center gap-2 text-xs font-black text-white pb-2 border-b border-slate-800">
+                      <Coins className="w-4 h-4 text-emerald-400" />
+                      <span>توزيع طرق الدفع (الفترة المحددة):</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block font-bold">كاش (نقدي)</span>
+                        <span className="text-base font-black text-emerald-400 font-mono block mt-1">{paymentMethodStats.cash.toLocaleString()} ج.م</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block font-bold">محافظ إلكترونية</span>
+                        <span className="text-base font-black text-amber-400 font-mono block mt-1">{paymentMethodStats.wallet.toLocaleString()} ج.م</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block font-bold">إنستاباي</span>
+                        <span className="text-base font-black text-cyan-400 font-mono block mt-1">{paymentMethodStats.instapay.toLocaleString()} ج.م</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* نوع الطلب */}
+                  <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-lg">
+                    <div className="flex items-center gap-2 text-xs font-black text-white pb-2 border-b border-slate-800">
+                      <Bike className="w-4 h-4 text-sky-400" />
+                      <span>نوع الطلب (توصيل vs استلام):</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block font-bold">🛵 طلبات الدليفري</span>
+                        <span className="text-base font-black text-sky-400 font-mono block mt-1">{orderTypeStats.delivery} طلب</span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block font-bold">🏬 استلام من الفرع</span>
+                        <span className="text-base font-black text-purple-400 font-mono block mt-1">{orderTypeStats.pickup} طلب</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* وحدة الفلترة التفاعلية وقائمة الطلبات المسجلة تاريخياً */}
+                <div className="space-y-4">
+                  
+                  {/* الفلاتر التفاعلية: اليوم، الأسبوع، الشهر، السنة، مخصص */}
+                  <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-lg">
+                    
+                    {/* السطر الأول: فلاتر الوقت */}
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
+                      <div className="flex items-center gap-2 text-xs font-black text-slate-300">
+                        <Calendar className="w-4 h-4 text-rose-500" />
+                        <span>تصفية التحليلات حسب الوقت:</span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                        {[
+                          { id: 'today', label: 'اليوم' },
+                          { id: 'week', label: 'هذا الأسبوع' },
+                          { id: 'month', label: 'هذا الشهر' },
+                          { id: 'year', label: 'هذه السنة' },
+                          { id: 'all', label: 'كل الأوقات' },
+                          { id: 'custom', label: '📅 فترة مخصصة (من يوم كذا لكذا)' }
+                        ].map((btn) => (
+                          <button
+                            key={btn.id}
+                            type="button"
+                            onClick={() => setTimeFilter(btn.id as any)}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                              timeFilter === btn.id
+                                ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-600/30'
+                                : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/70'
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* السطر الثاني: إذا تم اختيار فترة مخصصة */}
+                    {timeFilter === 'custom' && (
+                      <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-950/70 border border-rose-500/30 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>تحديد التواريخ من وإلى:</span>
+                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-400 font-bold">من يوم:</label>
+                          <input
+                            type="date"
+                            value={customStartDate}
+                            onChange={(e) => setCustomStartDate(e.target.value)}
+                            className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-400 font-bold">إلى يوم:</label>
+                          <input
+                            type="date"
+                            value={customEndDate}
+                            onChange={(e) => setCustomEndDate(e.target.value)}
+                            className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
+                          />
+                        </div>
+
+                        {(customStartDate || customEndDate) && (
+                          <button
+                            type="button"
+                            onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                            className="text-xs text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                          >
+                            إعادة ضبط التواريخ
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* السطر الثالث: البحث بالاسم ورقم الهاتف وزر التحديث */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="relative w-full sm:w-96">
+                        <input
+                          type="text"
+                          value={customerSearchQuery}
+                          onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                          placeholder="فلترة بالاسم أو رقم الهاتف..."
+                          className="w-full py-2.5 px-4 pr-10 pl-8 rounded-xl bg-slate-800/90 border border-slate-700 text-white placeholder-slate-500 text-xs font-bold focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                        />
+                        <Search className="absolute top-3 right-3.5 w-4 h-4 text-slate-400" />
+                        {customerSearchQuery && (
+                          <button
+                            onClick={() => setCustomerSearchQuery('')}
+                            className="absolute top-2.5 left-3 text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-xs text-slate-400 font-bold bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800">
+                          النتائج: <span className="text-white font-black font-mono">{filteredOrders.length}</span> طلب • <span className="text-amber-400 font-black font-mono">{uniqueCustomerCount}</span> عميل
+                        </div>
+                        <button
+                          onClick={loadOrders}
+                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition cursor-pointer"
+                          title="تحديث فوري للطلبات"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
+                          <span className="hidden sm:inline">تحديث</span>
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* قائمة جميع الطلبات المفلترة */}
+                  {filteredOrders.length === 0 ? (
+                    <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
+                      <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-500">
+                        <ShoppingBag className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-base font-bold text-slate-300">لا توجد طلبات مسجلة حالياً لهذه الفترة</h3>
+                      <p className="text-xs text-slate-500">جرب اختيار فترة زمنية أخرى أو إزالة قيود البحث.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredOrders.map(order => (
+                        <div key={order.id} className="bg-slate-900/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition space-y-4">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                                #{String(order.id).slice(-6)}
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-base font-black text-white">{order.customer_name}</h4>
+                                  {order.status === 'confirmed' ? (
+                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                      <span>مؤكد</span>
+                                    </span>
+                                  ) : order.status === 'cancelled_not_received' ? (
+                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
+                                      <XCircle className="w-3 h-3 text-red-400" />
+                                      <span>ملغي (عدم استلام)</span>
+                                    </span>
+                                  ) : order.status === 'cancelled_before_dispatch' ? (
+                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3 text-amber-400" />
+                                      <span>ملغي قبل الخروج</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
+                                      <Clock className="w-3 h-3 text-sky-400" />
+                                      <span>جديد (بانتظار التأكيد)</span>
+                                    </span>
+                                  )}
+                                  {order.created_at && (
+                                    <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-bold flex items-center gap-1">
+                                      <Clock className="w-2.5 h-2.5" />
+                                      {formatOrderTime(order.created_at)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                  <span className="text-xs text-slate-300 font-bold flex items-center gap-1.5 bg-slate-950/70 px-2.5 py-1 rounded-xl border border-slate-800 font-mono dir-ltr">
+                                    <Phone className="w-3 h-3 text-emerald-400" />
+                                    <span>{order.customer_phone}</span>
+                                  </span>
+                                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                                    {order.order_type === 'takeaway' || order.delivery_zone === 'استلام من المطعم' || !order.delivery_zone || order.delivery_zone === 'غير محدد'
+                                      ? '🏬 استلام تيك أواي من المحل'
+                                      : `🛵 دليفري: ${order.delivery_zone}`}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* زر حذف الطلب */}
+                            <button
+                              type="button"
+                              onClick={() => setOrderToDelete(order)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/80 transition cursor-pointer text-xs font-bold shrink-0"
+                              title="حذف هذا الطلب من السجل"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>حذف الطلب</span>
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
+                              <span className="text-slate-500 block font-bold">العنوان بالتفصيل:</span>
+                              <p className="text-slate-200 font-medium">{order.delivery_address || 'استلام من المطعم'}</p>
+                              {order.building_notes && <span className="text-[11px] text-amber-400/80 block">ملاحظات: {order.building_notes}</span>}
+                            </div>
+                            <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
+                              <span className="text-slate-500 block font-bold">الدفع والإجمالي:</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-black text-rose-400 font-mono">{order.total_amount} ج.م</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                                  {order.payment_method === 'vodafone_cash' ? 'محفظة كاش' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش عند الاستلام'}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-slate-400 block">عدد الأصناف: {order.items_count} | توصيل: {order.delivery_fee} ج.م</span>
+                            </div>
+                            <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 flex items-center justify-around gap-2">
+                              <a href={`tel:${order.customer_phone}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition text-xs">
+                                <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>اتصال</span>
+                              </a>
+                              <a href={`https://wa.me/2${(order.customer_phone || '').replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold transition text-xs">
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span>واتساب</span>
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* مودال تقفيل الوردية الحالية من لوحة الإدارة */}
+        {/* ========================================================================= */}
+        {isShiftModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border-2 border-amber-500/40 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white shadow-2xl space-y-5">
+              
+              <div className="flex items-center justify-between border-b pb-4 border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-black flex items-center gap-2">
+                      <span>تقفيل الوردية رقم #{currentShiftNumber}</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        تصفير الفواتير 🔒
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      مراجعة إحصائيات الوردية الحالية قبل الإغلاق ونقل الفواتير إلى الأرشيف
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsShiftModalOpen(false)}
+                  disabled={isClosingShift}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* توقيت الوردية */}
+              <div className="p-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-300 flex items-center justify-between text-xs font-bold">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  <span>بدء الوردية: {currentShiftStartTime ? formatOrderTime(currentShiftStartTime) : 'بداية اليوم'}</span>
+                </div>
+                <div className="font-mono">
+                  وقت الإغلاق: الآن ({formatOrderTime(new Date().toISOString())})
                 </div>
               </div>
 
-              {/* السطر الثاني: إذا تم اختيار فترة مخصصة (من يوم كذا لكذا) */}
-              {timeFilter === 'custom' && (
-                <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-950/70 border border-rose-500/30 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>تحديد التواريخ من وإلى:</span>
+              {/* أرقام الوردية السريعة */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div className="p-3 rounded-2xl border border-slate-700/60 bg-slate-800/60">
+                  <div className="text-[11px] font-bold text-slate-400">إجمالي فواتير الوردية</div>
+                  <div className="text-xl font-black font-mono mt-1 text-amber-400">{currentShiftStats.totalOrders} فاتورة</div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
+                  <div className="text-[11px] font-bold text-emerald-400">الفواتير المؤكدة</div>
+                  <div className="text-xl font-black font-mono mt-1 text-emerald-400">{currentShiftStats.confirmedOrders} مؤكد</div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 col-span-2 sm:col-span-1">
+                  <div className="text-[11px] font-bold text-emerald-400">صافي مبيعات الوردية</div>
+                  <div className="text-xl font-black font-mono mt-1 text-emerald-400">{currentShiftStats.totalRevenue.toLocaleString()} ج.م</div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-red-500/20 bg-red-500/10">
+                  <div className="text-[11px] font-bold text-red-400">فواتير ملغية</div>
+                  <div className="text-lg font-black font-mono mt-1 text-red-400">{currentShiftStats.cancelledOrders} طلب</div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-sky-500/20 bg-sky-500/10">
+                  <div className="text-[11px] font-bold text-sky-400">طلبات الدليفري</div>
+                  <div className="text-lg font-black font-mono mt-1 text-sky-400">{currentShiftStats.deliveryCount} دليفري</div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-purple-500/20 bg-purple-500/10">
+                  <div className="text-[11px] font-bold text-purple-400">طلبات الاستلام</div>
+                  <div className="text-lg font-black font-mono mt-1 text-purple-400">{currentShiftStats.pickupCount} صالة/تيك أواي</div>
+                </div>
+              </div>
+
+              {/* تفصيل طرق الدفع */}
+              <div className="p-3.5 rounded-2xl border border-slate-700/60 bg-slate-800/40 space-y-2">
+                <div className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                  <Coins className="w-4 h-4" />
+                  <span>تفصيل طرق الدفع للمبيعات المحصلة:</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="p-2 rounded-xl border border-slate-700 bg-slate-800">
+                    <span className="text-[11px] text-slate-400 block font-bold">كاش (نقدي)</span>
+                    <span className="font-mono font-black text-emerald-400">{currentShiftStats.cashAmount.toLocaleString()} ج.م</span>
+                  </div>
+                  <div className="p-2 rounded-xl border border-slate-700 bg-slate-800">
+                    <span className="text-[11px] text-slate-400 block font-bold">محافظ إلكترونية</span>
+                    <span className="font-mono font-black text-amber-400">{currentShiftStats.walletAmount.toLocaleString()} ج.م</span>
+                  </div>
+                  <div className="p-2 rounded-xl border border-slate-700 bg-slate-800">
+                    <span className="text-[11px] text-slate-400 block font-bold">إنستاباي</span>
+                    <span className="font-mono font-black text-cyan-400">{currentShiftStats.instapayAmount.toLocaleString()} ج.م</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* تنبيه بالطلبات قيد الانتظار */}
+              {currentShiftStats.pendingOrders > 0 && (
+                <div className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/15 text-amber-300 flex items-start gap-2.5 text-xs font-bold">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <span>
+                    تنبيه: يوجد {currentShiftStats.pendingOrders} طلبات قيد الانتظار لم يتم تأكيدها أو إلغاؤها بعد. سيتم أرشفة الوردية مع هذه الفواتير.
                   </span>
-                  
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-400 font-bold">من يوم:</label>
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-400 font-bold">إلى يوم:</label>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-rose-500"
-                    />
-                  </div>
-
-                  {(customStartDate || customEndDate) && (
-                    <button
-                      type="button"
-                      onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
-                      className="text-xs text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
-                    >
-                      إعادة ضبط التواريخ
-                    </button>
-                  )}
                 </div>
               )}
 
-              {/* السطر الثالث: فلتر الأسماء ورقم الهاتف وزر التحديث */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                
-                {/* البحث بالاسم أو رقم الهاتف */}
-                <div className="relative w-full sm:w-96">
+              {/* إشعار تصفير الفواتير */}
+              <div className="p-3.5 rounded-2xl border border-blue-500/30 bg-blue-950/40 text-blue-200 flex items-start gap-2.5 text-xs leading-relaxed">
+                <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-black mb-1">ماذا يحدث عند الضغط على تأكيد التقفيل؟</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] opacity-90">
+                    <li>سيتم تصفير فواتير شاشة المتابعة وشاشة الإدارة فوراً لتجهيز النظام للوردية الجديدة #{currentShiftNumber + 1}.</li>
+                    <li>ستنتقل كافة فواتير وإحصائيات هذه الوردية بالكامل إلى تبويبة <strong>(فواتير الورديات)</strong>.</li>
+                    <li>لن تُحذف أي فاتورة من النظام، وستظل محفوظة في التقارير التاريخية.</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* أزرار الإجراءات */}
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={handleAdminConfirmCloseShift}
+                  disabled={isClosingShift}
+                  className="flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-sm transition cursor-pointer shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isClosingShift ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                      <span>جاري تقفيل الوردية وتصفير الفواتير...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4 text-slate-950" />
+                      <span>تأكيد تقفيل الوردية وتصفير الفواتير 🔒</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsShiftModalOpen(false)}
+                  disabled={isClosingShift}
+                  className="py-3.5 px-5 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  إلغاء
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* مودال استعراض فواتير الوردية بالتفصيل (selectedShiftForView) */}
+        {/* ========================================================================= */}
+        {selectedShiftForView && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border-2 border-amber-500/40 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white shadow-2xl space-y-5">
+              
+              {/* ترويسة المودال */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-black">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-black flex items-center gap-2">
+                      <span>فواتير الوردية رقم #{selectedShiftForView.shiftNumber}</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-slate-800 text-amber-300 border border-amber-500/30 font-mono">
+                        {selectedShiftForView.orders?.length || selectedShiftForView.orderIds?.length || 0} فاتورة
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      الفترة من {formatOrderTime(selectedShiftForView.openedAt)} إلى {formatOrderTime(selectedShiftForView.closedAt)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => handlePrintShiftSummary(selectedShiftForView)}
+                    className="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>طباعة الكشف 🖨️</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedShiftForView(null)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* أدوات البحث والفلترة داخل فواتير الوردية */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950/60 border border-slate-800 p-3 rounded-2xl">
+                <div className="relative w-full sm:w-80">
                   <input
                     type="text"
-                    value={customerSearchQuery}
-                    onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                    placeholder="فلترة بالاسم أو رقم الهاتف..."
-                    className="w-full py-2.5 px-4 pr-10 pl-8 rounded-xl bg-slate-800/90 border border-slate-700 text-white placeholder-slate-500 text-xs font-bold focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                    value={shiftInvoicesSearchQuery}
+                    onChange={(e) => setShiftInvoicesSearchQuery(e.target.value)}
+                    placeholder="بحث في فواتير الوردية بالاسم أو الهاتف..."
+                    className="w-full py-2 px-3.5 pr-9 pl-7 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-xs font-bold focus:outline-none focus:border-amber-500"
                   />
-                  <Search className="absolute top-3 right-3.5 w-4 h-4 text-slate-400" />
-                  {customerSearchQuery && (
+                  <Search className="absolute top-2.5 right-3 w-3.5 h-3.5 text-slate-400" />
+                  {shiftInvoicesSearchQuery && (
                     <button
-                      onClick={() => setCustomerSearchQuery('')}
-                      className="absolute top-2.5 left-3 text-slate-400 hover:text-white text-xs font-bold"
+                      onClick={() => setShiftInvoicesSearchQuery('')}
+                      className="absolute top-2 left-2.5 text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
                     >
                       ✕
                     </button>
                   )}
                 </div>
 
-                {/* مؤشر عدد النتائج وزر التحديث */}
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                  <div className="text-xs text-slate-400 font-bold bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800">
-                    النتائج: <span className="text-white font-black">{filteredOrders.length}</span> طلب • <span className="text-amber-400 font-black">{uniqueCustomerCount}</span> عميل
-                  </div>
-                  <button
-                    onClick={loadOrders}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition cursor-pointer"
-                    title="تحديث فوري للطلبات"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
-                    <span className="hidden sm:inline">تحديث</span>
-                  </button>
+                <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                  {(['all', 'confirmed', 'cancelled'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setShiftInvoicesStatusFilter(tab)}
+                      className={`flex-1 sm:flex-none py-1.5 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        shiftInvoicesStatusFilter === tab
+                          ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {tab === 'all' ? 'الكل' : tab === 'confirmed' ? 'المؤكد فقط' : 'الملغي فقط'}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
+              {/* قائمة الفواتير المعروضة في المودال */}
+              {shiftInvoicesFilteredOrders.length === 0 ? (
+                <div className="text-center py-12 bg-slate-950/40 border border-slate-800/80 rounded-2xl space-y-2">
+                  <ShoppingBag className="w-8 h-8 text-slate-600 mx-auto" />
+                  <p className="text-xs text-slate-400">لا توجد فواتير مطابقة لبحثك في هذه الوردية.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+                  {shiftInvoicesFilteredOrders.map((order: any) => (
+                    <div
+                      key={order.id}
+                      className="bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono">
+                            #{String(order.id).slice(-6)}
+                          </span>
+                          <span className="text-sm font-black text-white">{order.customer_name}</span>
+                          {order.status === 'confirmed' ? (
+                            <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>مؤكد</span>
+                            </span>
+                          ) : typeof order.status === 'string' && order.status.startsWith('cancelled') ? (
+                            <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
+                              <XCircle className="w-3 h-3 text-red-400" />
+                              <span>ملغي</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                              قيد الانتظار
+                            </span>
+                          )}
+                          {order.created_at && (
+                            <span className="text-[10px] text-amber-400 font-mono">
+                              {formatOrderTime(order.created_at)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-black text-emerald-400 font-mono">
+                            {order.total_amount} ج.م
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                            {order.payment_method === 'vodafone_cash' ? 'محفظة كاش' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* أصناف الفاتورة إن وجدت */}
+                      {Array.isArray(order.items) && order.items.length > 0 && (
+                        <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80 space-y-1 text-xs">
+                          <span className="text-[10.5px] text-slate-400 font-bold block mb-1">محتويات الفاتورة:</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {order.items.map((it: any, itIdx: number) => (
+                              <span key={itIdx} className="px-2 py-1 rounded-lg bg-slate-800 text-slate-200 text-[11px] font-bold border border-slate-700/80">
+                                {it.quantity || 1}x {it.name || it.item_name || 'صنف'} {it.total_price || it.price ? `(${(it.total_price || it.price)} ج)` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-400 pt-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-slate-300">{order.customer_phone}</span>
+                          <span>•</span>
+                          <span>{order.delivery_address || (order.order_type === 'delivery' ? 'توصيل دليفري' : 'استلام من المطعم')}</span>
+                          {order.building_notes && <span className="text-amber-400/80">({order.building_notes})</span>}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`tel:${order.customer_phone}`}
+                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold transition flex items-center gap-1"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-400" />
+                            <span>اتصال</span>
+                          </a>
+                          <a
+                            href={`https://wa.me/2${(order.customer_phone || '').replace(/^0/, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-bold border border-emerald-500/30 transition flex items-center gap-1"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            <span>واتساب</span>
+                          </a>
+                        </div>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* زر الإغلاق السفلي */}
+              <div className="pt-2 border-t border-slate-800 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedShiftForView(null)}
+                  className="py-2.5 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black transition cursor-pointer"
+                >
+                  إغلاق النافذة
+                </button>
               </div>
 
             </div>
-
-            {filteredOrders.length === 0 ? (
-              <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
-                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-500">
-                  <ShoppingBag className="w-6 h-6" />
-                </div>
-                <h3 className="text-base font-bold text-slate-300">لا توجد طلبات مسجلة حالياً</h3>
-                <p className="text-xs text-slate-500">ستظهر أي طلبات جديدة يقوم العملاء بتأكيدها هنا فوراً مع إمكانية تعديل الحالة والتواصل معهم.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredOrders.map(order => (
-                  <div key={order.id} className="bg-slate-900/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-                          #{String(order.id).slice(-6)}
-                        </span>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-base font-black text-white">{order.customer_name}</h4>
-                            {order.status === 'confirmed' ? (
-                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                                <span>مؤكد</span>
-                              </span>
-                            ) : order.status === 'cancelled_not_received' ? (
-                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
-                                <XCircle className="w-3 h-3 text-red-400" />
-                                <span>ملغي (عدم استلام)</span>
-                              </span>
-                            ) : order.status === 'cancelled_before_dispatch' ? (
-                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3 text-amber-400" />
-                                <span>ملغي قبل الخروج</span>
-                              </span>
-                            ) : (
-                              <span className="text-[10.5px] font-black px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-sky-400" />
-                                <span>جديد (بانتظار التأكيد)</span>
-                              </span>
-                            )}
-                            {order.created_at && (
-                              <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-bold flex items-center gap-1">
-                                <Clock className="w-2.5 h-2.5" />
-                                {formatOrderTime(order.created_at)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <span className="text-xs text-slate-300 font-bold flex items-center gap-1.5 bg-slate-950/70 px-2.5 py-1 rounded-xl border border-slate-800">
-                              <Phone className="w-3 h-3 text-emerald-400" />
-                              <span>{order.customer_phone}</span>
-                            </span>
-                            <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/20">
-                              {order.order_type === 'takeaway' || order.delivery_zone === 'استلام من المطعم' || !order.delivery_zone || order.delivery_zone === 'غير محدد'
-                                ? '🏬 استلام تيك أواي من المحل'
-                                : `🛵 دليفري: ${order.delivery_zone}`}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* زر حذف الطلب بدلاً من قيد الانتظار */}
-                      <button
-                        type="button"
-                        onClick={() => setOrderToDelete(order)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/80 transition cursor-pointer text-xs font-bold shrink-0"
-                        title="حذف هذا الطلب من السجل"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>حذف الطلب</span>
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
-                        <span className="text-slate-500 block font-bold">العنوان بالتفصيل:</span>
-                        <p className="text-slate-200 font-medium">{order.delivery_address || 'استلام من المطعم'}</p>
-                        {order.building_notes && <span className="text-[11px] text-amber-400/80 block">ملاحظات: {order.building_notes}</span>}
-                      </div>
-                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1">
-                        <span className="text-slate-500 block font-bold">الدفع والإجمالي:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-black text-rose-400">{order.total_amount} ج.م</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
-                            {order.payment_method === 'vodafone_cash' ? 'محفظة كاش' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش عند الاستلام'}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-slate-400 block">عدد الأصناف: {order.items_count} | توصيل: {order.delivery_fee} ج.م</span>
-                      </div>
-                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 flex items-center justify-around gap-2">
-                        <a href={`tel:${order.customer_phone}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition text-xs">
-                          <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>اتصال</span>
-                        </a>
-                        <a href={`https://wa.me/2${order.customer_phone.replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold transition text-xs">
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>واتساب</span>
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )}
 
       {activeTab === 'coupons' && (
         <div className="space-y-6">

@@ -39,12 +39,16 @@ import {
   TrendingUp,
   UserCheck,
   Receipt,
-  Unlock
+  Unlock,
+  FileText,
+  CalendarCheck,
+  Check
 } from 'lucide-react';
-import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase, fetchShiftsData, closeShiftInDatabase } from '@/lib/supabase';
 import { useMenuStore } from '@/lib/menuStore';
 import { sounds } from '@/lib/sound';
 import { openWhatsAppChat, formatWhatsAppNotification, defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, sendWhatsAppMessageApi } from '@/lib/whatsapp';
+import { ClosedShift } from '@/types';
 
 export default function OrderMonitorPage() {
   const { monitorPassword = 'sanhour123', syncWithServer, whatsappNotificationSettings } = useMenuStore();
@@ -59,6 +63,14 @@ export default function OrderMonitorPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  // Shift Management State
+  const [closedShifts, setClosedShifts] = useState<ClosedShift[]>([]);
+  const [currentShiftStartTime, setCurrentShiftStartTime] = useState<string>('');
+  const [currentShiftNumber, setCurrentShiftNumber] = useState<number>(1);
+  const [archivedOrderIds, setArchivedOrderIds] = useState<string[]>([]);
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [isClosingShift, setIsClosingShift] = useState(false);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,18 +112,30 @@ export default function OrderMonitorPage() {
     return () => clearInterval(clockTimer);
   }, [syncWithServer]);
 
-  // Load orders when authenticated
+  // Load orders and shifts when authenticated
   const loadOrders = async (silent = false) => {
     if (!silent) setLoading(true);
     setIsRefreshing(true);
     try {
-      const data = await fetchOrdersFromDatabase();
+      const [shiftsInfo, data] = await Promise.all([
+        fetchShiftsData(),
+        fetchOrdersFromDatabase(),
+      ]);
+
+      if (shiftsInfo) {
+        setClosedShifts(shiftsInfo.closedShifts || []);
+        setCurrentShiftStartTime(shiftsInfo.currentShiftStartTime || '');
+        setCurrentShiftNumber(shiftsInfo.currentShiftNumber || 1);
+        setArchivedOrderIds(shiftsInfo.archivedOrderIds || []);
+      }
+
       if (data && Array.isArray(data)) {
-        // Check for newly arrived pending orders to trigger audio chime
-        if (soundEnabled && prevOrdersCountRef.current > 0 && data.length > prevOrdersCountRef.current) {
+        const archivedSet = new Set((shiftsInfo?.archivedOrderIds || archivedOrderIds).map(String));
+        const activeData = data.filter(o => !archivedSet.has(String(o.id)));
+        if (soundEnabled && prevOrdersCountRef.current > 0 && activeData.length > prevOrdersCountRef.current) {
           sounds.playAddChime();
         }
-        prevOrdersCountRef.current = data.length;
+        prevOrdersCountRef.current = activeData.length;
         setOrders(data);
       }
     } catch (err) {
@@ -285,9 +309,15 @@ export default function OrderMonitorPage() {
     }
   };
 
-  // Filter orders by phone, name, and status
+  // الطلبات التابعة للوردية الحالية المفتوحة فقط (المستثنى منها الورديات المقفلة السابقة)
+  const currentShiftOrders = useMemo(() => {
+    const archivedSet = new Set(archivedOrderIds.map(String));
+    return orders.filter(o => !archivedSet.has(String(o.id)));
+  }, [orders, archivedOrderIds]);
+
+  // Filter orders by phone, name, and status (للواردة الحالية فقط)
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
+    return currentShiftOrders.filter(order => {
       // 1. Search Query Filter (Phone or Name)
       const q = searchQuery.trim().toLowerCase();
       if (q) {
@@ -316,23 +346,23 @@ export default function OrderMonitorPage() {
 
       return true;
     });
-  }, [orders, searchQuery, statusFilter]);
+  }, [currentShiftOrders, searchQuery, statusFilter]);
 
-  // Counts by status
+  // Counts by status للوردية الحالية
   const counts = useMemo(() => {
     return {
-      all: orders.length,
-      pending: orders.filter(o => o.status === 'pending' || !o.status).length,
-      confirmed: orders.filter(o => o.status === 'confirmed' || o.status === 'preparing').length,
-      cancelled_before: orders.filter(o => o.status === 'cancelled_before_dispatch').length,
-      cancelled_not_received: orders.filter(o => o.status === 'cancelled_not_received').length,
+      all: currentShiftOrders.length,
+      pending: currentShiftOrders.filter(o => o.status === 'pending' || !o.status).length,
+      confirmed: currentShiftOrders.filter(o => o.status === 'confirmed' || o.status === 'preparing').length,
+      cancelled_before: currentShiftOrders.filter(o => o.status === 'cancelled_before_dispatch').length,
+      cancelled_not_received: currentShiftOrders.filter(o => o.status === 'cancelled_not_received').length,
     };
-  }, [orders]);
+  }, [currentShiftOrders]);
 
-  // 1. إحصائيات المبيعات المؤكدة (الطلبات التي تم اعتمادها ولم تُلغَ)
+  // 1. إحصائيات المبيعات المؤكدة للوردية الحالية
   const confirmedOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'confirmed' || o.status === 'preparing');
-  }, [orders]);
+    return currentShiftOrders.filter(o => o.status === 'confirmed' || o.status === 'preparing');
+  }, [currentShiftOrders]);
 
   const confirmedRevenue = useMemo(() => {
     return confirmedOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
@@ -345,19 +375,120 @@ export default function OrderMonitorPage() {
     return set.size;
   }, [confirmedOrders]);
 
-  // 2. إحصائيات الطلبات الملغية وإجمالي مبلغها (الفاقد)
+  // 2. إحصائيات الطلبات الملغية للوردية الحالية
   const cancelledOrders = useMemo(() => {
-    return orders.filter(o =>
+    return currentShiftOrders.filter(o =>
       o.status === 'cancelled_not_received' ||
       o.status === 'cancelled_before_dispatch' ||
       o.status === 'cancelled' ||
       (typeof o.status === 'string' && o.status.startsWith('cancelled'))
     );
-  }, [orders]);
+  }, [currentShiftOrders]);
 
   const cancelledRevenue = useMemo(() => {
     return cancelledOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   }, [cancelledOrders]);
+
+  // ملخص الوردية الحالية للتقفيل
+  const shiftSummary = useMemo(() => {
+    const active = currentShiftOrders;
+    const confirmed = active.filter(o => o.status === 'confirmed' || o.status === 'preparing');
+    const cancelled = active.filter(o => typeof o.status === 'string' && o.status.startsWith('cancelled'));
+    const pending = active.filter(o => o.status === 'pending' || !o.status);
+
+    const totalRev = confirmed.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+    const cancelRev = cancelled.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+
+    let cash = 0;
+    let wallet = 0;
+    let instapay = 0;
+    let delivery = 0;
+    let pickup = 0;
+
+    confirmed.forEach(o => {
+      const amount = Number(o.total_amount) || 0;
+      const pm = o.payment_method;
+      if (pm === 'cash' || !pm) cash += amount;
+      else if (pm === 'vodafone_cash' || pm === 'wallet') wallet += amount;
+      else if (pm === 'instapay') instapay += amount;
+      else cash += amount;
+
+      if (o.order_type === 'delivery') delivery += 1;
+      else pickup += 1;
+    });
+
+    return {
+      activeOrders: active,
+      totalOrders: active.length,
+      confirmedOrders: confirmed.length,
+      cancelledOrders: cancelled.length,
+      pendingOrders: pending.length,
+      totalRevenue: totalRev,
+      totalCancelledRevenue: cancelRev,
+      cashAmount: cash,
+      walletAmount: wallet,
+      instapayAmount: instapay,
+      deliveryCount: delivery,
+      pickupCount: pickup,
+    };
+  }, [currentShiftOrders]);
+
+  // تنفيذ تقفيل الوردية
+  const handleConfirmCloseShift = async () => {
+    if (shiftSummary.activeOrders.length === 0) {
+      alert('الوردية الحالية فارغة بالفعل ولا تحتوي على أي فواتير لتقفيلها!');
+      return;
+    }
+    setIsClosingShift(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const newShiftNum = currentShiftNumber + 1;
+      const newArchivedIds = [
+        ...archivedOrderIds,
+        ...shiftSummary.activeOrders.map(o => String(o.id))
+      ];
+
+      const closedShiftRecord: ClosedShift = {
+        id: `shift-${Date.now()}-${currentShiftNumber}`,
+        shiftNumber: currentShiftNumber,
+        openedAt: currentShiftStartTime || nowIso,
+        closedAt: nowIso,
+        closedBy: 'شاشة المتابعة',
+        orderIds: shiftSummary.activeOrders.map(o => String(o.id)),
+        orders: JSON.parse(JSON.stringify(shiftSummary.activeOrders)),
+        summary: {
+          totalOrders: shiftSummary.totalOrders,
+          confirmedOrders: shiftSummary.confirmedOrders,
+          cancelledOrders: shiftSummary.cancelledOrders,
+          pendingOrders: shiftSummary.pendingOrders,
+          totalRevenue: shiftSummary.totalRevenue,
+          totalCancelledRevenue: shiftSummary.totalCancelledRevenue,
+          cashAmount: shiftSummary.cashAmount,
+          walletAmount: shiftSummary.walletAmount,
+          instapayAmount: shiftSummary.instapayAmount,
+          deliveryCount: shiftSummary.deliveryCount,
+          pickupCount: shiftSummary.pickupCount,
+        }
+      };
+
+      await closeShiftInDatabase(closedShiftRecord, nowIso, newShiftNum, newArchivedIds);
+
+      // تصفير فوري للفواتير في شاشة المتابعة وتحديث الأرقام
+      setArchivedOrderIds(newArchivedIds);
+      setCurrentShiftStartTime(nowIso);
+      setCurrentShiftNumber(newShiftNum);
+      setClosedShifts(prev => [closedShiftRecord, ...prev]);
+      setIsShiftModalOpen(false);
+
+      sounds.playSuccessChime();
+      showNotice(`تم تقفيل الوردية رقم #${currentShiftNumber} بنجاح وتصفير الفواتير لبدء الوردية #${newShiftNum} 🔒✓`, 'success');
+    } catch (err: any) {
+      console.error('Error closing shift:', err);
+      alert('حدث خطأ أثناء تقفيل الوردية: ' + (err.message || err));
+    } finally {
+      setIsClosingShift(false);
+    }
+  };
 
   const formatOrderTime = (isoString: string) => {
     try {
@@ -772,6 +903,16 @@ export default function OrderMonitorPage() {
             >
               <RefreshCw className={`w-4 h-4 text-amber-500 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
               <span className="text-xs font-bold whitespace-nowrap">تحديث 🔄</span>
+            </button>
+
+            {/* Close Shift Button (تقفيل الوردية وتصفير الفواتير) */}
+            <button
+              onClick={() => setIsShiftModalOpen(true)}
+              className="py-2 px-3 sm:px-4 rounded-xl border border-amber-500/50 text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold shrink-0 ring-2 ring-amber-400/30 animate-pulse-slow"
+              title={`تقفيل الوردية الحالية (#${currentShiftNumber}) وتصفير الفواتير`}
+            >
+              <Lock className="w-4 h-4 text-slate-950 shrink-0" />
+              <span className="whitespace-nowrap">تقفيل الوردية #{currentShiftNumber} 📋🔒</span>
             </button>
 
             {/* Logout Button */}
@@ -2093,6 +2234,175 @@ export default function OrderMonitorPage() {
                 }`}
               >
                 إلغاء وإبقاء القفل
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* مودال تقفيل الوردية الحالية وتصفير الفواتير */}
+      {isShiftModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className={`relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border-2 shadow-2xl space-y-5 ${
+            isLight
+              ? 'bg-white border-amber-300 text-slate-900 shadow-amber-950/20'
+              : 'bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-amber-500/40 text-white shadow-black/80'
+          }`}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b pb-4 border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black flex items-center gap-2">
+                    <span>تقفيل الوردية رقم #{currentShiftNumber}</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                      تصفير الفواتير 🔒
+                    </span>
+                  </h3>
+                  <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    مراجعة إحصائيات الوردية قبل الإغلاق ونقل الفواتير إلى الأرشيف
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsShiftModalOpen(false)}
+                disabled={isClosingShift}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Shift Timing Info */}
+            <div className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs font-bold ${
+              isLight ? 'bg-amber-50/70 border-amber-200 text-amber-950' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+            }`}>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>بدء الوردية: {currentShiftStartTime ? formatOrderTime(currentShiftStartTime) : 'بداية اليوم'}</span>
+              </div>
+              <div className="flex items-center gap-2 font-mono">
+                <span>وقت الإغلاق: الآن ({formatOrderTime(new Date().toISOString())})</span>
+              </div>
+            </div>
+
+            {/* Quick Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/60 border-slate-700/60'}`}>
+                <div className={`text-[11px] font-bold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>إجمالي فواتير الوردية</div>
+                <div className="text-xl font-black font-mono mt-1 text-amber-500">{shiftSummary.totalOrders} فاتورة</div>
+              </div>
+
+              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-emerald-50/70 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                <div className={`text-[11px] font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>الفواتير المؤكدة</div>
+                <div className="text-xl font-black font-mono mt-1 text-emerald-500">{shiftSummary.confirmedOrders} مؤكد</div>
+              </div>
+
+              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-emerald-50/70 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20'} col-span-2 sm:col-span-1`}>
+                <div className={`text-[11px] font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>صافي مبيعات الوردية</div>
+                <div className="text-xl font-black font-mono mt-1 text-emerald-500">{shiftSummary.totalRevenue.toLocaleString()} ج.م</div>
+              </div>
+
+              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-red-50/70 border-red-200' : 'bg-red-500/10 border-red-500/20'}`}>
+                <div className={`text-[11px] font-bold ${isLight ? 'text-red-800' : 'text-red-400'}`}>فواتير ملغية</div>
+                <div className="text-lg font-black font-mono mt-1 text-red-500">{shiftSummary.cancelledOrders} طلب</div>
+              </div>
+
+              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-sky-50/70 border-sky-200' : 'bg-sky-500/10 border-sky-500/20'}`}>
+                <div className={`text-[11px] font-bold ${isLight ? 'text-sky-800' : 'text-sky-400'}`}>طلبات الدليفري</div>
+                <div className="text-lg font-black font-mono mt-1 text-sky-500">{shiftSummary.deliveryCount} دليفري</div>
+              </div>
+
+              <div className={`p-3 rounded-2xl border ${isLight ? 'bg-purple-50/70 border-purple-200' : 'bg-purple-500/10 border-purple-500/20'}`}>
+                <div className={`text-[11px] font-bold ${isLight ? 'text-purple-800' : 'text-purple-400'}`}>طلبات الاستلام</div>
+                <div className="text-lg font-black font-mono mt-1 text-purple-500">{shiftSummary.pickupCount} صالة/تيك أواي</div>
+              </div>
+            </div>
+
+            {/* Payment Method Breakdown */}
+            <div className={`p-3.5 rounded-2xl border space-y-2 ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/40 border-slate-700/60'}`}>
+              <div className="text-xs font-black text-amber-500 flex items-center gap-1.5">
+                <Coins className="w-4 h-4" />
+                <span>تفصيل طرق الدفع للمبيعات المؤكدة:</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className={`p-2 rounded-xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
+                  <span className="text-[11px] text-slate-400 block font-bold">كاش (نقدي)</span>
+                  <span className="font-mono font-black text-emerald-500">{shiftSummary.cashAmount.toLocaleString()} ج.م</span>
+                </div>
+                <div className={`p-2 rounded-xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
+                  <span className="text-[11px] text-slate-400 block font-bold">فودافون كاش / محافظ</span>
+                  <span className="font-mono font-black text-amber-500">{shiftSummary.walletAmount.toLocaleString()} ج.م</span>
+                </div>
+                <div className={`p-2 rounded-xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
+                  <span className="text-[11px] text-slate-400 block font-bold">إنستاباي</span>
+                  <span className="font-mono font-black text-cyan-500">{shiftSummary.instapayAmount.toLocaleString()} ج.م</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Pending Orders Warning if any */}
+            {shiftSummary.pendingOrders > 0 && (
+              <div className={`p-3 rounded-2xl border flex items-start gap-2.5 text-xs font-bold ${
+                isLight ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+              }`}>
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <span>
+                  تنبيه: يوجد {shiftSummary.pendingOrders} طلبات قيد الانتظار لم يتم تأكيدها أو إلغاؤها بعد. سيتم إغلاق الوردية وأرشفتها مع هذه الفواتير.
+                </span>
+              </div>
+            )}
+
+            {/* Shift Zeroing Notice */}
+            <div className={`p-3.5 rounded-2xl border flex items-start gap-2.5 text-xs leading-relaxed ${
+              isLight ? 'bg-blue-50 border-blue-200 text-blue-950' : 'bg-blue-950/40 border-blue-500/30 text-blue-200'
+            }`}>
+              <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-black mb-1">ماذا يحدث عند الضغط على تأكيد التقفيل؟</p>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px] opacity-90">
+                  <li>سيتم تصفير فواتير شاشة المتابعة فوراً لتجهيز الشاشة للوردية الجديدة رقم #{currentShiftNumber + 1}.</li>
+                  <li>ستنتقل كافة فواتير وإحصائيات هذه الوردية بالكامل إلى تبويبة <strong>(فواتير الورديات)</strong> في لوحة الإدارة.</li>
+                  <li>لن يتم حذف أي فاتورة من النظام وستظل محفوظة بالكامل في الأرشيف والتقارير.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={handleConfirmCloseShift}
+                disabled={isClosingShift}
+                className="flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-sm transition cursor-pointer shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isClosingShift ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                    <span>جاري تقفيل الوردية وتصفير الشاشة...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4 text-slate-950" />
+                    <span>تأكيد تقفيل الوردية وتصفير الفواتير 🔒</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsShiftModalOpen(false)}
+                disabled={isClosingShift}
+                className={`py-3.5 px-5 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 border ${
+                  isLight
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }`}
+              >
+                إلغاء
               </button>
             </div>
 

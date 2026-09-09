@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { ClosedShift } from '@/types';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
@@ -213,5 +214,132 @@ export async function saveRestaurantSettingsToDb(menuData: any): Promise<{ succe
     console.error('[Supabase Settings Save Error]:', err.message);
     return { success: false, error: err.message };
   }
+}
+
+const LOCAL_SHIFTS_KEY = 'loloat_closed_shifts';
+const LOCAL_CURRENT_SHIFT_START_KEY = 'loloat_current_shift_start';
+const LOCAL_CURRENT_SHIFT_NUM_KEY = 'loloat_current_shift_number';
+const LOCAL_ARCHIVED_ORDER_IDS_KEY = 'loloat_archived_order_ids';
+
+export async function fetchShiftsData(): Promise<{
+  closedShifts: ClosedShift[];
+  currentShiftStartTime: string;
+  currentShiftNumber: number;
+  archivedOrderIds: string[];
+}> {
+  let localShifts: ClosedShift[] = [];
+  let localStartTime = '';
+  let localShiftNumber = 1;
+  let localArchivedIds: string[] = [];
+
+  if (typeof window !== 'undefined') {
+    try {
+      localShifts = JSON.parse(localStorage.getItem(LOCAL_SHIFTS_KEY) || '[]');
+      localStartTime = localStorage.getItem(LOCAL_CURRENT_SHIFT_START_KEY) || '';
+      localShiftNumber = Number(localStorage.getItem(LOCAL_CURRENT_SHIFT_NUM_KEY)) || (localShifts.length + 1);
+      localArchivedIds = JSON.parse(localStorage.getItem(LOCAL_ARCHIVED_ORDER_IDS_KEY) || '[]');
+    } catch {}
+  }
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const settings = await fetchRestaurantSettingsFromDb();
+      if (settings) {
+        const cloudShifts = settings.closedShifts || [];
+        const cloudStartTime = settings.currentShiftStartTime || '';
+        const cloudShiftNumber = Number(settings.currentShiftNumber) || (cloudShifts.length + 1);
+        const cloudArchivedIds = settings.archivedOrderIds || [];
+
+        // دمج الورديات بدون تكرار
+        const shiftsMap = new Map<string, ClosedShift>();
+        [...cloudShifts, ...localShifts].forEach((s: ClosedShift) => {
+          if (s && s.id) shiftsMap.set(s.id, s);
+        });
+        const combinedShifts = Array.from(shiftsMap.values()).sort((a, b) => 
+          new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
+        );
+
+        const combinedArchived = Array.from(new Set([...cloudArchivedIds, ...localArchivedIds]));
+        const effectiveStartTime = cloudStartTime || localStartTime || new Date().toISOString();
+        const effectiveShiftNum = Math.max(cloudShiftNumber, localShiftNumber, combinedShifts.length + 1);
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(LOCAL_SHIFTS_KEY, JSON.stringify(combinedShifts));
+            localStorage.setItem(LOCAL_CURRENT_SHIFT_START_KEY, effectiveStartTime);
+            localStorage.setItem(LOCAL_CURRENT_SHIFT_NUM_KEY, String(effectiveShiftNum));
+            localStorage.setItem(LOCAL_ARCHIVED_ORDER_IDS_KEY, JSON.stringify(combinedArchived));
+          } catch {}
+        }
+
+        return {
+          closedShifts: combinedShifts,
+          currentShiftStartTime: effectiveStartTime,
+          currentShiftNumber: effectiveShiftNum,
+          archivedOrderIds: combinedArchived,
+        };
+      }
+    } catch (e) {
+      console.warn('Failed to fetch shifts from Supabase:', e);
+    }
+  }
+
+  const effectiveStartTime = localStartTime || new Date().toISOString();
+  if (typeof window !== 'undefined' && !localStartTime) {
+    try {
+      localStorage.setItem(LOCAL_CURRENT_SHIFT_START_KEY, effectiveStartTime);
+    } catch {}
+  }
+
+  return {
+    closedShifts: localShifts,
+    currentShiftStartTime: effectiveStartTime,
+    currentShiftNumber: localShiftNumber,
+    archivedOrderIds: localArchivedIds,
+  };
+}
+
+export async function closeShiftInDatabase(
+  newClosedShift: ClosedShift,
+  newShiftStartTime: string,
+  newShiftNumber: number,
+  newArchivedOrderIds: string[]
+): Promise<{ success: boolean; error?: string }> {
+  // 1. تحديث التخزين المحلي فوراً
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = JSON.parse(localStorage.getItem(LOCAL_SHIFTS_KEY) || '[]');
+      const updatedShifts = [newClosedShift, ...existing.filter((s: any) => s.id !== newClosedShift.id)];
+      localStorage.setItem(LOCAL_SHIFTS_KEY, JSON.stringify(updatedShifts));
+      localStorage.setItem(LOCAL_CURRENT_SHIFT_START_KEY, newShiftStartTime);
+      localStorage.setItem(LOCAL_CURRENT_SHIFT_NUM_KEY, String(newShiftNumber));
+      localStorage.setItem(LOCAL_ARCHIVED_ORDER_IDS_KEY, JSON.stringify(newArchivedOrderIds));
+    } catch (e) {
+      console.error('Failed to cache closed shift locally:', e);
+    }
+  }
+
+  // 2. المزامنة مع Supabase السحابي
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const settings = (await fetchRestaurantSettingsFromDb()) || {};
+      const cloudShifts = settings.closedShifts || [];
+      const updatedShifts = [newClosedShift, ...cloudShifts.filter((s: any) => s.id !== newClosedShift.id)];
+
+      await saveRestaurantSettingsToDb({
+        ...settings,
+        closedShifts: updatedShifts,
+        currentShiftStartTime: newShiftStartTime,
+        currentShiftNumber: newShiftNumber,
+        archivedOrderIds: newArchivedOrderIds,
+      });
+      return { success: true };
+    } catch (err: any) {
+      console.error('Failed to save closed shift to Supabase:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  return { success: true };
 }
 

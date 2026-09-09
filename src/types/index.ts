@@ -175,3 +175,27 @@ export interface WhatsAppNotificationSettings {
   cancelTemplate: string;
 }
 
+export interface ClosedShift {
+  id: string; // e.g. "shift-1725901234567"
+  shiftNumber: number; // e.g. 1, 2, 3...
+  openedAt: string; // ISO string
+  closedAt: string; // ISO string
+  closedBy?: string; // e.g. "الكاشير"
+  orderIds: string[];
+  orders: any[]; // لقطة كاملة للفواتير في هذه الوردية
+  summary: {
+    totalOrders: number;
+    confirmedOrders: number;
+    cancelledOrders: number;
+    pendingOrders: number;
+    totalRevenue: number; // إجمالي المبيعات المؤكدة
+    totalCancelledRevenue: number;
+    cashAmount: number;
+    walletAmount: number;
+    instapayAmount: number;
+    deliveryCount: number;
+    pickupCount: number;
+  };
+  notes?: string;
+}
+
