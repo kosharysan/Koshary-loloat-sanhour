@@ -718,155 +718,220 @@ export default function OrderMonitorPage() {
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           
           {/* 1. إجمالي المبيعات المؤكدة */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-[0_8px_32px_0_rgba(16,185,129,0.18)] relative overflow-hidden transition-all duration-300 border border-emerald-400/30 bg-gradient-to-br from-emerald-950/40 via-emerald-900/25 to-slate-900/40 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/10 hover:border-emerald-400/60 hover:shadow-[0_12px_40px_0_rgba(16,185,129,0.28)]">
-            {/* Glass specular sheen */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-black/20 pointer-events-none" />
-            {/* Ambient vibrant glass glows */}
-            <div className="absolute -top-12 -right-12 w-40 h-40 bg-emerald-500/30 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-teal-500/25 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-400/30 to-teal-500/15 text-emerald-300 flex items-center justify-center border border-emerald-400/40 shadow-lg shadow-emerald-500/20 backdrop-blur-sm shrink-0">
-                  <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
+          <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-200 border-t-[5px] border-t-emerald-500 shadow-xl relative overflow-hidden flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-x border-b border-slate-200/80 shadow-slate-200/60'
+              : 'bg-slate-900 border-x border-b border-slate-800 shadow-black/40'
+          }`}>
+            <div>
+              {/* Header: Icon + Title + Pill */}
+              <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-emerald-500/30 shrink-0">
+                    <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className={`text-[11px] sm:text-base font-black block tracking-wide truncate ${
+                      isLight ? 'text-slate-900' : 'text-white'
+                    }`}>
+                      إجمالي المبيعات
+                    </span>
+                    <span className="text-[9.5px] sm:text-[11.5px] font-bold text-emerald-500 block truncate">
+                      المؤكدة المعتمدة
+                    </span>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] sm:text-base font-black text-white block tracking-wide truncate drop-shadow-xs">
-                    إجمالي المبيعات
-                  </span>
-                  <span className="text-[9.5px] sm:text-[11px] text-emerald-200/80 font-bold block truncate">
-                    المؤكدة المعتمدة
-                  </span>
-                </div>
+                <span className={`hidden md:flex text-[11px] font-black px-2.5 py-1 rounded-full items-center gap-1.5 shrink-0 ${
+                  isLight
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                }`}>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>صافي التحصيل</span>
+                </span>
               </div>
-              <span className="hidden md:flex text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/25 text-emerald-100 border border-emerald-400/50 shadow-xs items-center gap-1 shrink-0 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>صافي التحصيل</span>
-              </span>
+
+              {/* Big Revenue Number */}
+              <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-4 flex-wrap">
+                <span className={`text-lg sm:text-3xl lg:text-4xl font-black tracking-tight ${
+                  isLight ? 'text-slate-900' : 'text-white'
+                }`}>
+                  {confirmedRevenue.toLocaleString('ar-EG')}
+                </span>
+                <span className="text-[10px] sm:text-base font-black text-emerald-500">جنيه</span>
+              </div>
             </div>
 
-            <div className="flex items-baseline gap-1 sm:gap-2 mb-2 sm:mb-3 relative z-10 flex-wrap">
-              <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-300 tracking-tight drop-shadow-[0_2px_10px_rgba(16,185,129,0.3)]">
-                {confirmedRevenue.toLocaleString('ar-EG')}
-              </span>
-              <span className="text-[10px] sm:text-base font-black text-emerald-400 drop-shadow-xs">جنيه</span>
-            </div>
-
-            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-emerald-200/80 font-medium pt-2 sm:pt-3 border-t border-emerald-400/20 relative z-10">
-              <span className="truncate">💰 المؤكدة فقط</span>
-              <span className="text-emerald-300 font-bold bg-emerald-950/40 backdrop-blur-sm px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-emerald-400/30 text-[10px] sm:text-xs shrink-0">
+            {/* Footer status */}
+            <div className={`flex items-center justify-between text-[9.5px] sm:text-xs font-bold pt-2 sm:pt-3 border-t ${
+              isLight
+                ? 'border-slate-100 text-slate-500'
+                : 'border-slate-800 text-slate-400'
+            }`}>
+              <span className="truncate">💰 المؤكد فقط</span>
+              <span className={`px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0 ${
+                isLight
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'
+              }`}>
                 {confirmedOrders.length} طلب
               </span>
             </div>
           </div>
 
           {/* 2. عدد الأوردرات المؤكدة ونشاط الزبائن */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-[0_8px_32px_0_rgba(99,102,241,0.18)] relative overflow-hidden transition-all duration-300 border border-indigo-400/30 bg-gradient-to-br from-indigo-950/40 via-indigo-900/25 to-slate-900/40 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/10 hover:border-indigo-400/60 hover:shadow-[0_12px_40px_0_rgba(99,102,241,0.28)]">
-            {/* Glass specular sheen */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-black/20 pointer-events-none" />
-            {/* Ambient vibrant glass glows */}
-            <div className="absolute -top-12 -right-12 w-40 h-40 bg-indigo-500/30 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-purple-500/25 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-400/30 to-purple-500/15 text-indigo-300 flex items-center justify-center border border-indigo-400/40 shadow-lg shadow-indigo-500/20 backdrop-blur-sm shrink-0">
-                  <ShoppingBag className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
+          <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-200 border-t-[5px] border-t-blue-500 shadow-xl relative overflow-hidden flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-x border-b border-slate-200/80 shadow-slate-200/60'
+              : 'bg-slate-900 border-x border-b border-slate-800 shadow-black/40'
+          }`}>
+            <div>
+              {/* Header: Icon + Title + Pill */}
+              <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-500 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/30 shrink-0">
+                    <ShoppingBag className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className={`text-[11px] sm:text-base font-black block tracking-wide truncate ${
+                      isLight ? 'text-slate-900' : 'text-white'
+                    }`}>
+                      عدد الأوردرات
+                    </span>
+                    <span className="text-[9.5px] sm:text-[11.5px] font-bold text-blue-500 block truncate">
+                      الأوردرات المؤكدة
+                    </span>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] sm:text-base font-black text-white block tracking-wide truncate drop-shadow-xs">
-                    عدد الأوردرات
-                  </span>
-                  <span className="text-[9.5px] sm:text-[11px] text-indigo-200/80 font-bold block truncate">
-                    الأوردرات المؤكدة
-                  </span>
-                </div>
-              </div>
-              <span className="hidden md:flex text-[11px] font-black px-2.5 py-0.5 rounded-full bg-indigo-500/25 text-indigo-100 border border-indigo-400/50 shadow-xs items-center gap-1 shrink-0 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                <span>تم التأكيد</span>
-              </span>
-            </div>
-
-            <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3 relative z-10">
-              <div className="flex items-baseline gap-1 sm:gap-2">
-                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-white to-indigo-300 tracking-tight drop-shadow-[0_2px_10px_rgba(99,102,241,0.3)]">
-                  {confirmedOrders.length.toLocaleString('ar-EG')}
+                <span className={`hidden md:flex text-[11px] font-black px-2.5 py-1 rounded-full items-center gap-1.5 shrink-0 ${
+                  isLight
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                }`}>
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                  <span>تم التأكيد</span>
                 </span>
-                <span className="text-[10px] sm:text-base font-black text-indigo-400 drop-shadow-xs">أوردر</span>
               </div>
 
-              {/* كام شخص طلب؟ */}
-              <div className="bg-slate-950/50 backdrop-blur-md border border-indigo-400/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
-                <div className="text-[8.5px] sm:text-[10px] text-indigo-200/85 font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
-                  <Users className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">العملاء:</span>
+              {/* Big Orders Number + Customers counter */}
+              <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-4">
+                <div className="flex items-baseline gap-1 sm:gap-2">
+                  <span className={`text-lg sm:text-3xl lg:text-4xl font-black tracking-tight ${
+                    isLight ? 'text-slate-900' : 'text-white'
+                  }`}>
+                    {confirmedOrders.length.toLocaleString('ar-EG')}
+                  </span>
+                  <span className="text-[10px] sm:text-base font-black text-blue-500">أوردر</span>
                 </div>
-                <div className="text-[11px] sm:text-base font-black text-amber-300 text-right">
-                  {uniqueConfirmedCustomers.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs text-indigo-200/70 font-medium">عميل</span>
+
+                {/* كام شخص طلب؟ */}
+                <div className={`px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border text-left shrink-0 shadow-xs ${
+                  isLight
+                    ? 'bg-amber-50/90 border-amber-200 text-amber-900'
+                    : 'bg-slate-950 border-amber-500/30 text-amber-300'
+                }`}>
+                  <div className="text-[8.5px] sm:text-[10.5px] font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
+                    <Users className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-500" />
+                    <span className="hidden sm:inline">العملاء:</span>
+                  </div>
+                  <div className="text-[11px] sm:text-base font-black text-right">
+                    {uniqueConfirmedCustomers.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold opacity-80">عميل</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-indigo-200/80 font-medium pt-2 sm:pt-3 border-t border-indigo-400/20 relative z-10">
+            {/* Footer status */}
+            <div className={`flex items-center justify-between text-[9.5px] sm:text-xs font-bold pt-2 sm:pt-3 border-t ${
+              isLight
+                ? 'border-slate-100 text-slate-500'
+                : 'border-slate-800 text-slate-400'
+            }`}>
               <span className="truncate">👥 نشاط العملاء</span>
-              <span className="text-amber-300 font-bold bg-slate-950/50 backdrop-blur-sm px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-indigo-400/30 text-[10px] sm:text-xs shrink-0">
+              <span className={`px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0 ${
+                isLight
+                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/25'
+              }`}>
                 من {uniqueConfirmedCustomers} شخص
               </span>
             </div>
           </div>
 
           {/* 3. الطلبات الملغية ومبالغها */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-[0_8px_32px_0_rgba(244,63,94,0.18)] relative overflow-hidden transition-all duration-300 border border-rose-400/30 bg-gradient-to-br from-rose-950/40 via-rose-900/25 to-slate-900/40 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/10 hover:border-rose-400/60 hover:shadow-[0_12px_40px_0_rgba(244,63,94,0.28)]">
-            {/* Glass specular sheen */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-black/20 pointer-events-none" />
-            {/* Ambient vibrant glass glows */}
-            <div className="absolute -top-12 -right-12 w-40 h-40 bg-rose-500/30 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-red-500/25 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-rose-400/30 to-red-500/15 text-rose-300 flex items-center justify-center border border-rose-400/40 shadow-lg shadow-rose-500/20 backdrop-blur-sm shrink-0">
-                  <XCircle className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
+          <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-5 transition-all duration-200 border-t-[5px] border-t-rose-500 shadow-xl relative overflow-hidden flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-x border-b border-slate-200/80 shadow-slate-200/60'
+              : 'bg-slate-900 border-x border-b border-slate-800 shadow-black/40'
+          }`}>
+            <div>
+              {/* Header: Icon + Title + Pill */}
+              <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-rose-500 text-white flex items-center justify-center font-bold shadow-md shadow-rose-500/30 shrink-0">
+                    <XCircle className="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className={`text-[11px] sm:text-base font-black block tracking-wide truncate ${
+                      isLight ? 'text-slate-900' : 'text-white'
+                    }`}>
+                      الطلبات الملغية
+                    </span>
+                    <span className="text-[9.5px] sm:text-[11.5px] font-bold text-rose-500 block truncate">
+                      فاقد المبيعات
+                    </span>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[11px] sm:text-base font-black text-white block tracking-wide truncate drop-shadow-xs">
-                    الطلبات الملغية
-                  </span>
-                  <span className="text-[9.5px] sm:text-[11px] text-rose-200/80 font-bold block truncate">
-                    فاقد المبيعات
-                  </span>
-                </div>
-              </div>
-              <span className="hidden md:flex text-[11px] font-black px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-100 border border-rose-400/50 shadow-xs items-center gap-1 shrink-0 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                <span>ملغي</span>
-              </span>
-            </div>
-
-            <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-3 relative z-10">
-              <div className="flex items-baseline gap-1 sm:gap-2">
-                <span className="text-lg sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 via-white to-rose-300 tracking-tight drop-shadow-[0_2px_10px_rgba(244,63,94,0.3)]">
-                  {cancelledRevenue.toLocaleString('ar-EG')}
+                <span className={`hidden md:flex text-[11px] font-black px-2.5 py-1 rounded-full items-center gap-1.5 shrink-0 ${
+                  isLight
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                }`}>
+                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                  <span>ملغي</span>
                 </span>
-                <span className="text-[10px] sm:text-base font-black text-rose-400 drop-shadow-xs">جنيه</span>
               </div>
 
-              {/* عدد الملغي */}
-              <div className="bg-slate-950/50 backdrop-blur-md border border-rose-400/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
-                <div className="text-[8.5px] sm:text-[10px] text-rose-200/85 font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
-                  <AlertTriangle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-rose-400" />
-                  <span className="hidden sm:inline">العدد:</span>
+              {/* Big Cancelled Revenue + Cancelled count */}
+              <div className="flex items-baseline justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-4">
+                <div className="flex items-baseline gap-1 sm:gap-2">
+                  <span className={`text-lg sm:text-3xl lg:text-4xl font-black tracking-tight ${
+                    isLight ? 'text-slate-900' : 'text-white'
+                  }`}>
+                    {cancelledRevenue.toLocaleString('ar-EG')}
+                  </span>
+                  <span className="text-[10px] sm:text-base font-black text-rose-500">جنيه</span>
                 </div>
-                <div className="text-[11px] sm:text-base font-black text-rose-300 text-right">
-                  {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs text-rose-200/70 font-medium">أوردر</span>
+
+                {/* عدد الملغي */}
+                <div className={`px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border text-left shrink-0 shadow-xs ${
+                  isLight
+                    ? 'bg-rose-50/90 border-rose-200 text-rose-900'
+                    : 'bg-slate-950 border-rose-500/30 text-rose-300'
+                }`}>
+                  <div className="text-[8.5px] sm:text-[10.5px] font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
+                    <AlertTriangle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-rose-500" />
+                    <span className="hidden sm:inline">العدد:</span>
+                  </div>
+                  <div className="text-[11px] sm:text-base font-black text-right">
+                    {cancelledOrders.length.toLocaleString('ar-EG')} <span className="text-[8.5px] sm:text-xs font-semibold opacity-80">أوردر</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[9.5px] sm:text-xs text-rose-200/80 font-medium pt-2 sm:pt-3 border-t border-rose-400/20 relative z-10">
+            {/* Footer status */}
+            <div className={`flex items-center justify-between text-[9.5px] sm:text-xs font-bold pt-2 sm:pt-3 border-t ${
+              isLight
+                ? 'border-slate-100 text-slate-500'
+                : 'border-slate-800 text-slate-400'
+            }`}>
               <span className="truncate">🚫 قيمة غير محصلة</span>
-              <span className="text-rose-300 font-bold bg-rose-950/40 backdrop-blur-sm px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-rose-400/30 text-[10px] sm:text-xs shrink-0">
+              <span className={`px-2 py-0.5 rounded-lg font-black text-[10px] sm:text-xs shrink-0 ${
+                isLight
+                  ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/25'
+              }`}>
                 {cancelledOrders.length} ملغي
               </span>
             </div>
