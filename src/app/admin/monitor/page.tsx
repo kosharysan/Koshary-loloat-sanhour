@@ -312,21 +312,29 @@ export default function OrderMonitorPage() {
       nameAndDetails = nameAndDetails.replace(/[×xX]\s*\d+/, '').trim();
     }
 
-    // 4. Extract size e.g. "(وسط)"
+    const isCustom = nameAndDetails.includes('طاجن مبتكر') || detailsStr.includes('الأساس:') || detailsStr.includes('أساس:');
+
+    // 4. Extract size or protein from parentheses
     let size: string | undefined = undefined;
-    const sizeMatch = nameAndDetails.match(/\(([^)]+)\)/);
-    if (sizeMatch) {
-      size = sizeMatch[1].trim();
+    let proteinFromTitle: string | undefined = undefined;
+
+    const parenMatch = nameAndDetails.match(/\(([^)]+)\)/);
+    if (parenMatch) {
+      const inside = parenMatch[1].trim();
+      if (isCustom) {
+        proteinFromTitle = inside;
+      } else {
+        size = inside;
+      }
       nameAndDetails = nameAndDetails.replace(/\([^)]+\)/, '').trim();
     }
 
-    const name = nameAndDetails.trim();
-    const isCustom = name.includes('طاجن مبتكر') || detailsStr.includes('الأساس:');
+    const name = isCustom ? 'طاجن مبتكر خاص' : nameAndDetails.trim();
 
     // 5. Parse details segments
     let base: string | undefined = undefined;
     let without: string | undefined = undefined;
-    let protein: string | undefined = undefined;
+    let protein: string | undefined = proteinFromTitle;
     let spice: string | undefined = undefined;
     let extras: string | undefined = undefined;
     let notes: string | undefined = undefined;
@@ -337,7 +345,8 @@ export default function OrderMonitorPage() {
         if (seg.startsWith('الأساس:') || seg.startsWith('أساس:')) {
           base = seg.replace(/^(الأساس|أساس):\s*/, '').trim();
         } else if (seg.startsWith('بدون:')) {
-          without = seg.replace(/^بدون:\s*/, '').trim();
+          const wClean = seg.replace(/^بدون:\s*/, '').replace(/^بدون\s*/, '').trim();
+          without = without ? `${without}، ${wClean}` : wClean;
         } else if (seg.startsWith('البروتين:') || seg.startsWith('بروتين:')) {
           protein = seg.replace(/^(البروتين|بروتين):\s*/, '').trim();
         } else if (seg.startsWith('الشطة:') || seg.startsWith('شطة:')) {
@@ -347,12 +356,18 @@ export default function OrderMonitorPage() {
         } else if (seg.startsWith('ملاحظات:') || seg.startsWith('ملاحظة:')) {
           notes = seg.replace(/^(ملاحظات|ملاحظة):\s*/, '').trim();
         } else if (seg.includes('بدون')) {
-          without = (without ? without + '، ' : '') + seg;
+          const wClean = seg.replace(/^بدون:\s*/, '').replace(/^بدون\s*/, '').trim();
+          without = without ? `${without}، ${wClean}` : wClean;
         } else {
-          notes = (notes ? notes + '، ' : '') + seg;
+          notes = notes ? `${notes}، ${seg}` : seg;
         }
       }
     }
+
+    // Parse individual extras into a list
+    const extrasList = extras
+      ? extras.split(/[،,•]/).map(s => s.trim()).filter(Boolean)
+      : [];
 
     return {
       name,
@@ -365,6 +380,7 @@ export default function OrderMonitorPage() {
       protein,
       spice,
       extras,
+      extrasList,
       notes,
       raw: clean
     };
@@ -864,8 +880,8 @@ export default function OrderMonitorPage() {
                                             × {itemInfo.quantity}
                                           </span>
 
-                                          {/* زر تفاعلي بلون روز تحذيري إذا كان الصنف به "بدون" */}
-                                          {itemInfo.without && (
+                                          {/* زر تفاعلي بلون روز تحذيري فقط للأصناف العادية إذا كان بها "بدون" */}
+                                          {itemInfo.without && !itemInfo.isCustom && (
                                             <button
                                               type="button"
                                               onClick={() => setSelectedItemNote({
@@ -925,22 +941,34 @@ export default function OrderMonitorPage() {
                                             </div>
                                           )}
 
-                                          {/* 2. بدون (مستبعدات الأساس) بلون تحذيري أحمر/روز بارز ومباشرة بعد الأساس */}
+                                          {/* 2. بدون (مستبعدات الأساس) بلون تحذيري أحمر/روز بارز ومباشرة بعد الأساس مع إمكانية الضغط */}
                                           {itemInfo.without && (
-                                            <div className="flex items-center gap-2 bg-rose-950/40 px-2.5 py-1.5 rounded-xl border border-rose-500/40 text-rose-200 shadow-xs">
-                                              <span className="text-rose-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
-                                                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                                                <span>🚫 بدون:</span>
-                                              </span>
-                                              <span className="text-rose-100 font-black tracking-wide">{itemInfo.without}</span>
-                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => setSelectedItemNote({
+                                                title: `طاجن مبتكر خاص (الكمية: ${itemInfo.quantity})`,
+                                                without: itemInfo.without,
+                                                notes: itemInfo.notes
+                                              })}
+                                              title="اضغط لتكبير تعليمات المطبخ"
+                                              className="w-full flex items-center justify-between gap-2 bg-rose-950/50 hover:bg-rose-950/70 px-2.5 py-1.5 rounded-xl border border-rose-500/50 text-rose-200 shadow-xs cursor-pointer transition text-right"
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-rose-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
+                                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                                  <span>🚫 بدون:</span>
+                                                </span>
+                                                <span className="text-rose-100 font-black tracking-wide">{itemInfo.without}</span>
+                                              </div>
+                                              <span className="text-[10px] text-rose-400 font-bold underline shrink-0">تكبير</span>
+                                            </button>
                                           )}
 
-                                          {/* 3. البروتين */}
+                                          {/* 3. البروتين (تحت الأساس والمستبعدات مباشرة) */}
                                           {itemInfo.protein && (
                                             <div className="flex items-center gap-2 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
                                               <span className="text-amber-400 font-black min-w-[75px] shrink-0">🥩 البروتين:</span>
-                                              <span className="text-slate-100 font-bold">{itemInfo.protein}</span>
+                                              <span className="text-slate-100 font-bold leading-relaxed">{itemInfo.protein}</span>
                                             </div>
                                           )}
 
@@ -952,11 +980,21 @@ export default function OrderMonitorPage() {
                                             </div>
                                           )}
 
-                                          {/* 5. الإضافات الملكية والمقرمشات */}
-                                          {itemInfo.extras && (
-                                            <div className="flex items-center gap-2 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
-                                              <span className="text-emerald-400 font-black min-w-[75px] shrink-0">✨ الإضافات:</span>
-                                              <span className="text-emerald-200 font-bold">{itemInfo.extras}</span>
+                                          {/* 5. الإضافات الملكية والمقرمشات - تحت بعض داخل نفس الحاوية */}
+                                          {itemInfo.extrasList && itemInfo.extrasList.length > 0 && (
+                                            <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1.5">
+                                              <div className="flex items-center gap-1.5 text-emerald-400 font-black">
+                                                <Sparkles className="w-3.5 h-3.5" />
+                                                <span>الإضافات والمقرمشات ({itemInfo.extrasList.length}):</span>
+                                              </div>
+                                              <div className="space-y-1 pr-2 mr-1 border-r-2 border-emerald-500/30">
+                                                {itemInfo.extrasList.map((extraItem, eIdx) => (
+                                                  <div key={eIdx} className="flex items-center gap-2 text-xs font-bold text-emerald-200">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                                    <span>{extraItem}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
                                             </div>
                                           )}
 
