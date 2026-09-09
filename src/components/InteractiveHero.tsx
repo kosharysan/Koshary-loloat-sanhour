@@ -100,10 +100,9 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
           <div className="pt-2">
             <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-white/95 border-2 border-rose-200/90 shadow-[0_8px_25px_rgba(225,29,72,0.15)] text-rose-700 text-xs sm:text-sm font-black backdrop-blur-md">
               <span className="relative flex items-center justify-center shrink-0">
-                <span className="absolute -inset-1 bg-amber-400/40 rounded-full blur-xs animate-pulse pointer-events-none"></span>
                 <svg
                   viewBox="0 0 24 24"
-                  className="relative w-5 h-5 sm:w-5.5 sm:h-5.5 drop-shadow-[0_2px_6px_rgba(217,119,6,0.65)]"
+                  className="relative w-5 h-5 sm:w-5.5 sm:h-5.5 drop-shadow-[0_1px_3px_rgba(217,119,6,0.35)]"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
