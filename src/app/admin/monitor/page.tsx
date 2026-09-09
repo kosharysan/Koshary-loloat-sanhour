@@ -339,14 +339,14 @@ export default function OrderMonitorPage() {
     let extras: string | undefined = undefined;
     let notes: string | undefined = undefined;
 
+    const withoutSet = new Set<string>();
+    const notesSet = new Set<string>();
+
     if (detailsStr) {
       const segments = detailsStr.split(/[|•]/).map(s => s.trim()).filter(Boolean);
       for (const seg of segments) {
         if (seg.startsWith('الأساس:') || seg.startsWith('أساس:')) {
           base = seg.replace(/^(الأساس|أساس):\s*/, '').trim();
-        } else if (seg.startsWith('بدون:')) {
-          const wClean = seg.replace(/^بدون:\s*/, '').replace(/^بدون\s*/, '').trim();
-          without = without ? `${without}، ${wClean}` : wClean;
         } else if (seg.startsWith('البروتين:') || seg.startsWith('بروتين:')) {
           protein = seg.replace(/^(البروتين|بروتين):\s*/, '').trim();
         } else if (seg.startsWith('الشطة:') || seg.startsWith('شطة:')) {
@@ -354,14 +354,43 @@ export default function OrderMonitorPage() {
         } else if (seg.startsWith('إضافات:') || seg.startsWith('الإضافات:')) {
           extras = seg.replace(/^(إضافات|الإضافات):\s*/, '').trim();
         } else if (seg.startsWith('ملاحظات:') || seg.startsWith('ملاحظة:')) {
-          notes = seg.replace(/^(ملاحظات|ملاحظة):\s*/, '').trim();
+          const rawList = seg.replace(/^(ملاحظات|ملاحظة):\s*/, '').split(/[،,]/);
+          rawList.forEach(item => {
+            const clean = item.replace(/^(ملاحظات|ملاحظة):?\s*/, '').replace(/[:،]/g, '').trim();
+            if (clean) notesSet.add(clean);
+          });
+        } else if (seg.startsWith('بدون:')) {
+          const rawList = seg.replace(/^بدون:\s*/, '').split(/[،,]/);
+          rawList.forEach(item => {
+            const clean = item.replace(/بدون/g, '').replace(/[:،]/g, '').trim();
+            if (clean) withoutSet.add(clean);
+          });
         } else if (seg.includes('بدون')) {
-          const wClean = seg.replace(/^بدون:\s*/, '').replace(/^بدون\s*/, '').trim();
-          without = without ? `${without}، ${wClean}` : wClean;
+          const rawList = seg.split(/[،,]/);
+          rawList.forEach(item => {
+            if (item.includes('بدون')) {
+              const clean = item.replace(/بدون/g, '').replace(/[:،]/g, '').trim();
+              if (clean) withoutSet.add(clean);
+            } else {
+              const clean = item.trim();
+              if (clean) notesSet.add(clean);
+            }
+          });
         } else {
-          notes = notes ? `${notes}، ${seg}` : seg;
+          const rawList = seg.split(/[،,]/);
+          rawList.forEach(item => {
+            const clean = item.trim();
+            if (clean) notesSet.add(clean);
+          });
         }
       }
+    }
+
+    if (withoutSet.size > 0) {
+      without = Array.from(withoutSet).join('، ');
+    }
+    if (notesSet.size > 0) {
+      notes = Array.from(notesSet).join('، ');
     }
 
     // Parse individual extras into a list
@@ -930,7 +959,7 @@ export default function OrderMonitorPage() {
                                               >
                                                 <div className="flex items-center gap-2">
                                                   <span className="text-amber-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
-                                                    <span>📝 ملاحظة:</span>
+                                                    <span>📝 ملاحظات:</span>
                                                   </span>
                                                   <span className="text-white font-bold leading-relaxed">{itemInfo.notes}</span>
                                                 </div>
