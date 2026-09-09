@@ -1124,38 +1124,44 @@ export default function OrderMonitorPage() {
 
                                 {/* قائمة الأصناف - كل طلب في سطر مستقل مع رقم الصنف والتفاصيل والسعر في نهاية السطر */}
                                 {parsed.items.length > 0 ? (
-                                  <div className="space-y-1.5 pt-0.5">
+                                  <div className="space-y-2.5 pt-0.5">
                                     {parsed.items.map((itemStr, idx) => {
                                       const itemInfo = parseItemLine(itemStr);
                                       const hasAlertNotes = Boolean(itemInfo.without || itemInfo.notes);
 
                                       return (
-                                        <div
-                                          key={idx}
-                                          className={`rounded-2xl border transition-all p-2.5 space-y-2 ${
+                                        <div key={idx} className="flex items-start gap-2 sm:gap-2.5">
+                                          {/* رقم الصنف خارج المربع على اليمين */}
+                                          <span className={`w-6 h-6 rounded-xl border flex items-center justify-center text-xs font-black shrink-0 mt-1 shadow-2xs font-mono ${
                                             isLight
                                               ? hasAlertNotes
-                                                ? 'bg-amber-50/50 border-amber-300 shadow-xs'
-                                                : 'bg-white border-slate-200 shadow-xs'
+                                                ? 'bg-amber-500 text-slate-950 border-amber-400 font-black'
+                                                : 'bg-amber-100 text-amber-900 border-amber-300'
                                               : hasAlertNotes
-                                              ? 'bg-slate-900/98 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.06)]'
-                                              : 'bg-slate-900/95 border-slate-800/90 hover:bg-slate-900'
-                                          }`}
-                                        >
-                                          {/* السطر الرئيسي للصنف: الرقم، الاسم، الحجم، الكمية، والشارة التنبيهية والسعر */}
-                                          <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
-                                              <span className={`w-5 h-5 rounded-lg border flex items-center justify-center text-[10px] font-black shrink-0 ${
-                                                isLight
-                                                  ? 'bg-amber-100 text-amber-800 border-amber-200'
-                                                  : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                              }`}>
-                                                {idx + 1}
-                                              </span>
-                                              
-                                              <span className={`font-black text-xs ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
-                                                {itemInfo.name}
-                                              </span>
+                                              ? 'bg-amber-500 text-slate-950 border-amber-400 font-black'
+                                              : 'bg-slate-800 text-amber-300 border-slate-700'
+                                          }`}>
+                                            {idx + 1}
+                                          </span>
+
+                                          {/* مربع تفاصيل ومكونات الصنف */}
+                                          <div
+                                            className={`flex-1 min-w-0 rounded-2xl border transition-all p-2.5 space-y-2 ${
+                                              isLight
+                                                ? hasAlertNotes
+                                                  ? 'bg-amber-50/50 border-amber-300 shadow-xs'
+                                                  : 'bg-white border-slate-200 shadow-xs'
+                                                : hasAlertNotes
+                                                ? 'bg-slate-900/98 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.06)]'
+                                                : 'bg-slate-900/95 border-slate-800/90 hover:bg-slate-900'
+                                            }`}
+                                          >
+                                            {/* السطر الرئيسي للصنف: الاسم، الحجم، الكمية، والشارة التنبيهية والسعر */}
+                                            <div className="flex items-center justify-between gap-2">
+                                              <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
+                                                <span className={`font-black text-xs ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
+                                                  {itemInfo.name}
+                                                </span>
 
                                               {itemInfo.size && (
                                                 <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
@@ -1359,6 +1365,7 @@ export default function OrderMonitorPage() {
                                             </div>
                                           )}
 
+                                          </div>
                                         </div>
                                       );
                                     })}
