@@ -198,17 +198,19 @@ export default function OrderMonitorPage() {
     setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status: newStatus } : o)));
     sounds.playSuccessChime();
 
+    // Always lock the order upon action (confirm or cancel)
+    setUnlockedOrderIds(prev => {
+      const next = new Set(prev);
+      next.delete(String(orderId));
+      return next;
+    });
+
     if (newStatus === 'confirmed') {
-      setUnlockedOrderIds(prev => {
-        const next = new Set(prev);
-        next.delete(String(orderId));
-        return next;
-      });
       showNotice(`تم تأكيد الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`, 'success');
     } else if (newStatus === 'cancelled_before_dispatch') {
-      showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} قبل خروجه ⚠️`, 'warn');
+      showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`, 'warn');
     } else {
-      showNotice(`تم تسجيل إلغاء الأوردر #${String(orderId).slice(-6)} لعدم الاستلام 🔴`, 'error');
+      showNotice(`تم تسجيل عدم استلام الأوردر #${String(orderId).slice(-6)} وقفله بنجاح 🔒`, 'error');
     }
 
     // 2. الحفظ الدائم في السيرفر والسحابة والتخزين المحلي
@@ -1094,8 +1096,10 @@ export default function OrderMonitorPage() {
               const isConfirmed = order.status === 'confirmed' || order.status === 'preparing';
               const isCancelledBefore = order.status === 'cancelled_before_dispatch';
               const isCancelledNotReceived = order.status === 'cancelled_not_received';
+              const isCancelled = isCancelledBefore || isCancelledNotReceived;
+              const isActionTaken = isConfirmed || isCancelled;
               const isExpanded = expandedOrderId === order.id;
-              const isOrderLocked = isConfirmed && !unlockedOrderIds.has(String(order.id));
+              const isOrderLocked = isActionTaken && !unlockedOrderIds.has(String(order.id));
 
               return (
                 <div
@@ -1149,54 +1153,14 @@ export default function OrderMonitorPage() {
                           </span>
                         )}
                         {isConfirmed && (
-                          <>
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-black border ${
-                              isLight
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-2xs'
-                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            }`}>
-                              <CheckCircle2 className={`w-3 h-3 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
-                              <span>مؤكد</span>
-                            </span>
-
-                            {/* زر القفل في أعلى الكارت */}
-                            {isOrderLocked ? (
-                              <button
-                                type="button"
-                                onClick={() => setUnlockModalOrder(order)}
-                                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black border transition cursor-pointer shadow-xs active:scale-95 ${
-                                  isLight
-                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
-                                    : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-400/50'
-                                }`}
-                                title="الطلب مؤكد ومقفل لمنع التعديل بالخطأ - اضغط لطلب فك القفل"
-                              >
-                                <Lock className="w-3 h-3 text-amber-500 animate-pulse" />
-                                <span>مقفل 🔒</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setUnlockedOrderIds(prev => {
-                                    const next = new Set(prev);
-                                    next.delete(String(order.id));
-                                    return next;
-                                  });
-                                  showNotice(`تمت إعادة قفل الأوردر #${String(order.id).slice(-6)} وتأمينه 🔒`, 'success');
-                                }}
-                                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black border transition cursor-pointer shadow-xs active:scale-95 ${
-                                  isLight
-                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/30'
-                                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-400/50 ring-1 ring-emerald-400/30'
-                                }`}
-                                title="الطلب مفتوح للتعديل - اضغط لإعادة قفله"
-                              >
-                                <Unlock className="w-3 h-3 text-emerald-500" />
-                                <span>مفتوح 🔓</span>
-                              </button>
-                            )}
-                          </>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-black border ${
+                            isLight
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-2xs'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          }`}>
+                            <CheckCircle2 className={`w-3 h-3 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
+                            <span>مؤكد</span>
+                          </span>
                         )}
                         {isCancelledBefore && (
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-black border ${
@@ -1217,6 +1181,50 @@ export default function OrderMonitorPage() {
                             <XCircle className={`w-3 h-3 ${isLight ? 'text-red-700' : 'text-red-400'}`} />
                             <span>عدم استلام</span>
                           </span>
+                        )}
+
+                        {/* زر القفل في أعلى الكارت للطلبات المؤكدة أو الملغية */}
+                        {isActionTaken && (
+                          isOrderLocked ? (
+                            <button
+                              type="button"
+                              onClick={() => setUnlockModalOrder(order)}
+                              className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black border transition cursor-pointer shadow-xs active:scale-95 ${
+                                isLight
+                                  ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
+                                  : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-400/50'
+                              }`}
+                              title={
+                                isConfirmed
+                                  ? 'الطلب مؤكد ومقفل لمنع التعديل بالخطأ - اضغط لطلب فك القفل'
+                                  : 'الطلب ملغي ومقفل لمنع التعديل بالخطأ - اضغط لطلب فك القفل'
+                              }
+                            >
+                              <Lock className="w-3 h-3 text-amber-500 animate-pulse" />
+                              <span>مقفل 🔒</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setUnlockedOrderIds(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(String(order.id));
+                                  return next;
+                                });
+                                showNotice(`تمت إعادة قفل الأوردر #${String(order.id).slice(-6)} وتأمينه 🔒`, 'success');
+                              }}
+                              className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black border transition cursor-pointer shadow-xs active:scale-95 ${
+                                isLight
+                                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/30'
+                                  : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-400/50 ring-1 ring-emerald-400/30'
+                              }`}
+                              title="الطلب مفتوح للتعديل - اضغط لإعادة قفله"
+                            >
+                              <Unlock className="w-3 h-3 text-emerald-500" />
+                              <span>مفتوح 🔓</span>
+                            </button>
+                          )
                         )}
 
                         {/* زر فتح وغلق تفاصيل الكارت الأكورديون */}
@@ -1705,7 +1713,9 @@ export default function OrderMonitorPage() {
                         <div className="flex items-center gap-2 min-w-0">
                           <Lock className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
                           <div className="min-w-0">
-                            <span className="text-xs font-black block truncate">الطلب مؤكد ومقفل بالحماية 🔒</span>
+                            <span className="text-xs font-black block truncate">
+                              {isConfirmed ? 'الطلب مؤكد ومقفل بالحماية 🔒' : 'الطلب ملغي ومقفل بالحماية 🔒'}
+                            </span>
                             <span className="text-[10px] font-bold text-amber-400/90 block truncate">لا يمكن الضغط إلا بعد فك القفل</span>
                           </div>
                         </div>
@@ -1884,6 +1894,22 @@ export default function OrderMonitorPage() {
               isLight ? 'bg-slate-50 border-slate-200/80 text-slate-800' : 'bg-slate-950/60 border-slate-800 text-slate-200'
             }`}>
               <div className="flex items-center justify-between">
+                <span className={isLight ? 'text-slate-500' : 'text-slate-400'}>حالة الطلب الحالية:</span>
+                <span className={`px-2 py-0.5 rounded-lg text-xs font-black border ${
+                  unlockModalOrder.status === 'confirmed' || unlockModalOrder.status === 'preparing'
+                    ? isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : unlockModalOrder.status === 'cancelled_not_received'
+                    ? isLight ? 'bg-red-100 text-red-800 border-red-300' : 'bg-red-500/20 text-red-300 border-red-500/40'
+                    : isLight ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                }`}>
+                  {unlockModalOrder.status === 'confirmed' || unlockModalOrder.status === 'preparing'
+                    ? 'مؤكد ✓'
+                    : unlockModalOrder.status === 'cancelled_not_received'
+                    ? 'ملغي (عدم استلام) 🔴'
+                    : 'ملغي ⚠️'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className={isLight ? 'text-slate-500' : 'text-slate-400'}>اسم العميل:</span>
                 <span className="font-black text-sm">{unlockModalOrder.customer_name || 'عميل محلي'}</span>
               </div>
@@ -1907,9 +1933,13 @@ export default function OrderMonitorPage() {
             }`}>
               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
               <div className="text-xs leading-relaxed space-y-1">
-                <p className="font-black">تم تأمين هذا الطلب بقفل حماية تلقائي لمنع التعديل بالخطأ.</p>
+                <p className="font-black">
+                  {unlockModalOrder.status === 'confirmed' || unlockModalOrder.status === 'preparing'
+                    ? 'تم تأمين هذا الطلب المؤكد بقفل حماية تلقائي لمنع التعديل أو الإلغاء بالخطأ.'
+                    : 'تم قفل هذا الطلب الملغي بقفل حماية تلقائي لمنع تغيير حالته بالخطأ.'}
+                </p>
                 <p className={`font-medium ${isLight ? 'text-amber-800' : 'text-amber-300/80'}`}>
-                  هل تريد بالتأكيد فك القفل للسماح بتعديل حالة هذا الطلب أو إلغائه؟
+                  هل تريد بالتأكيد فك القفل للسماح بتعديل حالة هذا الطلب؟
                 </p>
               </div>
             </div>
