@@ -26,7 +26,9 @@ import {
   Utensils,
   Bike,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useMenuStore } from '@/lib/menuStore';
@@ -52,6 +54,8 @@ export default function OrderMonitorPage() {
   const [actionNotice, setActionNotice] = useState<{ msg: string; type: 'success' | 'warn' | 'error' } | null>(null);
   const [selectedItemNote, setSelectedItemNote] = useState<{ title: string; without?: string; notes?: string } | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [monitorTheme, setMonitorTheme] = useState<'light' | 'dark'>('light');
+  const isLight = monitorTheme === 'light';
 
   const prevOrdersCountRef = useRef<number>(0);
 
@@ -66,6 +70,11 @@ export default function OrderMonitorPage() {
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
+      }
+
+      const savedTheme = localStorage.getItem('loloat_monitor_theme') as 'light' | 'dark' | null;
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        setMonitorTheme(savedTheme);
       }
     }
 
@@ -513,7 +522,9 @@ export default function OrderMonitorPage() {
 
   // Authenticated Monitor View
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-amber-500 selection:text-slate-950 pb-24">
+    <div className={`min-h-screen selection:bg-amber-500 selection:text-slate-950 pb-24 transition-colors duration-200 ${
+      isLight ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'
+    }`}>
       
       {/* Top Floating Notification Toast */}
       {actionNotice && (
@@ -532,7 +543,9 @@ export default function OrderMonitorPage() {
       )}
 
       {/* Top Navbar Header */}
-      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-2.5 sm:px-6 py-2.5 sm:py-3">
+      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b px-2.5 sm:px-6 py-2.5 sm:py-3 transition-colors duration-200 ${
+        isLight ? 'bg-white/95 border-slate-200 shadow-xs' : 'bg-slate-900/95 border-slate-800'
+      }`}>
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
           
           {/* Top Row / Right Brand Info */}
@@ -543,21 +556,25 @@ export default function OrderMonitorPage() {
               </div>
               <div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  <h2 className="text-sm sm:text-base font-black text-white whitespace-nowrap">شاشة متابعة الطلبات 🖥️</h2>
+                  <h2 className={`text-sm sm:text-base font-black whitespace-nowrap ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    شاشة متابعة الطلبات 🖥️
+                  </h2>
                   <span className="inline-flex items-center gap-1 text-[9.5px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span>مباشر</span>
                   </span>
                 </div>
-                <p className="text-[10px] sm:text-xs text-slate-400 hidden sm:block">
+                <p className={`text-[10px] sm:text-xs hidden sm:block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                   متابعة وتأكيد طلبات الزبائن وإلغائها لحظياً • مطعم لؤلؤة سنهور
                 </p>
               </div>
             </div>
 
             {/* Mobile-only Live Clock next to brand */}
-            <div className="flex sm:hidden items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700/80 text-amber-300 font-mono text-[11px] font-bold shadow-xs">
-              <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+            <div className={`flex sm:hidden items-center gap-1 px-2.5 py-1 rounded-xl border font-mono text-[11px] font-bold shadow-xs ${
+              isLight ? 'bg-slate-100 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700/80 text-amber-300'
+            }`}>
+              <Clock className={`w-3 h-3 shrink-0 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
               <span>{currentTime.toLocaleTimeString('ar-EG', { hour12: true })}</span>
             </div>
           </div>
@@ -566,40 +583,88 @@ export default function OrderMonitorPage() {
           <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
             
             {/* Desktop Live Clock Badge */}
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700/80 text-amber-300 font-mono text-xs font-bold shadow-xs">
-              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl border font-mono text-xs font-bold shadow-xs ${
+              isLight ? 'bg-slate-100 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700/80 text-amber-300'
+            }`}>
+              <Clock className={`w-4 h-4 shrink-0 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
               <span>{currentTime.toLocaleTimeString('ar-EG', { hour12: true })}</span>
             </div>
+
+            {/* Day / Night Theme Mode Toggle (الوضع النهاري / الليلي) */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = isLight ? 'dark' : 'light';
+                setMonitorTheme(next);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('loloat_monitor_theme', next);
+                }
+              }}
+              className={`py-2 px-3 sm:px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs shrink-0 ${
+                isLight
+                  ? 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700'
+              }`}
+              title={isLight ? 'التبديل إلى الوضع الليلي 🌙' : 'التبديل إلى الوضع النهاري ☀️ (أبيض)'}
+            >
+              {isLight ? (
+                <>
+                  <Moon className="w-4 h-4 text-slate-800 shrink-0" />
+                  <span className="text-xs font-bold whitespace-nowrap">نهاري ☀️</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-xs font-bold whitespace-nowrap">ليلي 🌙</span>
+                </>
+              )}
+            </button>
 
             {/* Sound Alerts Toggle */}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`flex-1 sm:flex-none py-2 px-4 sm:px-5 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-xs ${
+              className={`flex-1 sm:flex-none py-2 px-3 sm:px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs ${
                 soundEnabled
-                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/30'
+                  ? isLight
+                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/30'
+                  : isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
               }`}
               title={soundEnabled ? 'تنبيه الصوت مفعل للطلبات الجديدة' : 'تنبيه الصوت مكتوم'}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />}
-              <span className="text-xs font-bold whitespace-nowrap">{soundEnabled ? 'التنبيه: يعمل 🔊' : 'مكتوم 🔇'}</span>
+              {soundEnabled ? (
+                <Volume2 className={`w-4 h-4 shrink-0 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
+              ) : (
+                <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
+              )}
+              <span className="text-xs font-bold whitespace-nowrap">{soundEnabled ? 'صوت 🔊' : 'صامت 🔇'}</span>
             </button>
 
             {/* Manual Refresh Button */}
             <button
               onClick={() => loadOrders(false)}
               disabled={isRefreshing}
-              className="flex-1 sm:flex-none py-2 px-4 sm:px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
+              className={`flex-1 sm:flex-none py-2 px-3 sm:px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs ${
+                isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
               title="تحديث قائمة الطلبات"
             >
-              <RefreshCw className={`w-4 h-4 text-amber-400 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 text-amber-500 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
               <span className="text-xs font-bold whitespace-nowrap">تحديث 🔄</span>
             </button>
 
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="py-2 px-4 sm:px-5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs shrink-0"
+              className={`py-2 px-3 sm:px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs shrink-0 ${
+                isLight
+                  ? 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200'
+                  : 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/30'
+              }`}
               title="تسجيل الخروج من شاشة المتابعة"
             >
               <LogOut className="w-4 h-4 shrink-0" />
@@ -614,7 +679,9 @@ export default function OrderMonitorPage() {
       <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6">
         
         {/* Search & Filter Bar */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl space-y-3">
+        <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3 border transition-colors ${
+          isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/90 border-slate-800 shadow-xl'
+        }`}>
           
           {/* Top Search Input by Phone or Customer Name */}
           <div className="relative">
@@ -623,13 +690,19 @@ export default function OrderMonitorPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="🔍 ابحث برقم الهاتف أو اسم العميل أو العنوان أو رقم الطلب..."
-              className="w-full py-3 px-4 pr-11 pl-10 rounded-xl sm:rounded-2xl bg-slate-950/80 border border-slate-700/80 text-white placeholder-slate-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 text-xs sm:text-sm font-bold transition"
+              className={`w-full py-3 px-4 pr-11 pl-10 rounded-xl sm:rounded-2xl border text-xs sm:text-sm font-bold transition focus:outline-none focus:ring-2 ${
+                isLight
+                  ? 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-amber-500/20'
+                  : 'bg-slate-950/80 border-slate-700/80 text-white placeholder-slate-400 focus:border-amber-400 focus:ring-amber-400/20'
+              }`}
             />
-            <Search className="absolute top-3.5 right-3.5 w-4 h-4 text-amber-400" />
+            <Search className={`absolute top-3.5 right-3.5 w-4 h-4 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute top-3 left-3 p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                className={`absolute top-3 left-3 p-1 rounded-lg transition ${
+                  isLight ? 'hover:bg-slate-100 text-slate-500 hover:text-slate-800' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
+                }`}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -637,18 +710,26 @@ export default function OrderMonitorPage() {
           </div>
 
           {/* Quick Status Filter Tabs with Counts */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80">
+          <div className={`flex flex-wrap items-center gap-2 pt-1 border-t ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
             
             <button
               onClick={() => setStatusFilter('all')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'all'
                   ? 'bg-amber-500 text-slate-950 shadow-md'
+                  : isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
               <span>الكل</span>
-              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'all' ? 'bg-slate-950 text-amber-300' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${
+                statusFilter === 'all'
+                  ? 'bg-slate-950 text-amber-300'
+                  : isLight
+                  ? 'bg-white text-slate-700 border border-slate-200'
+                  : 'bg-slate-900 text-slate-400'
+              }`}>
                 {counts.all}
               </span>
             </button>
@@ -658,12 +739,20 @@ export default function OrderMonitorPage() {
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'pending'
                   ? 'bg-rose-600 text-white shadow-md'
+                  : isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
-              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
               <span>بانتظار التأكيد (جديد)</span>
-              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'pending' ? 'bg-white text-rose-700' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${
+                statusFilter === 'pending'
+                  ? 'bg-white text-rose-700'
+                  : isLight
+                  ? 'bg-white text-slate-700 border border-slate-200'
+                  : 'bg-slate-900 text-slate-400'
+              }`}>
                 {counts.pending}
               </span>
             </button>
@@ -673,12 +762,20 @@ export default function OrderMonitorPage() {
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'confirmed'
                   ? 'bg-emerald-600 text-white shadow-md'
+                  : isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>المؤكدة / جاري التحضير</span>
-              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'confirmed' ? 'bg-white text-emerald-700' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${
+                statusFilter === 'confirmed'
+                  ? 'bg-white text-emerald-700'
+                  : isLight
+                  ? 'bg-white text-slate-700 border border-slate-200'
+                  : 'bg-slate-900 text-slate-400'
+              }`}>
                 {counts.confirmed}
               </span>
             </button>
@@ -688,12 +785,20 @@ export default function OrderMonitorPage() {
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'cancelled_before_dispatch'
                   ? 'bg-amber-600 text-white shadow-md'
+                  : isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               <span>ملغي قبل الخروج</span>
-              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'cancelled_before_dispatch' ? 'bg-white text-amber-700' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${
+                statusFilter === 'cancelled_before_dispatch'
+                  ? 'bg-white text-amber-700'
+                  : isLight
+                  ? 'bg-white text-slate-700 border border-slate-200'
+                  : 'bg-slate-900 text-slate-400'
+              }`}>
                 {counts.cancelled_before}
               </span>
             </button>
@@ -703,12 +808,20 @@ export default function OrderMonitorPage() {
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs ${
                 statusFilter === 'cancelled_not_received'
                   ? 'bg-red-700 text-white shadow-md'
+                  : isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
               <XCircle className="w-3.5 h-3.5" />
               <span>ملغي لعدم الاستلام</span>
-              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${statusFilter === 'cancelled_not_received' ? 'bg-white text-red-800' : 'bg-slate-900 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${
+                statusFilter === 'cancelled_not_received'
+                  ? 'bg-white text-red-800'
+                  : isLight
+                  ? 'bg-white text-slate-700 border border-slate-200'
+                  : 'bg-slate-900 text-slate-400'
+              }`}>
                 {counts.cancelled_not_received}
               </span>
             </button>
@@ -719,18 +832,20 @@ export default function OrderMonitorPage() {
         {/* Orders List / Grid */}
         {loading ? (
           <div className="flex flex-col items-center justify-center p-12 space-y-3">
-            <RefreshCw className="w-8 h-8 text-amber-400 animate-spin" />
-            <span className="text-xs font-bold text-slate-400">جار تحميل الطلبات...</span>
+            <RefreshCw className="w-8 h-8 text-amber-500 animate-spin" />
+            <span className={`text-xs font-bold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>جار تحميل الطلبات...</span>
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-10 sm:p-14 text-center space-y-3">
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 shadow-inner">
+          <div className={`rounded-3xl p-10 sm:p-14 text-center space-y-3 border ${
+            isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/60 border-slate-800'
+          }`}>
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 shadow-inner">
               <Utensils className="w-8 h-8" />
             </div>
-            <h3 className="text-base sm:text-lg font-black text-white">
+            <h3 className={`text-base sm:text-lg font-black ${isLight ? 'text-slate-900' : 'text-white'}`}>
               {searchQuery ? 'لا توجد نتائج مطابقة' : 'شاشة المتابعة فارغة حالياً'}
             </h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+            <p className={`text-xs max-w-sm mx-auto leading-relaxed ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               {searchQuery
                 ? `لا توجد طلبات مطابقة لكلمة "${searchQuery}". جرب البحث برقم هاتف أو اسم آخر.`
                 : 'الشاشة متصلة وجاهزة، بانتظار استلام طلبات جديدة من العملاء لتظهر هنا لحظياً.'}
@@ -748,8 +863,16 @@ export default function OrderMonitorPage() {
               return (
                 <div
                   key={order.id}
-                  className={`rounded-3xl p-4 sm:p-5 transition-all duration-300 flex flex-col justify-between space-y-3.5 shadow-xl relative overflow-hidden ${
-                    isPending
+                  className={`rounded-3xl p-4 sm:p-5 transition-all duration-300 flex flex-col justify-between space-y-3.5 relative overflow-hidden ${
+                    isLight
+                      ? isPending
+                        ? 'bg-white border-2 border-rose-500 shadow-[0_8px_30px_rgba(244,63,94,0.12)] ring-2 ring-rose-500/20 hover:border-rose-600'
+                        : isConfirmed
+                        ? 'bg-white border-2 border-emerald-500 shadow-[0_8px_30px_rgba(16,185,129,0.12)] ring-1 ring-emerald-500/20 hover:border-emerald-600'
+                        : isCancelledBefore
+                        ? 'bg-white border-2 border-amber-400 shadow-md opacity-95 hover:border-amber-500'
+                        : 'bg-white border-2 border-red-500 shadow-md opacity-90 hover:border-red-600'
+                      : isPending
                       ? 'bg-slate-800/95 border-2 border-rose-500/70 shadow-[0_8px_30px_rgba(244,63,94,0.18)] ring-2 ring-rose-500/30 hover:border-rose-400'
                       : isConfirmed
                       ? 'bg-slate-800/90 border-2 border-emerald-500/60 shadow-[0_8px_30px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20 hover:border-emerald-400'
@@ -760,16 +883,18 @@ export default function OrderMonitorPage() {
                 >
                   {/* Card Header: ID, Time, Status Badge & Accordion Toggle Button */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-700/80 pb-2.5">
+                    <div className={`flex items-center justify-between gap-2 border-b pb-2.5 ${isLight ? 'border-slate-200' : 'border-slate-700/80'}`}>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-amber-300 border border-slate-700/80 font-mono">
+                        <span className={`text-xs font-black px-2.5 py-1 rounded-lg font-mono border ${
+                          isLight ? 'bg-slate-100 text-amber-900 border-slate-200' : 'bg-slate-800 text-amber-300 border-slate-700/80'
+                        }`}>
                           #{String(order.id).slice(-6)}
                         </span>
                         {order.created_at && (
-                          <span className="text-[10.5px] font-bold text-slate-400 flex items-center gap-1" title={order.created_at}>
+                          <span className={`text-[10.5px] font-bold flex items-center gap-1 ${isLight ? 'text-slate-500' : 'text-slate-400'}`} title={order.created_at}>
                             <Clock className="w-3 h-3 text-slate-400" />
                             <span>{formatOrderTime(order.created_at)}</span>
-                            <span className="text-[10px] text-amber-400/80">({getTimeAgo(order.created_at)})</span>
+                            <span className={`text-[10px] ${isLight ? 'text-amber-700 font-bold' : 'text-amber-400/80'}`}>({getTimeAgo(order.created_at)})</span>
                           </span>
                         )}
                       </div>
@@ -790,13 +915,13 @@ export default function OrderMonitorPage() {
                         )}
                         {isCancelledBefore && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10.5px] font-black">
-                            <AlertTriangle className="w-3 h-3 text-amber-400" />
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                             <span>ملغي</span>
                           </span>
                         )}
                         {isCancelledNotReceived && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/40 text-[10.5px] font-black">
-                            <XCircle className="w-3 h-3 text-red-400" />
+                            <XCircle className="w-3.5 h-3.5 text-red-400" />
                             <span>عدم استلام</span>
                           </span>
                         )}
@@ -808,6 +933,8 @@ export default function OrderMonitorPage() {
                           className={`p-1.5 rounded-xl border transition flex items-center justify-center cursor-pointer shadow-xs active:scale-95 ${
                             isExpanded
                               ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md'
+                              : isLight
+                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
                               : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                           }`}
                           title={isExpanded ? 'طي تفاصيل الطلب' : 'فتح وتفاصيل الطلب بالكامل'}
@@ -815,7 +942,7 @@ export default function OrderMonitorPage() {
                           {isExpanded ? (
                             <ChevronUp className="w-4 h-4 text-slate-950 stroke-[2.5]" />
                           ) : (
-                            <ChevronDown className="w-4 h-4 text-amber-400 stroke-[2.5]" />
+                            <ChevronDown className={`w-4 h-4 stroke-[2.5] ${isLight ? 'text-slate-700' : 'text-amber-400'}`} />
                           )}
                         </button>
                       </div>
@@ -825,13 +952,19 @@ export default function OrderMonitorPage() {
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <h4 className="text-base font-black text-white truncate">{order.customer_name}</h4>
-                          <span className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-black shrink-0">
+                          <h4 className={`text-base font-black truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>{order.customer_name}</h4>
+                          <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black shrink-0 border ${
+                            isLight
+                              ? 'bg-amber-100 border-amber-300 text-amber-900'
+                              : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                          }`}>
                             {order.items_count || 1} أصناف
                           </span>
                         </div>
                         <div className="text-left shrink-0">
-                          <span className="text-sm sm:text-base font-black text-amber-400 font-mono">
+                          <span className={`text-sm sm:text-base font-black font-mono ${
+                            isLight ? 'text-amber-700' : 'text-amber-400'
+                          }`}>
                             {order.total_amount} ج.م
                           </span>
                         </div>
@@ -839,15 +972,25 @@ export default function OrderMonitorPage() {
 
                       {/* Phone with Fast Call & WhatsApp */}
                       <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-slate-200 font-mono bg-slate-950/90 px-3 py-2 rounded-xl border border-slate-800 flex-1 flex items-center justify-between shadow-inner">
+                        <span className={`text-xs sm:text-sm font-bold font-mono px-3 py-2 rounded-xl border flex-1 flex items-center justify-between shadow-xs ${
+                          isLight
+                            ? 'bg-slate-50 text-slate-900 border-slate-200'
+                            : 'bg-slate-950/90 text-slate-200 border-slate-800'
+                        }`}>
                           <span>{order.customer_phone}</span>
-                          <span className="text-[10px] text-slate-400 bg-slate-800/60 px-1.5 py-0.5 rounded-md">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                            isLight ? 'text-slate-600 bg-slate-200' : 'text-slate-400 bg-slate-800/60'
+                          }`}>
                             {order.payment_method === 'vodafone_cash' ? 'محفظة' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش'}
                           </span>
                         </span>
                         <a
                           href={`tel:${order.customer_phone}`}
-                          className="px-3.5 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/40 transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs"
+                          className={`px-3.5 py-2 rounded-xl border transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs ${
+                            isLight
+                              ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+                              : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border-blue-500/40'
+                          }`}
                           title="اتصال بالعميل"
                         >
                           <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -856,7 +999,11 @@ export default function OrderMonitorPage() {
                           href={`https://wa.me/2${String(order.customer_phone).replace(/^0/, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs"
+                          className={`px-3.5 py-2 rounded-xl border transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 shadow-xs ${
+                            isLight
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                              : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 hover:text-emerald-300 border-emerald-500/40'
+                          }`}
                           title="محادثة واتساب"
                         >
                           <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -868,9 +1015,13 @@ export default function OrderMonitorPage() {
                         <button
                           type="button"
                           onClick={() => setExpandedOrderId(order.id)}
-                          className="w-full py-1.5 px-3 rounded-xl bg-slate-950/50 hover:bg-slate-950 border border-slate-700/60 hover:border-amber-500/40 text-[11px] font-bold text-amber-300/90 flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-98"
+                          className={`w-full py-1.5 px-3 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-98 ${
+                            isLight
+                              ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-amber-800'
+                              : 'bg-slate-950/50 hover:bg-slate-950 border-slate-700/60 hover:border-amber-500/40 text-amber-300/90'
+                          }`}
                         >
-                          <Utensils className="w-3.5 h-3.5 text-amber-400" />
+                          <Utensils className={`w-3.5 h-3.5 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
                           <span>عرض تفاصيل ومكونات الوجبات ({order.items_count || 1}) ▾</span>
                         </button>
                       )}
@@ -879,9 +1030,13 @@ export default function OrderMonitorPage() {
                       {isExpanded && (
                         <div className="space-y-2 pt-1 animate-fadeIn">
                           {/* Order Type & Zone with Delivery Fee at the end */}
-                          <div className="text-[11px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                          <div className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 shadow-2xs border ${
+                            isLight
+                              ? 'text-rose-900 bg-rose-50 border-rose-200'
+                              : 'text-rose-300 bg-rose-500/10 border-rose-500/20'
+                          }`}>
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                              <MapPin className={`w-3.5 h-3.5 shrink-0 ${isLight ? 'text-rose-600' : 'text-rose-400'}`} />
                               <span className="truncate">
                                 {order.order_type === 'pickup' || order.delivery_zone === 'استلام من المطعم (تيك أواي)'
                                   ? '🏬 استلام تيك أواي من المطعم'
@@ -892,8 +1047,12 @@ export default function OrderMonitorPage() {
                             {/* مبلغ التوصيل في نهاية الصف */}
                             {order.order_type !== 'pickup' && order.delivery_zone !== 'استلام من المطعم (تيك أواي)' && (
                               <div className="flex items-center gap-1 shrink-0">
-                                <span className="text-[10px] text-rose-300/80 font-normal">خدمة التوصيل:</span>
-                                <span className="px-2 py-0.5 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-200 font-mono font-black text-xs">
+                                <span className={`text-[10px] font-normal ${isLight ? 'text-rose-700' : 'text-rose-300/80'}`}>خدمة التوصيل:</span>
+                                <span className={`px-2 py-0.5 rounded-lg border font-mono font-black text-xs ${
+                                  isLight
+                                    ? 'bg-rose-100 border-rose-300 text-rose-900'
+                                    : 'bg-rose-500/20 border-rose-500/30 text-rose-200'
+                                }`}>
                                   {typeof order.delivery_fee === 'number'
                                     ? `${order.delivery_fee} ج.م`
                                     : order.delivery_fee
@@ -906,10 +1065,14 @@ export default function OrderMonitorPage() {
 
                           {/* Address & Building notes */}
                           {order.delivery_address && (
-                            <div className="text-[11px] text-slate-300 bg-slate-950/60 p-2 rounded-xl border border-slate-800/80 space-y-0.5">
+                            <div className={`text-[11px] p-2 rounded-xl border space-y-0.5 ${
+                              isLight
+                                ? 'text-slate-800 bg-slate-50 border-slate-200'
+                                : 'text-slate-300 bg-slate-950/60 border-slate-800/80'
+                            }`}>
                               <p className="font-medium">{order.delivery_address}</p>
                               {order.building_notes && (
-                                <p className="text-[10.5px] text-amber-400/90 font-bold">
+                                <p className={`text-[10.5px] font-bold ${isLight ? 'text-amber-800' : 'text-amber-400/90'}`}>
                                   العمارة/الدور: {order.building_notes}
                                 </p>
                               )}
@@ -920,15 +1083,25 @@ export default function OrderMonitorPage() {
                           {(() => {
                             const parsed = parseOrderDetails(order.special_notes);
                             return (
-                              <div className="bg-slate-950/80 rounded-2xl border border-slate-800/90 p-3 space-y-2.5 shadow-inner">
+                              <div className={`rounded-2xl border p-3 space-y-2.5 shadow-xs ${
+                                isLight
+                                  ? 'bg-slate-50 border-slate-200'
+                                  : 'bg-slate-950/80 border-slate-800/90 shadow-inner'
+                              }`}>
                                 
                                 {/* عنوان ورأس الأصناف */}
-                                <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                                  <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                                <div className={`flex items-center justify-between border-b pb-1.5 ${
+                                  isLight ? 'border-slate-200' : 'border-slate-800'
+                                }`}>
+                                  <span className={`text-xs font-black flex items-center gap-1.5 ${
+                                    isLight ? 'text-amber-800' : 'text-amber-400'
+                                  }`}>
                                     <Utensils className="w-3.5 h-3.5" />
                                     <span>الأصناف والوجبات المطلوبة ({order.items_count} صنف):</span>
                                   </span>
-                                  <span className="text-[10px] font-mono font-bold text-slate-400">
+                                  <span className={`text-[10px] font-mono font-bold ${
+                                    isLight ? 'text-slate-500' : 'text-slate-400'
+                                  }`}>
                                     #{String(order.id).slice(-4)}
                                   </span>
                                 </div>
@@ -944,7 +1117,11 @@ export default function OrderMonitorPage() {
                                         <div
                                           key={idx}
                                           className={`rounded-2xl border transition-all p-2.5 space-y-2 ${
-                                            hasAlertNotes
+                                            isLight
+                                              ? hasAlertNotes
+                                                ? 'bg-amber-50/50 border-amber-300 shadow-xs'
+                                                : 'bg-white border-slate-200 shadow-xs'
+                                              : hasAlertNotes
                                               ? 'bg-slate-900/98 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.06)]'
                                               : 'bg-slate-900/95 border-slate-800/90 hover:bg-slate-900'
                                           }`}
@@ -952,28 +1129,44 @@ export default function OrderMonitorPage() {
                                           {/* السطر الرئيسي للصنف: الرقم، الاسم، الحجم، الكمية، والشارة التنبيهية والسعر */}
                                           <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
-                                              <span className="w-5 h-5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center text-[10px] font-black shrink-0">
+                                              <span className={`w-5 h-5 rounded-lg border flex items-center justify-center text-[10px] font-black shrink-0 ${
+                                                isLight
+                                                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                                  : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                              }`}>
                                                 {idx + 1}
                                               </span>
                                               
-                                              <span className="font-black text-slate-100 text-xs">
+                                              <span className={`font-black text-xs ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
                                                 {itemInfo.name}
                                               </span>
 
                                               {itemInfo.size && (
-                                                <span className="px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-bold border border-slate-700">
+                                                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
+                                                  isLight
+                                                    ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                                                }`}>
                                                   {itemInfo.size}
                                                 </span>
                                               )}
 
-                                              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 text-[11px] font-black font-mono">
+                                              <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-black font-mono ${
+                                                isLight
+                                                  ? 'bg-amber-100 text-amber-900'
+                                                  : 'bg-amber-500/10 text-amber-300'
+                                              }`}>
                                                 × {itemInfo.quantity}
                                               </span>
                                             </div>
 
                                             {/* سعر الصنف في نهاية السطر */}
                                             {itemInfo.price && (
-                                              <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-xs whitespace-nowrap shrink-0 shadow-xs">
+                                              <span className={`px-2.5 py-1 rounded-lg border font-mono font-black text-xs whitespace-nowrap shrink-0 shadow-xs ${
+                                                isLight
+                                                  ? 'bg-amber-100 text-amber-900 border-amber-200'
+                                                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                              }`}>
                                                 {itemInfo.price}
                                               </span>
                                             )}
@@ -981,7 +1174,7 @@ export default function OrderMonitorPage() {
 
                                           {/* تنبيهات المستبعدات (بدون) والملاحظات للأصناف العادية بشكل بارز ومستقل */}
                                           {!itemInfo.isCustom && (itemInfo.without || itemInfo.notes || itemInfo.extras) && (
-                                            <div className="pt-2 border-t border-slate-800/80 space-y-1.5 text-xs">
+                                            <div className={`pt-2 border-t space-y-1.5 text-xs ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
                                               {/* 1. بدون (مستبعدات الصنف العادي) بلون تحذيري أحمر/روز */}
                                               {itemInfo.without && (
                                                 <button
@@ -992,16 +1185,22 @@ export default function OrderMonitorPage() {
                                                     notes: itemInfo.notes
                                                   })}
                                                   title="اضغط لتكبير تعليمات المطبخ"
-                                                  className="w-full flex items-center justify-between gap-2 bg-rose-950/50 hover:bg-rose-950/70 p-2 rounded-xl border border-rose-500/50 text-rose-200 shadow-xs cursor-pointer transition text-right animate-pulse"
+                                                  className={`w-full flex items-center justify-between gap-2 p-2 rounded-xl border shadow-xs cursor-pointer transition text-right ${
+                                                    isLight
+                                                      ? 'bg-red-50 hover:bg-red-100 border-red-300 text-red-800'
+                                                      : 'bg-rose-950/50 hover:bg-rose-950/70 border-rose-500/50 text-rose-200 animate-pulse'
+                                                  }`}
                                                 >
                                                   <div className="flex items-center gap-2">
-                                                    <span className="text-rose-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
-                                                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                                    <span className={`font-black min-w-[75px] shrink-0 flex items-center gap-1 ${
+                                                      isLight ? 'text-red-700' : 'text-rose-400'
+                                                    }`}>
+                                                      <AlertTriangle className={`w-3.5 h-3.5 ${isLight ? 'text-red-600' : 'text-rose-400'}`} />
                                                       <span>🚫 بدون:</span>
                                                     </span>
-                                                    <span className="text-rose-100 font-black tracking-wide">{itemInfo.without}</span>
+                                                    <span className={`font-black tracking-wide ${isLight ? 'text-red-950' : 'text-rose-100'}`}>{itemInfo.without}</span>
                                                   </div>
-                                                  <span className="text-[10px] text-rose-400 font-bold underline shrink-0">تكبير</span>
+                                                  <span className={`text-[10px] font-bold underline shrink-0 ${isLight ? 'text-red-700' : 'text-rose-400'}`}>تكبير</span>
                                                 </button>
                                               )}
 
@@ -1015,23 +1214,33 @@ export default function OrderMonitorPage() {
                                                     notes: itemInfo.notes
                                                   })}
                                                   title="اضغط لتكبير ملاحظات الصنف"
-                                                  className="w-full flex items-center justify-between gap-2 bg-amber-950/30 hover:bg-amber-950/50 p-2 rounded-xl border border-amber-500/30 text-amber-200 cursor-pointer transition text-right"
+                                                  className={`w-full flex items-center justify-between gap-2 p-2 rounded-xl border cursor-pointer transition text-right ${
+                                                    isLight
+                                                      ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900'
+                                                      : 'bg-amber-950/30 hover:bg-amber-950/50 border-amber-500/30 text-amber-200'
+                                                  }`}
                                                 >
                                                   <div className="flex items-center gap-2">
-                                                    <span className="text-amber-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
+                                                    <span className={`font-black min-w-[75px] shrink-0 flex items-center gap-1 ${
+                                                      isLight ? 'text-amber-800' : 'text-amber-400'
+                                                    }`}>
                                                       <span>📝 ملاحظات:</span>
                                                     </span>
-                                                    <span className="text-white font-bold leading-relaxed">{itemInfo.notes}</span>
+                                                    <span className={`font-bold leading-relaxed ${isLight ? 'text-slate-900' : 'text-white'}`}>{itemInfo.notes}</span>
                                                   </div>
-                                                  <span className="text-[10px] text-amber-400 font-bold underline shrink-0">تكبير</span>
+                                                  <span className={`text-[10px] font-bold underline shrink-0 ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>تكبير</span>
                                                 </button>
                                               )}
 
                                               {/* 3. الإضافات الملكية للصنف العادي */}
                                               {itemInfo.extras && (
-                                                <div className="flex items-center gap-2 bg-slate-950/70 p-2 rounded-xl border border-slate-800 text-xs">
-                                                  <span className="text-emerald-400 font-black min-w-[75px] shrink-0">✨ الإضافات:</span>
-                                                  <span className="text-emerald-200 font-bold">{itemInfo.extras}</span>
+                                                <div className={`flex items-center gap-2 p-2 rounded-xl border text-xs ${
+                                                  isLight
+                                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                                    : 'bg-slate-950/70 border-slate-800 text-emerald-200'
+                                                }`}>
+                                                  <span className={`font-black min-w-[75px] shrink-0 ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>✨ الإضافات:</span>
+                                                  <span className={`font-bold ${isLight ? 'text-emerald-900' : 'text-emerald-200'}`}>{itemInfo.extras}</span>
                                                 </div>
                                               )}
                                             </div>
@@ -1040,13 +1249,15 @@ export default function OrderMonitorPage() {
                                           {/* تفاصيل الطاجن المخصوص مرتبة سطر بسطر بالترتيب المطلوب بدقة:
                                               1. الأساس  2. بدون (مستبعدات الأساس)  3. البروتين  4. الشطة  5. الإضافات  6. ملاحظات */}
                                           {itemInfo.isCustom && (
-                                            <div className="pt-2 border-t border-slate-800/80 space-y-1.5 text-xs">
+                                            <div className={`pt-2 border-t space-y-1.5 text-xs ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
                                               
                                               {/* 1. الأساس */}
                                               {itemInfo.base && (
-                                                <div className="flex items-center gap-2 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
-                                                  <span className="text-amber-400 font-black min-w-[75px] shrink-0">🍲 الأساس:</span>
-                                                  <span className="text-slate-100 font-bold">{itemInfo.base}</span>
+                                                <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border ${
+                                                  isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/70 border-slate-800/80'
+                                                }`}>
+                                                  <span className={`font-black min-w-[75px] shrink-0 ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>🍲 الأساس:</span>
+                                                  <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{itemInfo.base}</span>
                                                 </div>
                                               )}
 
@@ -1060,46 +1271,58 @@ export default function OrderMonitorPage() {
                                                     notes: itemInfo.notes
                                                   })}
                                                   title="اضغط لتكبير تعليمات المطبخ"
-                                                  className="w-full flex items-center justify-between gap-2 bg-rose-950/50 hover:bg-rose-950/70 px-2.5 py-1.5 rounded-xl border border-rose-500/50 text-rose-200 shadow-xs cursor-pointer transition text-right"
+                                                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border shadow-xs cursor-pointer transition text-right ${
+                                                    isLight
+                                                      ? 'bg-red-50 hover:bg-red-100 border-red-300 text-red-800'
+                                                      : 'bg-rose-950/50 hover:bg-rose-950/70 border-rose-500/50 text-rose-200'
+                                                  }`}
                                                 >
                                                   <div className="flex items-center gap-2">
-                                                    <span className="text-rose-400 font-black min-w-[75px] shrink-0 flex items-center gap-1">
-                                                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                                    <span className={`font-black min-w-[75px] shrink-0 flex items-center gap-1 ${
+                                                      isLight ? 'text-red-700' : 'text-rose-400'
+                                                    }`}>
+                                                      <AlertTriangle className={`w-3.5 h-3.5 ${isLight ? 'text-red-600' : 'text-rose-400'}`} />
                                                       <span>🚫 بدون:</span>
                                                     </span>
-                                                    <span className="text-rose-100 font-black tracking-wide">{itemInfo.without}</span>
+                                                    <span className={`font-black tracking-wide ${isLight ? 'text-red-950' : 'text-rose-100'}`}>{itemInfo.without}</span>
                                                   </div>
-                                                  <span className="text-[10px] text-rose-400 font-bold underline shrink-0">تكبير</span>
+                                                  <span className={`text-[10px] font-bold underline shrink-0 ${isLight ? 'text-red-700' : 'text-rose-400'}`}>تكبير</span>
                                                 </button>
                                               )}
 
                                               {/* 3. البروتين (تحت الأساس والمستبعدات مباشرة) */}
                                               {itemInfo.protein && (
-                                                <div className="flex items-center gap-2 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
-                                                  <span className="text-amber-400 font-black min-w-[75px] shrink-0">🥩 البروتين:</span>
-                                                  <span className="text-slate-100 font-bold leading-relaxed">{itemInfo.protein}</span>
+                                                <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border ${
+                                                  isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/70 border-slate-800/80'
+                                                }`}>
+                                                  <span className={`font-black min-w-[75px] shrink-0 ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>🥩 البروتين:</span>
+                                                  <span className={`font-bold leading-relaxed ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{itemInfo.protein}</span>
                                                 </div>
                                               )}
 
                                               {/* 4. الشطة */}
                                               {itemInfo.spice && (
-                                                <div className="flex items-center gap-2 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
-                                                  <span className="text-amber-400 font-black min-w-[75px] shrink-0">🌶️ الشطة:</span>
-                                                  <span className="text-amber-300 font-bold">{itemInfo.spice}</span>
+                                                <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border ${
+                                                  isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/70 border-slate-800/80'
+                                                }`}>
+                                                  <span className={`font-black min-w-[75px] shrink-0 ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>🌶️ الشطة:</span>
+                                                  <span className={`font-bold ${isLight ? 'text-amber-800' : 'text-amber-300'}`}>{itemInfo.spice}</span>
                                                 </div>
                                               )}
 
                                               {/* 5. الإضافات الملكية والمقرمشات - تحت بعض داخل نفس الحاوية */}
                                               {itemInfo.extrasList && itemInfo.extrasList.length > 0 && (
-                                                <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1.5">
-                                                  <div className="flex items-center gap-1.5 text-emerald-400 font-black">
+                                                <div className={`p-2.5 rounded-xl border space-y-1.5 ${
+                                                  isLight ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-950/70 border-slate-800/80'
+                                                }`}>
+                                                  <div className={`flex items-center gap-1.5 font-black ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>
                                                     <Sparkles className="w-3.5 h-3.5" />
                                                     <span>الإضافات والمقرمشات ({itemInfo.extrasList.length}):</span>
                                                   </div>
-                                                  <div className="space-y-1 pr-2 mr-1 border-r-2 border-emerald-500/30">
+                                                  <div className={`space-y-1 pr-2 mr-1 border-r-2 ${isLight ? 'border-emerald-300' : 'border-emerald-500/30'}`}>
                                                     {itemInfo.extrasList.map((extraItem, eIdx) => (
-                                                      <div key={eIdx} className="flex items-center gap-2 text-xs font-bold text-emerald-200">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                                      <div key={eIdx} className={`flex items-center gap-2 text-xs font-bold ${isLight ? 'text-emerald-900' : 'text-emerald-200'}`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isLight ? 'bg-emerald-600' : 'bg-emerald-400'}`}></span>
                                                         <span>{extraItem}</span>
                                                       </div>
                                                     ))}
@@ -1109,9 +1332,11 @@ export default function OrderMonitorPage() {
 
                                               {/* 6. ملاحظات الشيف الخاصة بالطاجن */}
                                               {itemInfo.notes && (
-                                                <div className="flex items-center gap-2 bg-amber-950/30 px-2.5 py-1.5 rounded-xl border border-amber-500/30 text-amber-200">
-                                                  <span className="text-amber-400 font-black min-w-[75px] shrink-0">💬 ملاحظات:</span>
-                                                  <span className="text-white font-bold">{itemInfo.notes}</span>
+                                                <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border ${
+                                                  isLight ? 'bg-amber-50 border-amber-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-200'
+                                                }`}>
+                                                  <span className={`font-black min-w-[75px] shrink-0 ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>💬 ملاحظات:</span>
+                                                  <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{itemInfo.notes}</span>
                                                 </div>
                                               )}
 
@@ -1123,9 +1348,17 @@ export default function OrderMonitorPage() {
                                     })}
                                   </div>
                                 ) : (
-                                  <div className="flex items-center justify-between text-xs text-slate-300 py-2 font-medium bg-slate-900/80 px-3 rounded-xl border border-slate-800">
+                                  <div className={`flex items-center justify-between text-xs py-2 font-medium px-3 rounded-xl border ${
+                                    isLight
+                                      ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                      : 'bg-slate-900/80 text-slate-300 border-slate-800'
+                                  }`}>
                                     <span>عدد الأصناف: {order.items_count} صنف</span>
-                                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-black text-xs">
+                                    <span className={`px-2.5 py-1 rounded-lg border font-mono font-black text-xs ${
+                                      isLight
+                                        ? 'bg-amber-100 text-amber-900 border-amber-200'
+                                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                    }`}>
                                       {order.subtotal || order.total_amount} ج.م
                                     </span>
                                   </div>
@@ -1133,12 +1366,16 @@ export default function OrderMonitorPage() {
 
                                 {/* السطر التالي: ملاحظات الطلب والزبون بشكل بارز ومنظم */}
                                 {parsed.notes ? (
-                                  <div className="pt-1.5 border-t border-slate-800/80">
-                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-bold space-y-1">
-                                      <span className="text-[11px] text-amber-400 font-black block">
+                                  <div className={`pt-1.5 border-t ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
+                                    <div className={`p-2.5 rounded-xl border text-xs font-bold space-y-1 ${
+                                      isLight
+                                        ? 'bg-amber-50 border-amber-300 text-amber-950'
+                                        : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+                                    }`}>
+                                      <span className={`text-[11px] font-black block ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>
                                         📌 ملاحظات الأوردر والزبون:
                                       </span>
-                                      <p className="text-xs font-bold text-white leading-relaxed pr-1 whitespace-pre-wrap">
+                                      <p className={`text-xs font-bold leading-relaxed pr-1 whitespace-pre-wrap ${isLight ? 'text-slate-900' : 'text-white'}`}>
                                         {parsed.notes}
                                       </p>
                                     </div>
@@ -1154,7 +1391,7 @@ export default function OrderMonitorPage() {
                   </div>
 
                   {/* THE 3 ACTION BUTTONS */}
-                  <div className="pt-2 border-t border-slate-700/80 space-y-2">
+                  <div className={`pt-2 border-t space-y-2 ${isLight ? 'border-slate-200' : 'border-slate-700/80'}`}>
                     <div className="grid grid-cols-3 gap-1.5">
                       
                       {/* 1. Confirm Button */}
@@ -1165,6 +1402,8 @@ export default function OrderMonitorPage() {
                         className={`py-2 px-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 ${
                           isConfirmed
                             ? 'bg-emerald-600 text-white shadow-md opacity-100 ring-2 ring-emerald-400/50'
+                            : isLight
+                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
                             : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30'
                         }`}
                         title="تأكيد الأوردر وبدء التجهيز"
@@ -1183,6 +1422,8 @@ export default function OrderMonitorPage() {
                         className={`py-2 px-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 ${
                           isCancelledBefore
                             ? 'bg-amber-600 text-white shadow-md opacity-100 ring-2 ring-amber-400/50'
+                            : isLight
+                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
                             : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30'
                         }`}
                         title="إلغاء الطلب قبل خروجه من المطعم"
@@ -1201,6 +1442,8 @@ export default function OrderMonitorPage() {
                         className={`py-2 px-2 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 ${
                           isCancelledNotReceived
                             ? 'bg-red-700 text-white shadow-md opacity-100 ring-2 ring-red-400/50'
+                            : isLight
+                            ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-300'
                             : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30'
                         }`}
                         title="إلغاء الطلب بسبب عدم استلام العميل"
@@ -1224,45 +1467,65 @@ export default function OrderMonitorPage() {
 
       {/* نافذة تفاعلية منبثقة عند الضغط على زر بدون أو الملاحظات للصنف */}
       {selectedItemNote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-scaleUp">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn ${
+          isLight ? 'bg-slate-900/40' : 'bg-slate-950/80'
+        }`}>
+          <div className={`relative w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-scaleUp border ${
+            isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'
+          }`}>
             
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h4 className="text-sm font-black text-white flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <div className={`flex items-center justify-between border-b pb-3 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
+              <h4 className={`text-sm font-black flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                <AlertTriangle className={`w-4 h-4 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
                 <span>تعليمات الصنف للمطبخ</span>
               </h4>
               <button
                 type="button"
                 onClick={() => setSelectedItemNote(null)}
-                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                className={`p-1.5 rounded-xl transition cursor-pointer ${
+                  isLight ? 'hover:bg-slate-100 text-slate-500 hover:text-slate-800' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
+                }`}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 text-xs font-black text-amber-400">
+            <div className={`p-2.5 rounded-xl border text-xs font-black ${
+              isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950/80 border-slate-800 text-amber-400'
+            }`}>
               {selectedItemNote.title}
             </div>
 
             {selectedItemNote.without && (
-              <div className="p-3.5 bg-rose-950/40 border border-rose-500/40 rounded-2xl space-y-1">
-                <span className="text-xs font-black text-rose-400 block flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />
+              <div className={`p-3.5 border rounded-2xl space-y-1 ${
+                isLight ? 'bg-red-50 border-red-300' : 'bg-rose-950/40 border-rose-500/40'
+              }`}>
+                <span className={`text-xs font-black block flex items-center gap-1.5 ${
+                  isLight ? 'text-red-700' : 'text-rose-400'
+                }`}>
+                  <AlertTriangle className={`w-3.5 h-3.5 ${isLight ? 'text-red-600' : 'text-rose-400'}`} />
                   <span>مستبعدات الصنف (بدون):</span>
                 </span>
-                <p className="text-sm font-black text-rose-100 pr-1 leading-relaxed">
+                <p className={`text-sm font-black pr-1 leading-relaxed ${
+                  isLight ? 'text-red-950' : 'text-rose-100'
+                }`}>
                   {selectedItemNote.without}
                 </p>
               </div>
             )}
 
             {selectedItemNote.notes && (
-              <div className="p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-2xl space-y-1">
-                <span className="text-xs font-black text-amber-400 block flex items-center gap-1.5">
+              <div className={`p-3.5 border rounded-2xl space-y-1 ${
+                isLight ? 'bg-amber-50 border-amber-300' : 'bg-amber-950/40 border-amber-500/40'
+              }`}>
+                <span className={`text-xs font-black block flex items-center gap-1.5 ${
+                  isLight ? 'text-amber-800' : 'text-amber-400'
+                }`}>
                   <span>📝 ملاحظات خاصة للصنف:</span>
                 </span>
-                <p className="text-sm font-bold text-white pr-1 leading-relaxed">
+                <p className={`text-sm font-bold pr-1 leading-relaxed ${
+                  isLight ? 'text-slate-900' : 'text-white'
+                }`}>
                   {selectedItemNote.notes}
                 </p>
               </div>
