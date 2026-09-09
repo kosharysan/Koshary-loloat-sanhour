@@ -733,7 +733,7 @@ export default function OrderMonitorPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {filteredOrders.map(order => {
               const isPending = order.status === 'pending' || !order.status;
               const isConfirmed = order.status === 'confirmed' || order.status === 'preparing';
@@ -743,19 +743,19 @@ export default function OrderMonitorPage() {
               return (
                 <div
                   key={order.id}
-                  className={`rounded-2xl sm:rounded-3xl p-4 sm:p-5 border transition-all duration-300 flex flex-col justify-between space-y-4 ${
+                  className={`rounded-3xl p-4 sm:p-5 transition-all duration-300 flex flex-col justify-between space-y-4 shadow-xl relative overflow-hidden ${
                     isPending
-                      ? 'bg-slate-900/95 border-rose-500/50 shadow-[0_4px_25px_rgba(225,29,72,0.15)] ring-1 ring-rose-500/30'
+                      ? 'bg-slate-800/95 border-2 border-rose-500/70 shadow-[0_8px_30px_rgba(244,63,94,0.18)] ring-2 ring-rose-500/30 hover:border-rose-400'
                       : isConfirmed
-                      ? 'bg-slate-900/90 border-emerald-500/40 shadow-sm'
+                      ? 'bg-slate-800/90 border-2 border-emerald-500/60 shadow-[0_8px_30px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20 hover:border-emerald-400'
                       : isCancelledBefore
-                      ? 'bg-slate-900/70 border-amber-500/30 opacity-90'
-                      : 'bg-slate-900/70 border-red-500/30 opacity-80'
+                      ? 'bg-slate-850/80 border-2 border-amber-500/50 shadow-md opacity-90 hover:border-amber-400'
+                      : 'bg-slate-850/80 border-2 border-red-500/50 shadow-md opacity-85 hover:border-red-400'
                   }`}
                 >
                   {/* Card Header: ID, Time, Status Badge */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-700/80 pb-2.5">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-800 text-amber-300 border border-slate-700/80 font-mono">
                           #{String(order.id).slice(-6)}
@@ -1092,7 +1092,7 @@ export default function OrderMonitorPage() {
                   </div>
 
                   {/* THE 3 ACTION BUTTONS */}
-                  <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                  <div className="pt-2 border-t border-slate-700/80 space-y-2">
                     <div className="grid grid-cols-3 gap-1.5">
                       
                       {/* 1. Confirm Button */}
