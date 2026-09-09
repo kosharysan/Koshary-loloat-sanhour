@@ -52,15 +52,15 @@ export const FloatingNavbar: React.FC = () => {
       <div className="max-w-5xl mx-auto flex items-center justify-between px-2.5 py-2 sm:px-4 sm:py-2.5 rounded-full bg-gradient-to-r from-rose-100/95 via-[#fff1f3]/98 to-red-100/95 backdrop-blur-2xl border border-rose-200/90 shadow-[0_15px_35px_-5px_rgba(225,29,72,0.18)] pointer-events-auto transition-all duration-300 hover:shadow-[0_20px_45px_-5px_rgba(225,29,72,0.28)]">
         
         {/* Right side: Logo & Brand Name */}
-        <div className="flex items-center gap-2 sm:gap-3 pr-0.5 min-w-0 flex-1">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 pr-0.5 min-w-0 flex-1">
           <div className="relative group cursor-pointer shrink-0">
             <div className="absolute -inset-1 bg-gradient-to-r from-rose-600 via-amber-400 to-rose-600 rounded-full blur-xs opacity-80 group-hover:opacity-100 transition duration-500 animate-pulse"></div>
-            <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-[0.5px] border-white/30 bg-[#dc0b07] p-0.5 shadow-sm flex items-center justify-center">
+            <div className="relative w-11.5 h-11.5 sm:w-13.5 sm:h-13.5 rounded-full overflow-hidden border border-white/40 bg-[#dc0b07] p-0.5 shadow-sm flex items-center justify-center">
               <Image
                 src="/logo-transparent.png"
                 alt={restaurantInfo.name}
-                width={48}
-                height={48}
+                width={56}
+                height={56}
                 className="object-contain w-full h-full transform group-hover:scale-110 transition duration-300"
                 priority
               />
@@ -68,17 +68,17 @@ export const FloatingNavbar: React.FC = () => {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight flex items-center gap-1 whitespace-nowrap">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-[15px] sm:text-lg md:text-xl font-black text-slate-900 tracking-tight flex items-center gap-1 whitespace-nowrap">
                 {restaurantInfo.name}
-                <span className="text-amber-500 text-xs">👑</span>
+                <span className="text-amber-500 text-sm">👑</span>
               </span>
               
               {/* شارة حالة المطعم مع وميض ذكي: أخضر عند الفتح، أحمر متوهج عند الإغلاق أو الإجازة */}
               {storeStatus.isOpen ? (
                 <span
                   title={storeStatus.detailText}
-                  className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300/80 shadow-xs whitespace-nowrap transition-all"
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300/80 shadow-xs whitespace-nowrap transition-all"
                 >
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -89,7 +89,7 @@ export const FloatingNavbar: React.FC = () => {
               ) : (
                 <span
                   title={storeStatus.detailText}
-                  className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-300/80 shadow-xs whitespace-nowrap transition-all"
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-300/80 shadow-xs whitespace-nowrap transition-all"
                 >
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-90"></span>
@@ -101,7 +101,7 @@ export const FloatingNavbar: React.FC = () => {
                 </span>
               )}
             </div>
-            <p className="text-[9.5px] sm:text-xs text-rose-600 font-black leading-tight tracking-tight mt-0.5">
+            <p className="text-[11px] sm:text-sm text-rose-600 font-black leading-tight tracking-tight mt-0.5">
               {restaurantInfo.tagline} • سنهور
             </p>
           </div>
