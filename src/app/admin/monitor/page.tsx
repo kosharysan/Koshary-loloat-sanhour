@@ -250,6 +250,50 @@ export default function OrderMonitorPage() {
     }
   };
 
+  // Helper to parse order items and customer notes separately and cleanly
+  const parseOrderDetails = (specialNotes?: string) => {
+    if (!specialNotes || !specialNotes.trim()) {
+      return { items: [], notes: '' };
+    }
+
+    const raw = specialNotes.trim();
+    let itemsPart = raw;
+    let notesPart = '';
+
+    // Check for customer notes section
+    if (raw.includes('ملاحظات العميل:')) {
+      const parts = raw.split('ملاحظات العميل:');
+      itemsPart = parts[0];
+      notesPart = parts.slice(1).join('ملاحظات العميل:').trim();
+    } else if (raw.includes('ملاحظات الأوردر:')) {
+      const parts = raw.split('ملاحظات الأوردر:');
+      itemsPart = parts[0];
+      notesPart = parts.slice(1).join('ملاحظات الأوردر:').trim();
+    } else if (raw.includes('| ملاحظات:')) {
+      const parts = raw.split('| ملاحظات:');
+      itemsPart = parts[0];
+      notesPart = parts.slice(1).join('| ملاحظات:').trim();
+    }
+
+    // Clean items title if present
+    itemsPart = itemsPart
+      .replace(/^الأصناف المطلوبة:\s*/i, '')
+      .replace(/^الأصناف:\s*/i, '')
+      .trim();
+
+    // Extract items line by line
+    let itemsList: string[] = [];
+    if (itemsPart.includes('\n')) {
+      itemsList = itemsPart.split('\n').map(s => s.trim()).filter(Boolean);
+    } else if (itemsPart.includes(' • ')) {
+      itemsList = itemsPart.split(' • ').map(s => s.trim()).filter(Boolean);
+    } else if (itemsPart) {
+      itemsList = [itemsPart];
+    }
+
+    return { items: itemsList, notes: notesPart };
+  };
+
   // Render Loading Screen
   if (isAuthenticated === null) {
     return (
@@ -688,16 +732,63 @@ export default function OrderMonitorPage() {
                         </div>
                       )}
 
-                      {/* Items Details & Customer Notes */}
-                      {order.special_notes && (
-                        <div className="text-[11.5px] text-slate-200 bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20 space-y-1">
-                          <span className="text-[10px] text-amber-400 font-bold block flex items-center gap-1">
-                            <Utensils className="w-3 h-3" />
-                            <span>تفاصيل وملاحظات الطلب:</span>
-                          </span>
-                          <p className="font-bold leading-relaxed">{order.special_notes}</p>
-                        </div>
-                      )}
+                      {/* مربع تفاصيل الطلب والأصناف وملاحظات الأوردر المتطور والمنظم */}
+                      {(() => {
+                        const parsed = parseOrderDetails(order.special_notes);
+                        return (
+                          <div className="bg-slate-950/80 rounded-2xl border border-slate-800/90 p-3 space-y-2.5 shadow-inner">
+                            
+                            {/* عنوان ورأس الأصناف */}
+                            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                              <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                                <Utensils className="w-3.5 h-3.5" />
+                                <span>الأصناف والوجبات المطلوبة ({order.items_count} صنف):</span>
+                              </span>
+                              <span className="text-[10px] font-mono font-bold text-slate-400">
+                                #{String(order.id).slice(-4)}
+                              </span>
+                            </div>
+
+                            {/* قائمة الأصناف - كل طلب في سطر مستقل مع رقم الصنف والتفاصيل */}
+                            {parsed.items.length > 0 ? (
+                              <div className="space-y-1.5 pt-0.5">
+                                {parsed.items.map((itemStr, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-start gap-2 text-xs font-bold text-slate-100 bg-slate-900/95 hover:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-800/90 leading-relaxed shadow-xs"
+                                  >
+                                    <span className="w-4.5 h-4.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="flex-1 font-bold text-slate-100">
+                                      {itemStr.replace(/^\d+[\.\-]\s*/, '').replace(/^[•\-]\s*/, '')}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-400 py-1 font-medium bg-slate-900/50 px-2.5 rounded-xl">
+                                عدد الأصناف: {order.items_count} صنف • الإجمالي: {order.total_amount} ج.م
+                              </div>
+                            )}
+
+                            {/* السطر التالي: ملاحظات الطلب والزبون بشكل بارز ومنظم */}
+                            {parsed.notes ? (
+                              <div className="pt-1.5 border-t border-slate-800/80">
+                                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-bold space-y-1">
+                                  <span className="text-[11px] text-amber-400 font-black block">
+                                    📌 ملاحظات الأوردر والزبون:
+                                  </span>
+                                  <p className="text-xs font-bold text-white leading-relaxed pr-1 whitespace-pre-wrap">
+                                    {parsed.notes}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null}
+
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

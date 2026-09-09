@@ -239,22 +239,26 @@ export const CartDrawer: React.FC = () => {
 
     try {
       // Generate clean summary of ordered items for kitchen / monitor display
-      const itemsSummaryList = items.map(item => {
-        let text = `${item.name} (x${item.quantity})`;
-        if (item.selectedSize) text += ` [${item.selectedSize}]`;
+      const itemsLines = items.map((item) => {
+        let text = `${item.name} × ${item.quantity}`;
+        if (item.selectedSize) text += ` (${item.selectedSize})`;
+        const details: string[] = [];
         if (item.extras && item.extras.length > 0) {
-          text += ` [إضافات: ${item.extras.map(e => e.name).join('، ')}]`;
+          details.push(`إضافات: ${item.extras.map(e => e.name).join('، ')}`);
         }
         if (item.itemNotes && item.itemNotes.length > 0) {
-          text += ` [${item.itemNotes.join('، ')}]`;
+          details.push(item.itemNotes.join('، '));
+        }
+        if (details.length > 0) {
+          text += ` [${details.join(' • ')}]`;
         }
         return text;
-      }).join(' • ');
+      });
 
       const combinedNotes = [
-        itemsSummaryList ? `الأصناف: ${itemsSummaryList}` : '',
+        itemsLines.length > 0 ? `الأصناف:\n${itemsLines.join('\n')}` : '',
         customer.orderNotes ? `ملاحظات العميل: ${customer.orderNotes}` : ''
-      ].filter(Boolean).join(' | ');
+      ].filter(Boolean).join('\n\n');
 
       // Save order payload to Supabase backend
       const orderPayload = {
