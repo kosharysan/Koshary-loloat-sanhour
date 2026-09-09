@@ -226,13 +226,16 @@ export default function AdminPortal() {
   const [archivedOrderIds, setArchivedOrderIds] = useState<string[]>([]);
   const [selectedShiftForView, setSelectedShiftForView] = useState<ClosedShift | null>(null);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<any | null>(null);
+  const [selectedOrderShiftNumber, setSelectedOrderShiftNumber] = useState<number | null>(null);
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isClosingShift, setIsClosingShift] = useState(false);
   const [shiftInvoicesSearchQuery, setShiftInvoicesSearchQuery] = useState('');
   const [shiftInvoicesStatusFilter, setShiftInvoicesStatusFilter] = useState<'all' | 'confirmed' | 'cancelled'>('all');
   const [currentShiftSearchQuery, setCurrentShiftSearchQuery] = useState('');
 
-  // فلاتر تبويبة فواتير الورديات المقفلة
+  // فلاتر تبويبة فواتير الورديات المقفلة (بالوردية أو باسم ورقم هاتف العميل)
+  const [shiftSearchMode, setShiftSearchMode] = useState<'by_shift' | 'by_customer'>('by_shift');
+  const [shiftCustomerSearchQuery, setShiftCustomerSearchQuery] = useState('');
   const [shiftPeriodFilter, setShiftPeriodFilter] = useState<'all' | 'specific' | 'today' | 'week' | 'month' | 'quarter' | 'half_year' | 'year' | 'custom'>('all');
   const [shiftFilterSpecificShift, setShiftFilterSpecificShift] = useState<string>('all');
   const [shiftCustomStart, setShiftCustomStart] = useState<string>('');
@@ -871,6 +874,85 @@ export default function AdminPortal() {
     });
     return { totalRev, totalOrdersCount, totalConfirmed };
   }, [filteredClosedShifts]);
+
+  // تجميع كل الفواتير المحفوظة في الورديات المقفلة مع معلومات ورديتها للبحث الشامل
+  const allClosedShiftsOrdersWithShift = useMemo(() => {
+    const map = new Map<string, { order: any; shift: ClosedShift }>();
+
+    // 1. المرور على كل الورديات المقفلة واستخراج فواتيرها
+    closedShifts.forEach(shift => {
+      if (Array.isArray(shift.orders)) {
+        shift.orders.forEach((ord: any) => {
+          if (ord && ord.id && !map.has(String(ord.id))) {
+            map.set(String(ord.id), { order: ord, shift });
+          }
+        });
+      }
+
+      // إذا كانت أرقام الفواتير مسجلة في الوردية كـ orderIds
+      if (Array.isArray(shift.orderIds)) {
+        shift.orderIds.forEach((id: string) => {
+          if (id && !map.has(String(id))) {
+            const matchedInOrders = orders.find(o => String(o.id) === String(id));
+            if (matchedInOrders) {
+              map.set(String(id), { order: matchedInOrders, shift });
+            }
+          }
+        });
+      }
+    });
+
+    // 2. أيضاً أي فواتير مؤرشفة تنتمي لـ archivedOrderIds لكن لم تظهر في orders داخل الوردية
+    archivedOrderIds.forEach(id => {
+      if (id && !map.has(String(id))) {
+        const matched = orders.find(o => String(o.id) === String(id));
+        if (matched) {
+          const matchedShift = closedShifts.find(s => s.orderIds?.includes(String(id)));
+          map.set(String(id), {
+            order: matched,
+            shift: matchedShift || {
+              id: 'shift-archived',
+              shiftNumber: 1,
+              openedAt: matched.created_at,
+              closedAt: matched.created_at,
+              orderIds: [String(id)],
+              orders: [matched],
+              summary: {} as any
+            }
+          });
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const timeA = new Date(a.order.created_at || a.shift.closedAt).getTime();
+      const timeB = new Date(b.order.created_at || b.shift.closedAt).getTime();
+      return timeB - timeA;
+    });
+  }, [closedShifts, orders, archivedOrderIds]);
+
+  // فلترة نتائج البحث باسم أو رقم هاتف العميل في كل فواتير الورديات المقفلة
+  const closedShiftsCustomerSearchResults = useMemo(() => {
+    const q = shiftCustomerSearchQuery.trim().toLowerCase();
+    if (!q) return [];
+
+    const digitsOnlyQuery = q.replace(/\D/g, '');
+
+    return allClosedShiftsOrdersWithShift.filter(({ order }) => {
+      const name = (order.customer_name || '').toLowerCase();
+      const phone = (order.customer_phone || '').trim();
+      const digitsOnlyPhone = phone.replace(/\D/g, '');
+      const orderId = String(order.id).toLowerCase();
+      const address = (order.delivery_address || '').toLowerCase();
+
+      const matchName = name.includes(q);
+      const matchPhone = phone.includes(q) || (digitsOnlyQuery.length >= 3 && digitsOnlyPhone.includes(digitsOnlyQuery));
+      const matchId = orderId.includes(q);
+      const matchAddress = address.includes(q);
+
+      return matchName || matchPhone || matchId || matchAddress;
+    });
+  }, [allClosedShiftsOrdersWithShift, shiftCustomerSearchQuery]);
 
   // تنفيذ تقفيل الوردية من لوحة الإدارة وتصفير الفواتير فوراً
   const handleAdminConfirmCloseShift = async () => {
@@ -1927,8 +2009,46 @@ export default function AdminPortal() {
                   </div>
                 </div>
 
-                {/* وحدة فلترة فواتير الورديات: بالوردية أو الفترة (اليوم، أسبوع، شهر، ربع سنة، نصف سنة، سنة، أو مخصص) */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-lg font-sans">
+                {/* شريط اختيار أسلوب العرض والبحث: بالوردية والفترات أو باسم ورقم هاتف العميل */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-2xl shadow-md font-sans">
+                  <div className="flex items-center gap-2 text-xs font-black text-slate-200">
+                    <Sliders className="w-4 h-4 text-amber-400" />
+                    <span>طريقة البحث في أرشيف الورديات:</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setShiftSearchMode('by_shift')}
+                      className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
+                        shiftSearchMode === 'by_shift'
+                          ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                          : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700/80'
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>تصفية بالوردية والفترات</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShiftSearchMode('by_customer')}
+                      className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
+                        shiftSearchMode === 'by_customer'
+                          ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                          : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700/80'
+                      }`}
+                    >
+                      <User className="w-4 h-4" />
+                      <span>بحث باسم أو رقم هاتف العميل</span>
+                    </button>
+                  </div>
+                </div>
+
+                {shiftSearchMode === 'by_shift' ? (
+                  <>
+                    {/* وحدة فلترة فواتير الورديات: بالوردية أو الفترة (اليوم، أسبوع، شهر، ربع سنة، نصف سنة، سنة، أو مخصص) */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-lg font-sans">
                   <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3.5 border-b border-slate-800/80">
                     <div className="flex items-center gap-2 text-xs font-black text-amber-400">
                       <Calendar className="w-4 h-4 text-amber-400" />
@@ -2174,6 +2294,227 @@ export default function AdminPortal() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+                  </>
+                ) : (
+                  <div className="space-y-4 font-sans animate-in fade-in duration-200">
+                    {/* مستطيل البحث الشامل باسم العميل أو رقم الهاتف */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-lg">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
+                        <div className="flex items-center gap-2 text-xs font-black text-amber-400">
+                          <Search className="w-4 h-4 text-amber-400" />
+                          <span>البحث المباشر في فواتير كل الورديات المقفلة:</span>
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
+                          الأرشيف المحفوظ: {allClosedShiftsOrdersWithShift.length} فاتورة مسجلة
+                        </span>
+                      </div>
+
+                      {/* مستطيل الإدخال المخصص */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={shiftCustomerSearchQuery}
+                          onChange={(e) => setShiftCustomerSearchQuery(e.target.value)}
+                          placeholder="اكتب اسم العميل أو رقم الهاتف للبحث في جميع الفواتير المحفوظة..."
+                          className="w-full bg-slate-950/90 border-2 border-slate-800 focus:border-amber-500 text-white rounded-2xl py-3.5 pr-12 pl-12 text-sm font-bold placeholder:text-slate-500 focus:outline-none transition shadow-inner"
+                          autoFocus
+                        />
+                        <div className="absolute top-1/2 -translate-y-1/2 right-4 text-slate-400 pointer-events-none">
+                          <Search className="w-5 h-5 text-amber-400" />
+                        </div>
+                        {shiftCustomerSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setShiftCustomerSearchQuery('')}
+                            className="absolute top-1/2 -translate-y-1/2 left-3.5 p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
+                            title="مسح البحث"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-slate-400 font-bold">
+                        <span>
+                          يبحث في اسم العميل، أو رقم الهاتف، أو رقم الفاتورة عبر جميع الورديات التي تم تقفيلها.
+                        </span>
+                        {shiftCustomerSearchQuery.trim() && (
+                          <span className="text-amber-400 font-black">
+                            تم العثور على {closedShiftsCustomerSearchResults.length} فاتورة مطابقة
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* نتائج البحث */}
+                    {!shiftCustomerSearchQuery.trim() ? (
+                      <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3 font-sans">
+                        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400 shadow-lg">
+                          <Search className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-lg font-black text-white">ابحث برقم الهاتف أو اسم العميل</h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                          اكتب في المستطيل أعلاه اسم العميل أو رقم هاتفه، وسيتم البحث الفوري في جميع فواتير الورديات السابقة التي تم تقفيلها وحفظها على السيرفر.
+                        </p>
+                      </div>
+                    ) : closedShiftsCustomerSearchResults.length === 0 ? (
+                      <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3 font-sans">
+                        <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400 shadow-lg">
+                          <XCircle className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-lg font-black text-white">
+                          لا توجد فواتير مطابقة لـ &ldquo;{shiftCustomerSearchQuery}&rdquo;
+                        </h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                          لم يتم العثور على أي فواتير مسجلة بهذا الاسم أو الرقم داخل الورديات المقفلة.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3.5 font-sans">
+                        {closedShiftsCustomerSearchResults.map(({ order, shift }, idx) => {
+                          const isCancelled = typeof order.status === 'string' && order.status.startsWith('cancelled');
+                          const isConfirmed = order.status === 'confirmed';
+                          const parsedOrder = parseOrderDetails(order.special_notes);
+                          const itemsList = (Array.isArray(order.items) && order.items.length > 0)
+                            ? order.items
+                            : parsedOrder.items;
+
+                          return (
+                            <div
+                              key={order.id || idx}
+                              className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 transition space-y-3 shadow-md"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                  <span className="font-mono text-base font-black text-amber-400">
+                                    #{String(order.id).slice(-6)}
+                                  </span>
+                                  
+                                  {/* شارة الوردية */}
+                                  <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                    <History className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>الوردية #{shift.shiftNumber}</span>
+                                  </span>
+
+                                  {isConfirmed ? (
+                                    <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>مؤكد ✅</span>
+                                    </span>
+                                  ) : isCancelled ? (
+                                    <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                      <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                                      <span>ملغي 🚫</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs px-2.5 py-0.5 rounded-full font-black bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                                      قيد الانتظار ⏳
+                                    </span>
+                                  )}
+
+                                  <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{formatOrderTime(order.created_at)}</span>
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  {/* زر تفاصيل الفاتورة */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedOrderShiftNumber(shift.shiftNumber);
+                                      setSelectedOrderForDetails(order);
+                                    }}
+                                    className="py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>تفاصيل الفاتورة 🧾</span>
+                                  </button>
+
+                                  {/* زر طباعة الفاتورة */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrintSingleOrder(order, shift.shiftNumber)}
+                                    className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1 cursor-pointer active:scale-95"
+                                    title="طباعة الفاتورة"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    <span>طباعة 🖨️</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-white text-sm">{order.customer_name}</span>
+                                  <span className="text-slate-400 font-bold">{order.customer_phone}</span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <span className="font-mono text-sm font-black text-emerald-400">
+                                    {Number(order.total_amount || 0).toLocaleString()} ج.م
+                                  </span>
+                                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                                    {order.payment_method === 'vodafone_cash' ? 'محفظة كاش' : order.payment_method === 'instapay' ? 'إنستاباي' : 'كاش'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* أصناف الفاتورة إن وجدت */}
+                              {Array.isArray(itemsList) && itemsList.length > 0 && (
+                                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1 text-xs">
+                                  <span className="text-[10.5px] text-slate-400 font-bold block mb-1">محتويات الفاتورة:</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {itemsList.map((it: any, itIdx: number) => {
+                                      const itemName = typeof it === 'string'
+                                        ? parseItemLine(it).name
+                                        : (it.name || it.item_name || 'صنف');
+                                      const qty = typeof it === 'string'
+                                        ? parseItemLine(it).quantity
+                                        : (it.quantity || 1);
+                                      return (
+                                        <span key={itIdx} className="px-2 py-1 rounded-lg bg-slate-800 text-slate-200 text-[11px] font-bold border border-slate-700/80">
+                                          {qty}× {itemName}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-400 pt-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span>{order.delivery_address || (order.order_type === 'delivery' ? 'توصيل دليفري' : 'استلام من المطعم')}</span>
+                                  {order.building_notes && <span className="text-amber-400/80">({order.building_notes})</span>}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={`tel:${order.customer_phone}`}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold transition flex items-center gap-1"
+                                  >
+                                    <Phone className="w-3 h-3 text-emerald-400" />
+                                    <span>اتصال</span>
+                                  </a>
+                                  <a
+                                    href={`https://wa.me/2${(order.customer_phone || '').replace(/^0/, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-bold border border-emerald-500/30 transition flex items-center gap-1"
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                    <span>واتساب</span>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -3064,7 +3405,7 @@ export default function AdminPortal() {
                 {/* زر إغلاق X بارز ومثبت في الجانب الأيسر العلوي */}
                 <button
                   type="button"
-                  onClick={() => setSelectedOrderForDetails(null)}
+                  onClick={() => { setSelectedOrderForDetails(null); setSelectedOrderShiftNumber(null); }}
                   className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/80 transition cursor-pointer active:scale-90 shadow-lg flex items-center justify-center"
                   title="إغلاق تفاصيل الفاتورة"
                 >
@@ -3082,9 +3423,9 @@ export default function AdminPortal() {
                         <h3 className="text-lg sm:text-xl font-black text-white">
                           تفاصيل الفاتورة #{String(ord.id).slice(-6)}
                         </h3>
-                        {selectedShiftForView && (
+                        {(selectedShiftForView || selectedOrderShiftNumber) && (
                           <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            الوردية #{selectedShiftForView.shiftNumber}
+                            الوردية #{selectedShiftForView?.shiftNumber || selectedOrderShiftNumber}
                           </span>
                         )}
                         {isConfirmed ? (
@@ -3114,7 +3455,7 @@ export default function AdminPortal() {
                     {/* زر طباعة الفاتورة الفردية */}
                     <button
                       type="button"
-                      onClick={() => handlePrintSingleOrder(ord, selectedShiftForView?.shiftNumber)}
+                      onClick={() => handlePrintSingleOrder(ord, selectedShiftForView?.shiftNumber || selectedOrderShiftNumber || undefined)}
                       className="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer active:scale-95"
                       title="طباعة هذه الفاتورة"
                     >
@@ -3577,7 +3918,7 @@ export default function AdminPortal() {
                 <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => handlePrintSingleOrder(ord, selectedShiftForView?.shiftNumber)}
+                    onClick={() => handlePrintSingleOrder(ord, selectedShiftForView?.shiftNumber || selectedOrderShiftNumber || undefined)}
                     className="py-2.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-black transition flex items-center gap-2 cursor-pointer active:scale-95"
                   >
                     <Printer className="w-4 h-4" />
@@ -3586,7 +3927,7 @@ export default function AdminPortal() {
 
                   <button
                     type="button"
-                    onClick={() => setSelectedOrderForDetails(null)}
+                    onClick={() => { setSelectedOrderForDetails(null); setSelectedOrderShiftNumber(null); }}
                     className="py-2.5 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition cursor-pointer active:scale-95 shadow-lg"
                   >
                     إغلاق تفاصيل الفاتورة
