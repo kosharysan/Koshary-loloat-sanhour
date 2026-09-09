@@ -238,15 +238,33 @@ export const CartDrawer: React.FC = () => {
     });
 
     try {
+      // Generate clean summary of ordered items for kitchen / monitor display
+      const itemsSummaryList = items.map(item => {
+        let text = `${item.name} (x${item.quantity})`;
+        if (item.selectedSize) text += ` [${item.selectedSize}]`;
+        if (item.extras && item.extras.length > 0) {
+          text += ` [إضافات: ${item.extras.map(e => e.name).join('، ')}]`;
+        }
+        if (item.itemNotes && item.itemNotes.length > 0) {
+          text += ` [${item.itemNotes.join('، ')}]`;
+        }
+        return text;
+      }).join(' • ');
+
+      const combinedNotes = [
+        itemsSummaryList ? `الأصناف: ${itemsSummaryList}` : '',
+        customer.orderNotes ? `ملاحظات العميل: ${customer.orderNotes}` : ''
+      ].filter(Boolean).join(' | ');
+
       // Save order payload to Supabase backend
       const orderPayload = {
         customer_name: customer.name,
         customer_phone: customer.phone,
         order_type: orderType,
-        delivery_zone: orderType === 'pickup' ? 'استلام من المطعم (تيك أواي)' : (selectedZone?.name || 'سنهور المدينة'),
+        delivery_zone: orderType === 'pickup' ? 'استلام من المطعم (تيك أواي)' : (selectedZone?.name || 'سنهور القبلية'),
         delivery_address: customer.address,
         building_notes: customer.buildingFloorNotes,
-        special_notes: customer.orderNotes,
+        special_notes: combinedNotes,
         payment_method: paymentMethod,
         items_count: totalItems,
         subtotal,

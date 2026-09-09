@@ -259,6 +259,8 @@ interface MenuStore {
   saveAsNewDefault: () => void;
   resetToDefault: () => void;
   resetToFactoryOriginal: () => void;
+  monitorPassword?: string;
+  setMonitorPassword: (password: string) => void;
   isServerSyncing: boolean;
   serverSyncError: string | null;
   lastServerSyncTime: string | null;
@@ -284,6 +286,11 @@ export const useMenuStore = create<MenuStore>()(
       isInstapayPaymentEnabled: false,
       walletPhoneNumber: restaurantInfo.cashWalletNumber,
       instapayHandle: restaurantInfo.instapayHandle,
+      monitorPassword: 'sanhour123',
+      setMonitorPassword: (password: string) => {
+        set({ monitorPassword: password.trim() });
+        get().saveToServer();
+      },
       toggleWalletPayment: (enabled) => set(state => ({
         isWalletPaymentEnabled: typeof enabled === 'boolean' ? enabled : !state.isWalletPaymentEnabled
       })),
@@ -618,6 +625,7 @@ export const useMenuStore = create<MenuStore>()(
               kosharyCustomOptions: remoteData.kosharyCustomOptions || get().kosharyCustomOptions,
               isCouponsEnabled: typeof remoteData.isCouponsEnabled === 'boolean' ? remoteData.isCouponsEnabled : get().isCouponsEnabled,
               isMinOrderEnabled: typeof remoteData.isMinOrderEnabled === 'boolean' ? remoteData.isMinOrderEnabled : get().isMinOrderEnabled,
+              monitorPassword: remoteData.monitorPassword || get().monitorPassword || 'sanhour123',
               isServerSyncing: false,
               lastServerSyncTime: new Date().toLocaleTimeString('ar-EG'),
             });
@@ -642,6 +650,7 @@ export const useMenuStore = create<MenuStore>()(
               kosharyCustomOptions: get().kosharyCustomOptions,
               isCouponsEnabled: get().isCouponsEnabled,
               isMinOrderEnabled: get().isMinOrderEnabled,
+              monitorPassword: get().monitorPassword || 'sanhour123',
             };
             const res = await saveRestaurantSettingsToDb(currentPayload);
             set({
@@ -676,6 +685,7 @@ export const useMenuStore = create<MenuStore>()(
             kosharyCustomOptions: get().kosharyCustomOptions,
             isCouponsEnabled: get().isCouponsEnabled,
             isMinOrderEnabled: get().isMinOrderEnabled,
+            monitorPassword: get().monitorPassword || 'sanhour123',
           };
           const res = await saveRestaurantSettingsToDb(payload);
           if (res.success) {
@@ -761,6 +771,7 @@ export const useMenuStore = create<MenuStore>()(
           : false,
         walletPhoneNumber: persistedState?.walletPhoneNumber || restaurantInfo.cashWalletNumber,
         instapayHandle: persistedState?.instapayHandle || restaurantInfo.instapayHandle,
+        monitorPassword: persistedState?.monitorPassword || 'sanhour123',
         isCouponsEnabled: typeof persistedState?.isCouponsEnabled === 'boolean'
           ? persistedState.isCouponsEnabled
           : true,

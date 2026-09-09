@@ -107,7 +107,19 @@ export default function AdminPortal() {
     storeScheduleSettings = defaultStoreScheduleSettings,
     updateStoreScheduleSettings,
     toggleStoreManualStatus,
+    monitorPassword = 'sanhour123',
+    setMonitorPassword,
   } = useMenuStore();
+
+  const [tempMonitorPassword, setTempMonitorPassword] = useState(monitorPassword || 'sanhour123');
+  const [showMonitorPassword, setShowMonitorPassword] = useState(false);
+  const [monitorPassNotice, setMonitorPassNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (monitorPassword) {
+      setTempMonitorPassword(monitorPassword);
+    }
+  }, [monitorPassword]);
 
   // Delivery Zones Management State
   const [isDeliveryZonesEditMode, setIsDeliveryZonesEditMode] = useState(false);
@@ -710,8 +722,15 @@ export default function AdminPortal() {
               )}
             </button>
           </form>
-          <div className="pt-2 border-t border-slate-800/80">
-            <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition font-medium">
+          <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2.5">
+            <Link
+              href="/admin/monitor"
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-amber-400 hover:text-amber-300 font-bold text-xs border border-amber-500/20 hover:border-amber-500/40 transition flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span>🖥️</span>
+              <span>بوابة شاشة متابعة الطلبات (المطبخ والصالة)</span>
+            </Link>
+            <Link href="/" className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-white transition font-medium">
               <span>العودة لصفحة الزوار والقائمة</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </Link>
@@ -741,6 +760,16 @@ export default function AdminPortal() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/monitor"
+              target="_blank"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold transition shadow-xs"
+              title="فتح شاشة متابعة وتنفيذ الطلبات"
+            >
+              <span>🖥️</span>
+              <span className="hidden sm:inline">شاشة المتابعة</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
             <Link href="/" target="_blank" className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition">
               <Eye className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden sm:inline">معاينة المتجر</span>
@@ -2354,6 +2383,94 @@ export default function AdminPortal() {
                     placeholder="01000000000"
                     className="w-full py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-rose-500 text-left font-mono"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* كارت التحكم في كلمة المرور لشاشة متابعة الطلبات (المطبخ / الكاشير) */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-sm">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      <span>شاشة متابعة الطلبات المستقلة</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                        للكاشير والمطبخ 🖥️
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      التحكم في الرقم السري المخصص لموظفي الصالة لتنفيذ الطلبات دون كشف بيانات الإدارة
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {monitorPassNotice && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                  <Check className="w-4 h-4" />
+                  <span>{monitorPassNotice}</span>
+                </div>
+              )}
+
+              <div className="space-y-3 pt-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    الرقم السري الخاص بشاشة المتابعة (Monitor Password):
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showMonitorPassword ? "text" : "password"}
+                      value={tempMonitorPassword}
+                      onChange={(e) => setTempMonitorPassword(e.target.value)}
+                      placeholder="أدخل الرقم السري للشاشة..."
+                      className="w-full py-2.5 px-3.5 pr-10 pl-10 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm font-bold focus:outline-none focus:border-amber-400 text-left font-mono"
+                    />
+                    <Lock className="absolute top-3 right-3 w-4 h-4 text-slate-400" />
+                    <button
+                      type="button"
+                      onClick={() => setShowMonitorPassword(!showMonitorPassword)}
+                      className="absolute top-2.5 left-2.5 p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
+                      title={showMonitorPassword ? "إخفاء" : "إظهار"}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[10.5px] text-slate-400">
+                    * هذا الرقم يدخل به موظف المطبخ أو الكاشير لمتابعة وتأكيد أو إلغاء الطلبات فقط.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clean = tempMonitorPassword.trim();
+                      if (!clean) {
+                        alert('يرجى كتابة رقم سري صالح');
+                        return;
+                      }
+                      setMonitorPassword(clean);
+                      setMonitorPassNotice('تم حفظ الرقم السري لشاشة المتابعة ومزامنته مع السيرفر بنجاح ✓');
+                      setTimeout(() => setMonitorPassNotice(null), 4000);
+                      showSaveIndicator();
+                    }}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-md transition flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>حفظ وتحديث الرقم السري</span>
+                  </button>
+
+                  <Link
+                    href="/admin/monitor"
+                    target="_blank"
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-bold text-xs transition flex items-center justify-center gap-1.5 shrink-0"
+                  >
+                    <span>فتح الشاشة 🖥️</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               </div>
             </div>
