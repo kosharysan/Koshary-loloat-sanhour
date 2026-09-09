@@ -718,7 +718,7 @@ export default function OrderMonitorPage() {
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           
           {/* 1. إجمالي المبيعات المؤكدة */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-emerald-500/40 bg-gradient-to-br from-emerald-950/90 via-slate-900/95 to-teal-950/80 hover:border-emerald-400 hover:shadow-emerald-500/10">
+          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-emerald-500/40 bg-gradient-to-br from-emerald-950/65 via-slate-900/75 to-teal-950/60 backdrop-blur-md hover:border-emerald-400 hover:shadow-emerald-500/10">
             <div className="absolute -top-10 -right-10 w-36 h-36 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-teal-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -758,7 +758,7 @@ export default function OrderMonitorPage() {
           </div>
 
           {/* 2. عدد الأوردرات المؤكدة ونشاط الزبائن */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-indigo-500/40 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-purple-950/80 hover:border-indigo-400 hover:shadow-indigo-500/10">
+          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-indigo-500/40 bg-gradient-to-br from-indigo-950/65 via-slate-900/75 to-purple-950/60 backdrop-blur-md hover:border-indigo-400 hover:shadow-indigo-500/10">
             <div className="absolute -top-10 -right-10 w-36 h-36 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-purple-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -791,7 +791,7 @@ export default function OrderMonitorPage() {
               </div>
 
               {/* كام شخص طلب؟ */}
-              <div className="bg-slate-950/80 border border-indigo-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
+              <div className="bg-slate-950/70 border border-indigo-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
                 <div className="text-[8.5px] sm:text-[10px] text-indigo-200/80 font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
                   <Users className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-400" />
                   <span className="hidden sm:inline">العملاء:</span>
@@ -811,7 +811,7 @@ export default function OrderMonitorPage() {
           </div>
 
           {/* 3. الطلبات الملغية ومبالغها */}
-          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-rose-500/40 bg-gradient-to-br from-rose-950/90 via-slate-900/95 to-red-950/80 hover:border-rose-400 hover:shadow-rose-500/10">
+          <div className="group rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden transition-all duration-300 border border-rose-500/40 bg-gradient-to-br from-rose-950/65 via-slate-900/75 to-red-950/60 backdrop-blur-md hover:border-rose-400 hover:shadow-rose-500/10">
             <div className="absolute -top-10 -right-10 w-36 h-36 bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-red-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -844,7 +844,7 @@ export default function OrderMonitorPage() {
               </div>
 
               {/* عدد الملغي */}
-              <div className="bg-slate-950/80 border border-rose-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
+              <div className="bg-slate-950/70 border border-rose-500/30 rounded-lg sm:rounded-2xl px-1.5 sm:px-3 py-0.5 sm:py-1 text-left shrink-0 shadow-inner">
                 <div className="text-[8.5px] sm:text-[10px] text-rose-200/80 font-bold flex items-center gap-0.5 sm:gap-1 justify-end">
                   <AlertTriangle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-rose-400" />
                   <span className="hidden sm:inline">العدد:</span>
