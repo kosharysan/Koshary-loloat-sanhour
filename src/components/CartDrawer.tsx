@@ -28,7 +28,7 @@ import { useCartStore, useCustomerStore } from '@/lib/store';
 import { useMenuStore, defaultKosharyCustomOptions, computeStoreStatus, defaultStoreScheduleSettings } from '@/lib/menuStore';
 import { deliveryZones, restaurantInfo, smartUpsellItems } from '@/data/mockData';
 import { generateWhatsAppMessage, openWhatsAppChat } from '@/lib/whatsapp';
-import { saveOrderToSupabase } from '@/lib/supabase';
+import { saveOrderToSupabase, warmupSupabase } from '@/lib/supabase';
 import { sounds } from '@/lib/sound';
 import { OrderType, PaymentMethod, CartItem } from '@/types';
 
@@ -103,6 +103,13 @@ export const CartDrawer: React.FC = () => {
       removeCoupon();
     }
   }, [isCouponsEnabled, appliedCoupon, removeCoupon]);
+
+  // Pre-warm Supabase connection silently when cart is opened so the checkout request is instantaneous
+  useEffect(() => {
+    if (isCartOpen) {
+      warmupSupabase();
+    }
+  }, [isCartOpen]);
 
   // Notes state for cart items
   const [openNotesItemId, setOpenNotesItemId] = useState<string | null>(null);
@@ -225,6 +232,18 @@ export const CartDrawer: React.FC = () => {
     }
 
     setIsSubmitting(true);
+
+    // Pre-open a blank window on desktop immediately during user's click gesture
+    // This ensures pop-up blockers never block the WhatsApp redirection after async database save
+    let preOpenedWindow: Window | null = null;
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile && typeof window !== 'undefined') {
+      try {
+        preOpenedWindow = window.open('about:blank', '_blank');
+      } catch (e) {
+        preOpenedWindow = null;
+      }
+    }
 
     // Play celebration success chime
     sounds.playSuccessChime();
@@ -364,12 +383,16 @@ export const CartDrawer: React.FC = () => {
       // تفريغ السلة فقط عند اكتمال ونجاح الطلب
       clearCart();
 
-      setTimeout(() => {
-        openWhatsAppChat(restaurantInfo.whatsapp, waText);
-        setIsSubmitting(false);
-        setIsCartOpen(false);
-      }, 600);
+      // فتح محادثة الواتساب فوراً وبدون تأخير زمني لمنع حظر المتصفح
+      openWhatsAppChat(restaurantInfo.whatsapp, waText, preOpenedWindow);
+      setIsSubmitting(false);
+      setIsCartOpen(false);
     } catch (err: any) {
+      if (preOpenedWindow && !preOpenedWindow.closed) {
+        try {
+          preOpenedWindow.close();
+        } catch (e) {}
+      }
       console.error('Order creation error:', err);
       alert('حدث خطأ أثناء إرسال الطلب، يرجى المحاولة مرة أخرى.');
       setIsSubmitting(false);

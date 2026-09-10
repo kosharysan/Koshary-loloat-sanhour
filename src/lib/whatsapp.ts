@@ -186,7 +186,7 @@ export function formatWhatsAppNotification(
     .join('\n');
 }
 
-export function openWhatsAppChat(phone: string, text: string) {
+export function openWhatsAppChat(phone: string, text: string, targetWindow?: Window | null) {
   let cleanPhone = phone.replace(/[^0-9]/g, '');
   if (cleanPhone.startsWith('01') && cleanPhone.length === 11) {
     cleanPhone = '2' + cleanPhone;
@@ -203,7 +203,27 @@ export function openWhatsAppChat(phone: string, text: string) {
     : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
 
   if (typeof window !== 'undefined') {
-    window.open(url, '_blank');
+    // 1. If a pre-opened target window was provided (e.g., from synchronous click gesture on desktop)
+    if (targetWindow && !targetWindow.closed) {
+      try {
+        targetWindow.location.href = url;
+        return;
+      } catch (e) {
+        // Fall back below if target window navigation was intercepted
+      }
+    }
+
+    // 2. On Mobile: direct navigation never triggers popup blockers and seamlessly opens WhatsApp native app
+    if (isMobile) {
+      window.location.href = url;
+      return;
+    }
+
+    // 3. On Desktop without pre-opened window: try window.open, fall back to direct navigation if blocked
+    const opened = window.open(url, '_blank');
+    if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+      window.location.href = url;
+    }
   }
 }
 

@@ -43,6 +43,17 @@ export async function saveOrderToSupabase(orderData: any) {
   }
 }
 
+/**
+ * Pre-warm the Supabase connection (DNS + SSL + HTTP/2 Keep-Alive)
+ * so that checkout operations execute instantaneously without cold-start delay.
+ */
+export async function warmupSupabase() {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    await supabase.from('orders').select('id').limit(1);
+  } catch {}
+}
+
 const LOCAL_STATUS_OVERRIDES_KEY = 'loloat_orders_status_overrides';
 const LOCAL_DELETED_ORDERS_KEY = 'loloat_deleted_order_ids';
 
