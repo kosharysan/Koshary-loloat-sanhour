@@ -24,9 +24,16 @@ export const officialMediaLibrary: RestaurantMediaItem[] = [
   },
   {
     id: 'koshary-bag',
-    title: 'كيس كشري شعبي أصيل',
+    title: 'كيس كشري لؤلؤة سنهور المخصوص',
     category: 'العلب الملكية',
     url: '/menu/koshary-bag.jpg',
+    description: 'كيس كشري حراري أصيل مطبوع بماركة كشري وطواجن اللؤلؤة مع التقلية المقرمشة وحمص الشام',
+  },
+  {
+    id: 'koshary-bag-classic',
+    title: 'كيس كشري شعبي كلاسيك',
+    category: 'العلب الملكية',
+    url: '/menu/koshary-bag-classic.jpg',
     description: 'كيس كشري حراري شعبي على الأصول بخلطة لؤلؤة سنهور',
   },
   {
