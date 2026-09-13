@@ -9,6 +9,13 @@ export interface RestaurantMediaItem {
 export const officialMediaLibrary: RestaurantMediaItem[] = [
   // --- الصور الأساسية الحقيقية للمطعم ---
   {
+    id: 'koshary-bowl',
+    title: 'بولة كشري لؤلؤة سنهور المخصوصة',
+    category: 'العلب الملكية',
+    url: '/menu/koshary-bowl.jpg',
+    description: 'بولة كشري لؤلؤة سنهور الساخنة الفاخرة غنية بالعدس والتقلية المقرمشة وحمص الشام والصلصة',
+  },
+  {
     id: 'koshary-box',
     title: 'علبة كشري لؤلؤة سنهور (سوبر لوكس)',
     category: 'العلب الملكية',
