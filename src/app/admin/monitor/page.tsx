@@ -51,7 +51,7 @@ import { openWhatsAppChat, formatWhatsAppNotification, defaultConfirmNotificatio
 import { ClosedShift } from '@/types';
 
 export default function OrderMonitorPage() {
-  const { monitorPassword = 'sanhour123', syncWithServer, whatsappNotificationSettings } = useMenuStore();
+  const { syncWithServer, whatsappNotificationSettings } = useMenuStore();
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -89,13 +89,17 @@ export default function OrderMonitorPage() {
   useEffect(() => {
     syncWithServer();
 
-    // Check if session exists in localStorage
     if (typeof window !== 'undefined') {
-      const savedAuth = localStorage.getItem('loloat_monitor_auth');
-      if (savedAuth === 'true') {
-        setIsAuthenticated(true);
+      localStorage.removeItem('loloat_monitor_auth');
+      const tabAlive = sessionStorage.getItem('loloat_monitor_tab') === '1';
+      if (!tabAlive) {
+        fetch('/api/monitor-auth', { method: 'DELETE', credentials: 'include' })
+          .finally(() => setIsAuthenticated(false));
       } else {
-        setIsAuthenticated(false);
+        fetch('/api/monitor-auth/check', { credentials: 'include' })
+          .then((res) => res.json())
+          .then((data) => setIsAuthenticated(Boolean(data.authenticated)))
+          .catch(() => setIsAuthenticated(false));
       }
 
       const savedTheme = localStorage.getItem('loloat_monitor_theme') as 'light' | 'dark' | null;
@@ -117,9 +121,9 @@ export default function OrderMonitorPage() {
     if (!silent) setLoading(true);
     setIsRefreshing(true);
     try {
-      const [shiftsInfo, data] = await Promise.all([
-        fetchShiftsData(),
-        fetchOrdersFromDatabase(),
+      const [shiftsInfo, ordersResult] = await Promise.all([
+        fetchShiftsData({ view: 'meta' }),
+        fetchOrdersFromDatabase({ scope: 'current' }),
       ]);
 
       if (shiftsInfo) {
@@ -129,14 +133,20 @@ export default function OrderMonitorPage() {
         setArchivedOrderIds(shiftsInfo.archivedOrderIds || []);
       }
 
-      if (data && Array.isArray(data)) {
+      const fetchedOrders = ordersResult.orders || [];
+      if (ordersResult.stale) {
+        if (!silent) {
+          showNotice('تعذر الاتصال بالسيرفر. يتم عرض آخر فواتير تم تحميلها.', 'error');
+        }
+      }
+      if (Array.isArray(fetchedOrders)) {
         const archivedSet = new Set((shiftsInfo?.archivedOrderIds || archivedOrderIds).map(String));
-        const activeData = data.filter(o => !archivedSet.has(String(o.id)));
+        const activeData = fetchedOrders.filter(o => !archivedSet.has(String(o.id)));
         if (soundEnabled && prevOrdersCountRef.current > 0 && activeData.length > prevOrdersCountRef.current) {
           sounds.playAddChime();
         }
         prevOrdersCountRef.current = activeData.length;
-        setOrders(data);
+        setOrders(fetchedOrders);
       }
     } catch (err) {
       console.error('Error loading orders:', err);
@@ -182,29 +192,35 @@ export default function OrderMonitorPage() {
     }
   }, [isAuthenticated, soundEnabled]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
 
-    const targetPassword = (monitorPassword || 'sanhour123').trim();
-    const input = passwordInput.trim();
-
-    // Accept either the monitorPassword OR master admin default as fallback
-    if (input === targetPassword || input === 'sanhour2026') {
-      setIsAuthenticated(true);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('loloat_monitor_auth', 'true');
+    try {
+      const res = await fetch('/api/monitor-auth', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        sessionStorage.setItem('loloat_monitor_tab', '1');
+        setIsAuthenticated(true);
+        setPasswordInput('');
+      } else {
+        setAuthError(data?.message || 'الرقم السري غير صحيح، يرجى مراجعة إدارة المطعم');
       }
-      setPasswordInput('');
-    } else {
-      setAuthError('الرقم السري غير صحيح، يرجى مراجعة إدارة المطعم');
+    } catch {
+      setAuthError('تعذر الاتصال بالخادم، يرجى المحاولة لاحقاً');
     }
   };
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('loloat_monitor_auth');
-    }
+  const handleLogout = async () => {
+    sessionStorage.removeItem('loloat_monitor_tab');
+    try {
+      await fetch('/api/monitor-auth', { method: 'DELETE', credentials: 'include' });
+    } catch {}
     setIsAuthenticated(false);
   };
 
@@ -253,7 +269,7 @@ export default function OrderMonitorPage() {
       }
 
       if (msg) {
-        if (sendMode === 'auto' && instanceId && apiToken) {
+        if (sendMode === 'auto') {
           // الوضع التلقائي المباشر في الخلفية عبر API
           whatsAppOutcome = 'auto_success';
           sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken)

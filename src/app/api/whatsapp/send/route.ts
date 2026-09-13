@@ -1,34 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/auth';
+import { getWhatsAppGatewayCredentials } from '@/lib/supabaseAdmin';
 
 export async function POST(req: NextRequest) {
+  const session = requireSession(req, ['admin', 'monitor']);
+  if (session instanceof NextResponse) return session;
+
   try {
     const body = await req.json();
-    const { phone, text, instanceId, apiToken } = body;
+    const { phone, text } = body;
 
     if (!phone || !text) {
       return NextResponse.json({ success: false, error: 'رقم الهاتف أو نص الرسالة مفقود' }, { status: 400 });
     }
 
+    const override =
+      session.role === 'admin'
+        ? { instanceId: body.instanceId, apiToken: body.apiToken }
+        : undefined;
+
+    const { instanceId, apiToken } = await getWhatsAppGatewayCredentials(override);
+
     if (!instanceId || !apiToken) {
-      return NextResponse.json({ success: false, error: 'بيانات الربط (Instance ID و Token) غير محددة' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'بيانات الربط (Instance ID و Token) غير محددة' },
+        { status: 400 }
+      );
     }
 
-    // تنظيف رقم الهاتف وإضافة كود مصر 2
     let cleanPhone = String(phone).replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('01') && cleanPhone.length === 11) {
       cleanPhone = '2' + cleanPhone;
     }
 
-    // إرسال الطلب إلى مزود UltraMsg WhatsApp Gateway
     const params = new URLSearchParams();
-    params.append('token', apiToken.trim());
+    params.append('token', apiToken);
     params.append('to', cleanPhone);
-    params.append('body', text);
+    params.append('body', String(text));
 
-    const gatewayUrl = `https://api.ultramsg.com/${instanceId.trim()}/messages/chat`;
+    const gatewayUrl = `https://api.ultramsg.com/${instanceId}/messages/chat`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000); // مهلة 12 ثانية
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     const res = await fetch(gatewayUrl, {
       method: 'POST',

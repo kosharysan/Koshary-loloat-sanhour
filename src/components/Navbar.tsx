@@ -5,9 +5,14 @@ import Image from 'next/image';
 import { Phone, MessageCircle, Share2, ShoppingBag, Check } from 'lucide-react';
 import { restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
+import { useMenuStore } from '@/lib/menuStore';
+import { getWhatsAppMeLink } from '@/lib/whatsapp';
+import { getTelHref } from '@/lib/contactLinks';
 
 export const Navbar: React.FC = () => {
   const { getItemsCount, setIsCartOpen } = useCartStore();
+  const ordersWhatsappNumber = useMenuStore((state) => state.ordersWhatsappNumber);
+  const restaurantPhoneNumber = useMenuStore((state) => state.restaurantPhoneNumber);
   const [copied, setCopied] = useState(false);
   const itemsCount = getItemsCount();
 
@@ -70,7 +75,7 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-2">
           {/* Quick Call */}
           <a
-            href={`tel:${restaurantInfo.phone}`}
+            href={getTelHref(restaurantPhoneNumber || restaurantInfo.phone)}
             className="w-10 h-10 rounded-full bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 flex items-center justify-center text-slate-700 hover:text-red-600 transition hover:scale-105 active:scale-95 shadow-sm"
             title="اتصل بالمطعم"
           >
@@ -79,7 +84,7 @@ export const Navbar: React.FC = () => {
 
           {/* Quick WhatsApp */}
           <a
-            href={`https://wa.me/${restaurantInfo.whatsapp}`}
+            href={getWhatsAppMeLink(ordersWhatsappNumber || restaurantInfo.whatsapp)}
             target="_blank"
             rel="noopener noreferrer"
             className="w-10 h-10 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 transition hover:scale-105 active:scale-95 shadow-sm"

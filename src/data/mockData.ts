@@ -15,7 +15,7 @@ export const restaurantInfo: RestaurantInfo = {
   cashWalletNumber: '01050185556',
   cashWalletName: 'إدارة لؤلؤة سنهور',
   instapayHandle: 'lolat-sanhour@instapay',
-  instapayLink: 'https://ipn.eg'
+  instapayLink: ''
 };
 
 export const categories: Category[] = [

@@ -4,6 +4,7 @@ import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderS
 import { menuItems as defaultMenuItems, categories as defaultCategories, restaurantInfo, deliveryZones as defaultDeliveryZones } from '@/data/mockData';
 import { fetchRestaurantSettingsFromDb, saveRestaurantSettingsToDb } from '@/lib/supabase';
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate } from '@/lib/whatsapp';
+import { normalizeInstapayLink } from '@/lib/contactLinks';
 
 export const defaultWhatsAppNotificationSettings: WhatsAppNotificationSettings = {
   isEnabled: true,
@@ -240,11 +241,19 @@ interface MenuStore {
   isWalletPaymentEnabled: boolean;
   isInstapayPaymentEnabled: boolean;
   walletPhoneNumber: string;
+  walletAccountName: string;
   instapayHandle: string;
+  instapayLink: string;
+  ordersWhatsappNumber: string;
+  restaurantPhoneNumber: string;
   toggleWalletPayment: (enabled?: boolean) => void;
   toggleInstapayPayment: (enabled?: boolean) => void;
   setWalletPhoneNumber: (phone: string) => void;
+  setWalletAccountName: (name: string) => void;
   setInstapayHandle: (handle: string) => void;
+  setInstapayLink: (link: string) => void;
+  setOrdersWhatsappNumber: (phone: string) => void;
+  setRestaurantPhoneNumber: (phone: string) => void;
   isCouponsEnabled: boolean;
   coupons: Coupon[];
   toggleCouponsEnabled: (enabled?: boolean) => void;
@@ -271,6 +280,8 @@ interface MenuStore {
   resetToFactoryOriginal: () => void;
   monitorPassword?: string;
   setMonitorPassword: (password: string) => void;
+  applySecretsInMemory: (secrets: { monitorPassword?: string; instanceId?: string; apiToken?: string }) => void;
+  clearSecretsFromMemory: () => void;
   whatsappNotificationSettings: WhatsAppNotificationSettings;
   updateWhatsAppNotificationSettings: (settings: Partial<WhatsAppNotificationSettings>) => void;
   toggleWhatsAppNotificationEnabled: (enabled?: boolean) => void;
@@ -299,11 +310,35 @@ export const useMenuStore = create<MenuStore>()(
       isWalletPaymentEnabled: false,
       isInstapayPaymentEnabled: false,
       walletPhoneNumber: restaurantInfo.cashWalletNumber,
+      walletAccountName: restaurantInfo.cashWalletName,
       instapayHandle: restaurantInfo.instapayHandle,
-      monitorPassword: 'sanhour123',
+      instapayLink: restaurantInfo.instapayLink,
+      ordersWhatsappNumber: restaurantInfo.whatsapp,
+      restaurantPhoneNumber: restaurantInfo.phone,
+      monitorPassword: '',
       setMonitorPassword: (password: string) => {
         set({ monitorPassword: password.trim() });
         get().saveToServer();
+      },
+      applySecretsInMemory: (secrets) => {
+        set({
+          monitorPassword: (secrets.monitorPassword || '').trim(),
+          whatsappNotificationSettings: {
+            ...get().whatsappNotificationSettings,
+            instanceId: (secrets.instanceId || '').trim(),
+            apiToken: (secrets.apiToken || '').trim(),
+          },
+        });
+      },
+      clearSecretsFromMemory: () => {
+        set({
+          monitorPassword: '',
+          whatsappNotificationSettings: {
+            ...get().whatsappNotificationSettings,
+            instanceId: '',
+            apiToken: '',
+          },
+        });
       },
       whatsappNotificationSettings: defaultWhatsAppNotificationSettings,
       toggleWhatsAppNotificationEnabled: (enabled) => {
@@ -337,7 +372,11 @@ export const useMenuStore = create<MenuStore>()(
         isInstapayPaymentEnabled: typeof enabled === 'boolean' ? enabled : !state.isInstapayPaymentEnabled
       })),
       setWalletPhoneNumber: (phone) => set({ walletPhoneNumber: phone }),
+      setWalletAccountName: (name) => set({ walletAccountName: name }),
       setInstapayHandle: (handle) => set({ instapayHandle: handle }),
+      setInstapayLink: (link) => set({ instapayLink: link }),
+      setOrdersWhatsappNumber: (phone) => set({ ordersWhatsappNumber: phone }),
+      setRestaurantPhoneNumber: (phone) => set({ restaurantPhoneNumber: phone }),
       isCouponsEnabled: true,
       coupons: defaultCoupons,
       toggleCouponsEnabled: (enabled) => set(state => ({
@@ -659,45 +698,33 @@ export const useMenuStore = create<MenuStore>()(
               isWalletPaymentEnabled: typeof remoteData.isWalletPaymentEnabled === 'boolean' ? remoteData.isWalletPaymentEnabled : get().isWalletPaymentEnabled,
               isInstapayPaymentEnabled: typeof remoteData.isInstapayPaymentEnabled === 'boolean' ? remoteData.isInstapayPaymentEnabled : get().isInstapayPaymentEnabled,
               walletPhoneNumber: remoteData.walletPhoneNumber || get().walletPhoneNumber,
+              walletAccountName: remoteData.walletAccountName || get().walletAccountName,
               instapayHandle: remoteData.instapayHandle || get().instapayHandle,
+              instapayLink: typeof remoteData.instapayLink === 'string'
+                ? normalizeInstapayLink(remoteData.instapayLink)
+                : get().instapayLink,
+              ordersWhatsappNumber: remoteData.ordersWhatsappNumber || get().ordersWhatsappNumber,
+              restaurantPhoneNumber: remoteData.restaurantPhoneNumber || get().restaurantPhoneNumber,
               cartIncentiveSettings: remoteData.cartIncentiveSettings || get().cartIncentiveSettings,
               kosharyCustomOptions: remoteData.kosharyCustomOptions || get().kosharyCustomOptions,
               isCouponsEnabled: typeof remoteData.isCouponsEnabled === 'boolean' ? remoteData.isCouponsEnabled : get().isCouponsEnabled,
               isMinOrderEnabled: typeof remoteData.isMinOrderEnabled === 'boolean' ? remoteData.isMinOrderEnabled : get().isMinOrderEnabled,
-              monitorPassword: remoteData.monitorPassword || get().monitorPassword || 'sanhour123',
-              whatsappNotificationSettings: remoteData.whatsappNotificationSettings || get().whatsappNotificationSettings || defaultWhatsAppNotificationSettings,
+              monitorPassword: get().monitorPassword || '',
+              whatsappNotificationSettings: {
+                ...defaultWhatsAppNotificationSettings,
+                ...(get().whatsappNotificationSettings || {}),
+                ...(remoteData.whatsappNotificationSettings || {}),
+                instanceId: remoteData.whatsappNotificationSettings?.instanceId || get().whatsappNotificationSettings?.instanceId || '',
+                apiToken: remoteData.whatsappNotificationSettings?.apiToken || get().whatsappNotificationSettings?.apiToken || '',
+              },
               isServerSyncing: false,
               lastServerSyncTime: new Date().toLocaleTimeString('ar-EG'),
             });
           } else {
-            // First time seeding Supabase from current laptop state
-            const currentPayload = {
-              items: get().items,
-              categories: get().categories,
-              marketingFilters: get().marketingFilters,
-              dishBuilderSettings: get().dishBuilderSettings,
-              deliveryZones: get().deliveryZones,
-              coupons: get().coupons,
-              storeScheduleSettings: get().storeScheduleSettings,
-              heroFeaturedItemIds: get().heroFeaturedItemIds,
-              heroFeaturedItemId: get().heroFeaturedItemId,
-              heroBadgeText: get().heroBadgeText,
-              isWalletPaymentEnabled: get().isWalletPaymentEnabled,
-              isInstapayPaymentEnabled: get().isInstapayPaymentEnabled,
-              walletPhoneNumber: get().walletPhoneNumber,
-              instapayHandle: get().instapayHandle,
-              cartIncentiveSettings: get().cartIncentiveSettings,
-              kosharyCustomOptions: get().kosharyCustomOptions,
-              isCouponsEnabled: get().isCouponsEnabled,
-              isMinOrderEnabled: get().isMinOrderEnabled,
-              monitorPassword: get().monitorPassword || 'sanhour123',
-              whatsappNotificationSettings: get().whatsappNotificationSettings,
-            };
-            const res = await saveRestaurantSettingsToDb(currentPayload);
             set({
               isServerSyncing: false,
-              lastServerSyncTime: res.success ? new Date().toLocaleTimeString('ar-EG') : null,
-              serverSyncError: res.error || null,
+              lastServerSyncTime: null,
+              serverSyncError: null,
             });
           }
         } catch (err: any) {
@@ -721,12 +748,16 @@ export const useMenuStore = create<MenuStore>()(
             isWalletPaymentEnabled: get().isWalletPaymentEnabled,
             isInstapayPaymentEnabled: get().isInstapayPaymentEnabled,
             walletPhoneNumber: get().walletPhoneNumber,
+            walletAccountName: get().walletAccountName,
             instapayHandle: get().instapayHandle,
+            instapayLink: normalizeInstapayLink(get().instapayLink),
+            ordersWhatsappNumber: get().ordersWhatsappNumber,
+            restaurantPhoneNumber: get().restaurantPhoneNumber,
             cartIncentiveSettings: get().cartIncentiveSettings,
             kosharyCustomOptions: get().kosharyCustomOptions,
             isCouponsEnabled: get().isCouponsEnabled,
             isMinOrderEnabled: get().isMinOrderEnabled,
-            monitorPassword: get().monitorPassword || 'sanhour123',
+            monitorPassword: get().monitorPassword || '',
             whatsappNotificationSettings: get().whatsappNotificationSettings,
           };
           const res = await saveRestaurantSettingsToDb(payload);
@@ -812,8 +843,14 @@ export const useMenuStore = create<MenuStore>()(
           ? persistedState.isInstapayPaymentEnabled
           : false,
         walletPhoneNumber: persistedState?.walletPhoneNumber || restaurantInfo.cashWalletNumber,
+        walletAccountName: persistedState?.walletAccountName || restaurantInfo.cashWalletName,
         instapayHandle: persistedState?.instapayHandle || restaurantInfo.instapayHandle,
-        monitorPassword: persistedState?.monitorPassword || 'sanhour123',
+        instapayLink: typeof persistedState?.instapayLink === 'string'
+          ? normalizeInstapayLink(persistedState.instapayLink)
+          : normalizeInstapayLink(restaurantInfo.instapayLink),
+        ordersWhatsappNumber: persistedState?.ordersWhatsappNumber || restaurantInfo.whatsapp,
+        restaurantPhoneNumber: persistedState?.restaurantPhoneNumber || restaurantInfo.phone,
+        monitorPassword: '',
         whatsappNotificationSettings: persistedState?.whatsappNotificationSettings
           ? {
               ...defaultWhatsAppNotificationSettings,
@@ -822,8 +859,8 @@ export const useMenuStore = create<MenuStore>()(
                 ? persistedState.whatsappNotificationSettings.isEnabled
                 : defaultWhatsAppNotificationSettings.isEnabled,
               sendMode: persistedState.whatsappNotificationSettings.sendMode === 'auto' ? 'auto' : 'manual',
-              instanceId: persistedState.whatsappNotificationSettings.instanceId || '',
-              apiToken: persistedState.whatsappNotificationSettings.apiToken || '',
+              instanceId: '',
+              apiToken: '',
               confirmTemplate: persistedState.whatsappNotificationSettings.confirmTemplate || defaultWhatsAppNotificationSettings.confirmTemplate,
               cancelTemplate: persistedState.whatsappNotificationSettings.cancelTemplate || defaultWhatsAppNotificationSettings.cancelTemplate,
             }
@@ -917,6 +954,33 @@ export const useMenuStore = create<MenuStore>()(
             })
           : defaultMarketingFilters,
       }),
+      partialize: (state) => ({
+        ...state,
+        monitorPassword: '',
+        whatsappNotificationSettings: {
+          ...state.whatsappNotificationSettings,
+          instanceId: '',
+          apiToken: '',
+        },
+      }),
+      onRehydrateStorage: () => () => {
+        if (typeof window === 'undefined') return;
+        try {
+          const raw = localStorage.getItem('lolat_menu_store_v3');
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const stored = parsed?.state;
+          if (!stored || typeof stored !== 'object') return;
+          stored.monitorPassword = '';
+          if (stored.whatsappNotificationSettings && typeof stored.whatsappNotificationSettings === 'object') {
+            stored.whatsappNotificationSettings.instanceId = '';
+            stored.whatsappNotificationSettings.apiToken = '';
+          }
+          localStorage.setItem('lolat_menu_store_v3', JSON.stringify(parsed));
+        } catch {
+          // ignore broken local cache
+        }
+      },
     }
   )
 );

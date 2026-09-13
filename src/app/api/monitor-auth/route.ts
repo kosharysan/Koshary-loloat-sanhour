@@ -2,22 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   attachSessionCookie,
   clearSessionCookie,
-  getAdminPassword,
   getClientIp,
   verifyPassword,
 } from '@/lib/auth';
+import { getMonitorPassword } from '@/lib/supabaseAdmin';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
-
 const loginAttempts = new Map<string, { attempts: number; lockedUntil: number }>();
 
 export async function POST(req: NextRequest) {
   try {
-    const adminPassword = getAdminPassword();
-    if (!adminPassword) {
+    const monitorPassword = await getMonitorPassword();
+    if (!monitorPassword) {
       return NextResponse.json(
-        { success: false, message: 'كلمة مرور الأدمن غير مضبوطة على السيرفر. أضف ADMIN_PASSWORD.' },
+        { success: false, message: 'كلمة مرور شاشة المتابعة غير مضبوطة. اضبطها من إعدادات الأدمن أو MONITOR_PASSWORD.' },
         { status: 503 }
       );
     }
@@ -44,13 +43,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (verifyPassword(password, adminPassword)) {
+    if (verifyPassword(password.trim(), monitorPassword)) {
       loginAttempts.delete(ip);
       const response = NextResponse.json({
         success: true,
         message: 'تم تسجيل الدخول بنجاح',
       });
-      return attachSessionCookie(response, 'admin');
+      return attachSessionCookie(response, 'monitor');
     }
 
     const attempts = (currentStatus?.attempts || 0) + 1;
@@ -81,5 +80,5 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const response = NextResponse.json({ success: true, message: 'تم تسجيل الخروج بنجاح' });
-  return clearSessionCookie(response, 'admin');
+  return clearSessionCookie(response, 'monitor');
 }

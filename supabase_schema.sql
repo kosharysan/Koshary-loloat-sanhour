@@ -27,29 +27,11 @@ CREATE TABLE IF NOT EXISTS public.orders (
 -- تمكين أمان الصفوف (Row Level Security)
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
--- السماح للزبائن بإرسال طلبات جديدة
-CREATE POLICY "Allow public insert to orders"
-ON public.orders FOR INSERT
-WITH CHECK (true);
-
--- السماح للمشرف بقراءة الطلبات
+-- لا توجد سياسات عامة: القراءة والكتابة تتم من السيرفر بمفتاح service role فقط.
+DROP POLICY IF EXISTS "Allow public insert to orders" ON public.orders;
 DROP POLICY IF EXISTS "Allow read orders" ON public.orders;
-CREATE POLICY "Allow read orders"
-ON public.orders FOR SELECT
-USING (true);
-
--- السماح بتحديث حالة الطلبات من لوحة التحكم وشاشة المتابعة (تأكيد / إلغاء)
 DROP POLICY IF EXISTS "Allow update orders" ON public.orders;
-CREATE POLICY "Allow update orders"
-ON public.orders FOR UPDATE
-USING (true)
-WITH CHECK (true);
-
--- السماح بحذف الطلبات من السجل
 DROP POLICY IF EXISTS "Allow delete orders" ON public.orders;
-CREATE POLICY "Allow delete orders"
-ON public.orders FOR DELETE
-USING (true);
 
 -- 2. تفعيل الإشعارات اللحظية للطلبات (Realtime Subscriptions)
 DO $$

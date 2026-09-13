@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -60,10 +60,13 @@ import {
 } from 'lucide-react';
 import { Coupon, DeliveryZone, StoreScheduleSettings, ClosedShift } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
-import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase, fetchShiftsData, closeShiftInDatabase } from '@/lib/supabase';
+import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase, fetchShiftsData, closeShiftInDatabase, fetchReportFromServer } from '@/lib/supabase';
+import { EMPTY_REPORT, type ReportCustomerLimit, type ReportPayload } from '@/lib/reportStats';
 import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
+import { ReportBarChart, type ReportChartStyle } from '@/components/admin/ReportBarChart';
 import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, defaultWhatsAppNotificationSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat, sendWhatsAppMessageApi } from '@/lib/whatsapp';
+import { isGenericInstapayHomepage, normalizeInstapayLink } from '@/lib/contactLinks';
 
 // استخراج تفاصيل الأصناف وملاحظات العميل من النص المنظم للطلب
 function parseOrderDetails(specialNotes?: string) {
@@ -228,6 +231,10 @@ export default function AdminPortal() {
   // تبويبات قسم الطلبات والمبيعات: 1. الوردية الحالية 2. فواتير الورديات 3. التقرير الشهري والسنوي
   const [ordersSubTab, setOrdersSubTab] = useState<'current_shift' | 'shifts_history' | 'reports'>('current_shift');
   const [closedShifts, setClosedShifts] = useState<ClosedShift[]>([]);
+  const [totalClosedShifts, setTotalClosedShifts] = useState(0);
+  const [totalArchivedInvoices, setTotalArchivedInvoices] = useState(0);
+  const [closedShiftsCustomerSearchResults, setClosedShiftsCustomerSearchResults] = useState<{ order: any; shift: ClosedShift }[]>([]);
+  const [shiftCustomerSearchLoading, setShiftCustomerSearchLoading] = useState(false);
   const [currentShiftStartTime, setCurrentShiftStartTime] = useState<string>('');
   const [currentShiftNumber, setCurrentShiftNumber] = useState<number>(1);
   const [archivedOrderIds, setArchivedOrderIds] = useState<string[]>([]);
@@ -243,7 +250,7 @@ export default function AdminPortal() {
   // فلاتر تبويبة فواتير الورديات المقفلة (بالوردية أو باسم ورقم هاتف العميل)
   const [shiftSearchMode, setShiftSearchMode] = useState<'by_shift' | 'by_customer'>('by_shift');
   const [shiftCustomerSearchQuery, setShiftCustomerSearchQuery] = useState('');
-  const [shiftPeriodFilter, setShiftPeriodFilter] = useState<'all' | 'specific' | 'today' | 'week' | 'month' | 'quarter' | 'half_year' | 'year' | 'custom'>('all');
+  const [shiftPeriodFilter, setShiftPeriodFilter] = useState<'recent' | 'all' | 'specific' | 'today' | 'week' | 'month' | 'quarter' | 'half_year' | 'year' | 'custom'>('recent');
   const [shiftFilterSpecificShift, setShiftFilterSpecificShift] = useState<string>('all');
   const [shiftCustomStart, setShiftCustomStart] = useState<string>('');
   const [shiftCustomEnd, setShiftCustomEnd] = useState<string>('');
@@ -252,23 +259,28 @@ export default function AdminPortal() {
   const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Time, Range, and Customer Search Filters
-  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'year' | 'all' | 'custom'>('all');
+  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'year' | 'all' | 'custom'>('month');
+  const [reportData, setReportData] = useState<ReportPayload>(EMPTY_REPORT);
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
   const [orderToDelete, setOrderToDelete] = useState<any | null>(null);
   const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
+  const [connectionNotice, setConnectionNotice] = useState<string | null>(null);
 
   // فلاتر وتحليلات التقرير الشهري والسنوي
   const [reportSelectedYear, setReportSelectedYear] = useState<string>('all');
   const [reportSelectedMonth, setReportSelectedMonth] = useState<string>('all');
   const [reportCustomerTab, setReportCustomerTab] = useState<'active' | 'inactive'>('active');
-  const [reportSelectedItemForChart, setReportSelectedItemForChart] = useState<string | null>(null);
+  const [reportCustomerLimit, setReportCustomerLimit] = useState<ReportCustomerLimit>('50');
+  const [reportSelectedItemForChart, setReportSelectedItemForChart] = useState<string[]>([]);
+  const [reportItemChartMode, setReportItemChartMode] = useState<'separate' | 'combined'>('separate');
+  const [reportSalesChartStyle, setReportSalesChartStyle] = useState<ReportChartStyle>('bars');
+  const [reportItemChartStyle, setReportItemChartStyle] = useState<ReportChartStyle>('bars');
 
   const [storeStatus, setStoreStatus] = useState<boolean>(defaultInfo.isOpen);
   const [walletPhone, setWalletPhone] = useState(defaultInfo.cashWalletNumber);
   const [instapayId, setInstapayId] = useState(defaultInfo.instapayHandle);
-  const [restaurantPhone, setRestaurantPhone] = useState(defaultInfo.phone);
   const [zonesList, setZonesList] = useState(defaultZones);
   const [savedNotice, setSavedNotice] = useState(false);
 
@@ -281,11 +293,20 @@ export default function AdminPortal() {
     isWalletPaymentEnabled,
     isInstapayPaymentEnabled,
     walletPhoneNumber,
+    walletAccountName,
     instapayHandle,
+    instapayLink,
+    ordersWhatsappNumber,
+    restaurantPhoneNumber,
     toggleWalletPayment,
     toggleInstapayPayment,
     setWalletPhoneNumber,
+    setWalletAccountName,
     setInstapayHandle,
+    setInstapayLink,
+    setOrdersWhatsappNumber,
+    setRestaurantPhoneNumber,
+    saveToServer,
     isCouponsEnabled,
     coupons,
     toggleCouponsEnabled,
@@ -306,15 +327,17 @@ export default function AdminPortal() {
     storeScheduleSettings = defaultStoreScheduleSettings,
     updateStoreScheduleSettings,
     toggleStoreManualStatus,
-    monitorPassword = 'sanhour123',
+    monitorPassword = '',
     setMonitorPassword,
+    applySecretsInMemory,
+    clearSecretsFromMemory,
     whatsappNotificationSettings = defaultWhatsAppNotificationSettings,
     updateWhatsAppNotificationSettings,
     toggleWhatsAppNotificationEnabled,
     resetWhatsAppNotificationSettings,
   } = useMenuStore();
 
-  const [tempMonitorPassword, setTempMonitorPassword] = useState(monitorPassword || 'sanhour123');
+  const [tempMonitorPassword, setTempMonitorPassword] = useState(monitorPassword || '');
   const [showMonitorPassword, setShowMonitorPassword] = useState(false);
   const [monitorPassNotice, setMonitorPassNotice] = useState<string | null>(null);
 
@@ -699,9 +722,27 @@ export default function AdminPortal() {
   useEffect(() => {
     async function checkAuth() {
       try {
-        const res = await fetch('/api/admin-auth/check');
+        const tabAlive = sessionStorage.getItem('loloat_admin_tab') === '1';
+        if (!tabAlive) {
+          await fetch('/api/admin-auth', { method: 'DELETE', credentials: 'include' });
+          setIsAuthenticated(false);
+          return;
+        }
+
+        const res = await fetch('/api/admin-auth/check', { credentials: 'include' });
         const data = await res.json();
-        setIsAuthenticated(Boolean(data.authenticated));
+        const ok = Boolean(data.authenticated);
+        setIsAuthenticated(ok);
+        if (ok) {
+          const secretsRes = await fetch('/api/secrets', { credentials: 'include' });
+          if (secretsRes.ok) {
+            const secrets = await secretsRes.json();
+            applySecretsInMemory(secrets);
+            if (secrets.monitorPassword) setTempMonitorPassword(secrets.monitorPassword);
+            if (secrets.instanceId) setTempInstanceId(secrets.instanceId);
+            if (secrets.apiToken) setTempApiToken(secrets.apiToken);
+          }
+        }
       } catch {
         setIsAuthenticated(false);
       }
@@ -712,20 +753,58 @@ export default function AdminPortal() {
   const loadOrders = async () => {
     setOrdersLoading(true);
     try {
-      const [data, shiftsInfo] = await Promise.all([
-        fetchOrdersFromDatabase(),
-        fetchShiftsData()
-      ]);
-      setOrders(data || []);
-      if (shiftsInfo) {
-        setClosedShifts(shiftsInfo.closedShifts || []);
+      if (ordersSubTab === 'reports') {
+        const shiftsInfo = await fetchShiftsData({ view: 'meta' });
+        setTotalClosedShifts(shiftsInfo.totalClosedShifts || 0);
+        setTotalArchivedInvoices(shiftsInfo.totalArchivedInvoices || 0);
         setCurrentShiftStartTime(shiftsInfo.currentShiftStartTime || '');
         setCurrentShiftNumber(shiftsInfo.currentShiftNumber || 1);
-        setArchivedOrderIds(shiftsInfo.archivedOrderIds || []);
+        if (shiftsInfo.archivedOrderIds.length > 0) {
+          setArchivedOrderIds(shiftsInfo.archivedOrderIds);
+        }
+        setConnectionNotice(null);
+        return;
+      }
+
+      if (ordersSubTab === 'shifts_history') {
+        const shiftsInfo = await fetchShiftsData({
+          period: shiftPeriodFilter === 'specific' ? 'recent' : shiftPeriodFilter,
+          from: shiftCustomStart,
+          to: shiftCustomEnd,
+        });
+        setClosedShifts(shiftsInfo.closedShifts || []);
+        setTotalClosedShifts(shiftsInfo.totalClosedShifts || 0);
+        setTotalArchivedInvoices(shiftsInfo.totalArchivedInvoices || 0);
+        setCurrentShiftStartTime(shiftsInfo.currentShiftStartTime || '');
+        setCurrentShiftNumber(shiftsInfo.currentShiftNumber || 1);
+        setConnectionNotice(null);
+        return;
+      }
+
+      const fetchScope = ordersSubTab === 'current_shift' ? 'current' : 'all';
+      const [ordersResult, shiftsInfo] = await Promise.all([
+        fetchOrdersFromDatabase({ scope: fetchScope }),
+        fetchShiftsData({ view: 'meta' }),
+      ]);
+      setOrders(ordersResult.orders || []);
+      if (ordersResult.stale) {
+        setConnectionNotice('تعذر الاتصال بالسيرفر. يتم عرض آخر فواتير تم تحميلها.');
+        setTimeout(() => setConnectionNotice(null), 4000);
+      } else {
+        setConnectionNotice(null);
+      }
+      if (shiftsInfo) {
+        setTotalClosedShifts(shiftsInfo.totalClosedShifts || 0);
+        setTotalArchivedInvoices(shiftsInfo.totalArchivedInvoices || 0);
+        setCurrentShiftStartTime(shiftsInfo.currentShiftStartTime || '');
+        setCurrentShiftNumber(shiftsInfo.currentShiftNumber || 1);
+        if (shiftsInfo.archivedOrderIds.length > 0) {
+          setArchivedOrderIds(shiftsInfo.archivedOrderIds);
+        }
       }
     } catch (e) {
       console.error(e);
-      setOrders([]);
+      if (ordersSubTab !== 'shifts_history') setOrders([]);
     } finally {
       setOrdersLoading(false);
     }
@@ -815,67 +894,14 @@ export default function AdminPortal() {
     return list;
   }, [selectedShiftForView, shiftInvoicesStatusFilter, shiftInvoicesSearchQuery]);
 
-  // فلترة الورديات المقفلة بحسب الفلتر المختار (وردية معينة، اليوم، أسبوع، شهر، ربع سنة، نصف سنة، سنة، أو فترة مخصصة)
+  // الورديات المعروضة: السيرفر فلتر الفترة، والوردية المعينة تتحدد من القائمة
   const filteredClosedShifts = useMemo(() => {
     if (closedShifts.length === 0) return [];
-    
-    // 1. إذا تم اختيار وردية معينة
     if (shiftFilterSpecificShift !== 'all') {
       return closedShifts.filter(s => String(s.shiftNumber) === String(shiftFilterSpecificShift) || String(s.id) === String(shiftFilterSpecificShift));
     }
-
-    if (shiftPeriodFilter === 'all') return closedShifts;
-
-    const now = new Date();
-
-    if (shiftPeriodFilter === 'today') {
-      const todayStr = now.toISOString().slice(0, 10);
-      return closedShifts.filter(s => (s.closedAt || s.openedAt || '').startsWith(todayStr));
-    }
-
-    if (shiftPeriodFilter === 'week') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= weekAgo.getTime());
-    }
-
-    if (shiftPeriodFilter === 'month') {
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= monthAgo.getTime());
-    }
-
-    if (shiftPeriodFilter === 'quarter') {
-      // ربع سنة (3 أشهر = 90 يوم)
-      const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= quarterAgo.getTime());
-    }
-
-    if (shiftPeriodFilter === 'half_year') {
-      // نصف سنة (6 أشهر = 182 يوم)
-      const halfYearAgo = new Date(now.getTime() - 182 * 24 * 60 * 60 * 1000);
-      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= halfYearAgo.getTime());
-    }
-
-    if (shiftPeriodFilter === 'year') {
-      // سنة كاملة (365 يوم)
-      const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      return closedShifts.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= yearAgo.getTime());
-    }
-
-    if (shiftPeriodFilter === 'custom') {
-      let list = closedShifts;
-      if (shiftCustomStart) {
-        const startTimestamp = new Date(shiftCustomStart).setHours(0, 0, 0, 0);
-        list = list.filter(s => new Date(s.closedAt || s.openedAt).getTime() >= startTimestamp);
-      }
-      if (shiftCustomEnd) {
-        const endTimestamp = new Date(shiftCustomEnd).setHours(23, 59, 59, 999);
-        list = list.filter(s => new Date(s.closedAt || s.openedAt).getTime() <= endTimestamp);
-      }
-      return list;
-    }
-
     return closedShifts;
-  }, [closedShifts, shiftPeriodFilter, shiftFilterSpecificShift, shiftCustomStart, shiftCustomEnd]);
+  }, [closedShifts, shiftFilterSpecificShift]);
 
   // إجمالي الإحصائيات التاريخية للورديات المعروضة بعد الفلترة
   const closedShiftsTotalStats = useMemo(() => {
@@ -888,84 +914,7 @@ export default function AdminPortal() {
     return { totalRev, totalOrdersCount, totalConfirmed };
   }, [filteredClosedShifts]);
 
-  // تجميع كل الفواتير المحفوظة في الورديات المقفلة مع معلومات ورديتها للبحث الشامل
-  const allClosedShiftsOrdersWithShift = useMemo(() => {
-    const map = new Map<string, { order: any; shift: ClosedShift }>();
-
-    // 1. المرور على كل الورديات المقفلة واستخراج فواتيرها
-    closedShifts.forEach(shift => {
-      if (Array.isArray(shift.orders)) {
-        shift.orders.forEach((ord: any) => {
-          if (ord && ord.id && !map.has(String(ord.id))) {
-            map.set(String(ord.id), { order: ord, shift });
-          }
-        });
-      }
-
-      // إذا كانت أرقام الفواتير مسجلة في الوردية كـ orderIds
-      if (Array.isArray(shift.orderIds)) {
-        shift.orderIds.forEach((id: string) => {
-          if (id && !map.has(String(id))) {
-            const matchedInOrders = orders.find(o => String(o.id) === String(id));
-            if (matchedInOrders) {
-              map.set(String(id), { order: matchedInOrders, shift });
-            }
-          }
-        });
-      }
-    });
-
-    // 2. أيضاً أي فواتير مؤرشفة تنتمي لـ archivedOrderIds لكن لم تظهر في orders داخل الوردية
-    archivedOrderIds.forEach(id => {
-      if (id && !map.has(String(id))) {
-        const matched = orders.find(o => String(o.id) === String(id));
-        if (matched) {
-          const matchedShift = closedShifts.find(s => s.orderIds?.includes(String(id)));
-          map.set(String(id), {
-            order: matched,
-            shift: matchedShift || {
-              id: 'shift-archived',
-              shiftNumber: 1,
-              openedAt: matched.created_at,
-              closedAt: matched.created_at,
-              orderIds: [String(id)],
-              orders: [matched],
-              summary: {} as any
-            }
-          });
-        }
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => {
-      const timeA = new Date(a.order.created_at || a.shift.closedAt).getTime();
-      const timeB = new Date(b.order.created_at || b.shift.closedAt).getTime();
-      return timeB - timeA;
-    });
-  }, [closedShifts, orders, archivedOrderIds]);
-
-  // فلترة نتائج البحث باسم أو رقم هاتف العميل في كل فواتير الورديات المقفلة
-  const closedShiftsCustomerSearchResults = useMemo(() => {
-    const q = shiftCustomerSearchQuery.trim().toLowerCase();
-    if (!q) return [];
-
-    const digitsOnlyQuery = q.replace(/\D/g, '');
-
-    return allClosedShiftsOrdersWithShift.filter(({ order }) => {
-      const name = (order.customer_name || '').toLowerCase();
-      const phone = (order.customer_phone || '').trim();
-      const digitsOnlyPhone = phone.replace(/\D/g, '');
-      const orderId = String(order.id).toLowerCase();
-      const address = (order.delivery_address || '').toLowerCase();
-
-      const matchName = name.includes(q);
-      const matchPhone = phone.includes(q) || (digitsOnlyQuery.length >= 3 && digitsOnlyPhone.includes(digitsOnlyQuery));
-      const matchId = orderId.includes(q);
-      const matchAddress = address.includes(q);
-
-      return matchName || matchPhone || matchId || matchAddress;
-    });
-  }, [allClosedShiftsOrdersWithShift, shiftCustomerSearchQuery]);
+  const shiftCustomerSearchSeq = useRef(0);
 
   // إحصائيات وبيانات الرسم البياني لمقارنة صافي المبيعات بين الورديات المعروضة
   const shiftChartData = useMemo(() => {
@@ -1049,6 +998,7 @@ export default function AdminPortal() {
       setCurrentShiftStartTime(nowIso);
       setCurrentShiftNumber(newShiftNum);
       setClosedShifts(prev => [closedShiftRecord, ...prev]);
+      setTotalClosedShifts(prev => prev + 1);
       setIsShiftModalOpen(false);
 
       alert(`تم تقفيل الوردية رقم #${currentShiftNumber} بنجاح وتصفير الفواتير لبدء الوردية #${newShiftNum} 🔒✓`);
@@ -1236,12 +1186,81 @@ export default function AdminPortal() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadOrders();
+    if (!isAuthenticated) return;
+    loadOrders();
+    if (ordersSubTab === 'current_shift') {
       const interval = setInterval(loadOrders, 30000);
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, ordersSubTab, shiftPeriodFilter, shiftCustomStart, shiftCustomEnd]);
+
+  useEffect(() => {
+    if (!isAuthenticated || ordersSubTab !== 'shifts_history' || shiftSearchMode !== 'by_customer') {
+      return;
+    }
+
+    const q = shiftCustomerSearchQuery.trim();
+    if (!q) {
+      setClosedShiftsCustomerSearchResults([]);
+      setShiftCustomerSearchLoading(false);
+      return;
+    }
+
+    const seq = ++shiftCustomerSearchSeq.current;
+    setShiftCustomerSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const result = await fetchShiftsData({ q });
+        if (seq !== shiftCustomerSearchSeq.current) return;
+        setClosedShiftsCustomerSearchResults(result.customerMatches || []);
+        if (result.totalArchivedInvoices) setTotalArchivedInvoices(result.totalArchivedInvoices);
+        if (result.totalClosedShifts) setTotalClosedShifts(result.totalClosedShifts);
+      } catch {
+        if (seq !== shiftCustomerSearchSeq.current) return;
+        setClosedShiftsCustomerSearchResults([]);
+      } finally {
+        if (seq === shiftCustomerSearchSeq.current) setShiftCustomerSearchLoading(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, ordersSubTab, shiftSearchMode, shiftCustomerSearchQuery]);
+
+  useEffect(() => {
+    if (!isAuthenticated || ordersSubTab !== 'reports') return;
+
+    let cancelled = false;
+    (async () => {
+      setOrdersLoading(true);
+      try {
+        const result = await fetchReportFromServer({
+          period: timeFilter,
+          year: reportSelectedYear,
+          month: reportSelectedMonth,
+          from: customStartDate,
+          to: customEndDate,
+          q: customerSearchQuery,
+          customerLimit: reportCustomerLimit,
+        });
+        if (cancelled) return;
+        setReportData(result.report);
+        if (result.stale) {
+          setConnectionNotice('تعذر الاتصال بالسيرفر. تعذر تحديث التقرير.');
+          setTimeout(() => setConnectionNotice(null), 4000);
+        } else {
+          setConnectionNotice(null);
+        }
+      } catch {
+        if (!cancelled) setReportData(EMPTY_REPORT);
+      } finally {
+        if (!cancelled) setOrdersLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, ordersSubTab, timeFilter, reportSelectedYear, reportSelectedMonth, customStartDate, customEndDate, customerSearchQuery, reportCustomerLimit]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1253,6 +1272,7 @@ export default function AdminPortal() {
     try {
       const res = await fetch('/api/admin-auth', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: passwordInput })
       });
@@ -1260,8 +1280,17 @@ export default function AdminPortal() {
       const data = await res.json();
 
       if (res.ok && data.success) {
+        sessionStorage.setItem('loloat_admin_tab', '1');
         setIsAuthenticated(true);
         setPasswordInput('');
+        const secretsRes = await fetch('/api/secrets', { credentials: 'include' });
+        if (secretsRes.ok) {
+          const secrets = await secretsRes.json();
+          applySecretsInMemory(secrets);
+          if (secrets.monitorPassword) setTempMonitorPassword(secrets.monitorPassword);
+          if (secrets.instanceId) setTempInstanceId(secrets.instanceId);
+          if (secrets.apiToken) setTempApiToken(secrets.apiToken);
+        }
       } else {
         setAuthError(data.message || 'كلمة المرور غير صحيحة');
       }
@@ -1273,7 +1302,12 @@ export default function AdminPortal() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/admin-auth', { method: 'DELETE' });
+    sessionStorage.removeItem('loloat_admin_tab');
+    await fetch('/api/admin-auth', { method: 'DELETE', credentials: 'include' });
+    clearSecretsFromMemory();
+    setTempMonitorPassword('');
+    setTempInstanceId('');
+    setTempApiToken('');
     setIsAuthenticated(false);
   };
 
@@ -1300,7 +1334,7 @@ export default function AdminPortal() {
       }
 
       if (msg) {
-        if (sendMode === 'auto' && instanceId && apiToken) {
+        if (sendMode === 'auto') {
           sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken);
         } else {
           openWhatsAppChat(targetOrder.customer_phone, msg);
@@ -1329,123 +1363,19 @@ export default function AdminPortal() {
     setTimeout(() => setSavedNotice(false), 2500);
   };
 
-  // السنوات المتاحة في الطلبات المسجلة للتقرير
-  const availableYears = useMemo(() => {
-    const years = new Set<number>();
-    orders.forEach(o => {
-      if (o.created_at) {
-        const y = new Date(o.created_at).getFullYear();
-        if (!isNaN(y)) years.add(y);
-      }
-    });
-    if (years.size === 0) years.add(new Date().getFullYear());
-    return Array.from(years).sort((a, b) => b - a);
-  }, [orders]);
+  const persistAndConfirm = async () => {
+    const res = await saveToServer();
+    if (res?.success) {
+      showSaveIndicator();
+    }
+  };
 
-  const filteredOrders = useMemo(() => {
-    const now = new Date();
-
-    return orders.filter(o => {
-      const orderDate = new Date(o.created_at || Date.now());
-
-      // فلترة مخصصة لتبويبة التقارير (سنة محددة أو شهر محدد)
-      if (ordersSubTab === 'reports') {
-        if (reportSelectedYear !== 'all') {
-          if (orderDate.getFullYear() !== Number(reportSelectedYear)) return false;
-        }
-        if (reportSelectedMonth !== 'all') {
-          if (orderDate.getMonth() + 1 !== Number(reportSelectedMonth)) return false;
-        }
-      }
-
-      // 1. Time filter
-      if (timeFilter !== 'all') {
-        if (timeFilter === 'today') {
-          const isToday =
-            orderDate.getFullYear() === now.getFullYear() &&
-            orderDate.getMonth() === now.getMonth() &&
-            orderDate.getDate() === now.getDate();
-          if (!isToday) return false;
-        } else if (timeFilter === 'week') {
-          const diffMs = now.getTime() - orderDate.getTime();
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
-          if (diffDays < 0 || diffDays > 7) return false;
-        } else if (timeFilter === 'month') {
-          const isThisMonth =
-            orderDate.getFullYear() === now.getFullYear() &&
-            orderDate.getMonth() === now.getMonth();
-          if (!isThisMonth) return false;
-        } else if (timeFilter === 'year') {
-          const isThisYear = orderDate.getFullYear() === now.getFullYear();
-          if (!isThisYear) return false;
-        } else if (timeFilter === 'custom') {
-          if (customStartDate) {
-            const start = new Date(customStartDate);
-            start.setHours(0, 0, 0, 0);
-            if (orderDate < start) return false;
-          }
-          if (customEndDate) {
-            const end = new Date(customEndDate);
-            end.setHours(23, 59, 59, 999);
-            if (orderDate > end) return false;
-          }
-        }
-      }
-
-      // 2. Name & Phone search
-      if (customerSearchQuery.trim()) {
-        const q = customerSearchQuery.toLowerCase().trim();
-        const matchName = o.customer_name?.toLowerCase().includes(q);
-        const matchPhone = o.customer_phone?.includes(q);
-        const matchId = String(o.id).toLowerCase().includes(q);
-        if (!matchName && !matchPhone && !matchId) return false;
-      }
-
-      return true;
-    });
-  }, [orders, timeFilter, customStartDate, customEndDate, customerSearchQuery, ordersSubTab, reportSelectedYear, reportSelectedMonth]);
-
-  // 1. إجمالي المبيعات والأرباح للطلبات المؤكدة فقط (التي تم الضغط على زر تأكيد لها ولم تُلغَ)
-  const confirmedOrders = useMemo(() => {
-    return filteredOrders.filter(o => o.status === 'confirmed');
-  }, [filteredOrders]);
-
-  const confirmedRevenue = useMemo(() => {
-    return confirmedOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-  }, [confirmedOrders]);
-
-  const uniqueConfirmedCustomerCount = useMemo(() => {
-    const set = new Set(
-      confirmedOrders.map(o => (o.customer_phone || o.customer_name || '').trim()).filter(Boolean)
-    );
-    return set.size;
-  }, [confirmedOrders]);
-
-  // 2. الطلبات الملغية وإجمالي مبالغها
-  const cancelledOrders = useMemo(() => {
-    return filteredOrders.filter(o =>
-      o.status === 'cancelled_not_received' ||
-      o.status === 'cancelled_before_dispatch' ||
-      o.status === 'cancelled' ||
-      (typeof o.status === 'string' && o.status.startsWith('cancelled'))
-    );
-  }, [filteredOrders]);
-
-  const cancelledRevenue = useMemo(() => {
-    return cancelledOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-  }, [cancelledOrders]);
-
-  // الإجماليات العامة لكامل نتائج الفلتر
-  const totalRevenue = useMemo(() => {
-    return filteredOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-  }, [filteredOrders]);
-
-  const uniqueCustomerCount = useMemo(() => {
-    const set = new Set(
-      filteredOrders.map(o => (o.customer_phone || o.customer_name || '').trim()).filter(Boolean)
-    );
-    return set.size;
-  }, [filteredOrders]);
+  const availableYears = reportData.availableYears;
+  const confirmedOrders = { length: reportData.confirmedCount };
+  const cancelledOrders = { length: reportData.cancelledCount };
+  const confirmedRevenue = reportData.confirmedRevenue;
+  const uniqueConfirmedCustomerCount = reportData.uniqueConfirmedCustomerCount;
+  const cancelledRevenue = reportData.cancelledRevenue;
 
   const activePeriodLabel = useMemo(() => {
     const parts: string[] = [];
@@ -1484,387 +1414,95 @@ export default function AdminPortal() {
     }
   }, [timeFilter, customStartDate, customEndDate, ordersSubTab, reportSelectedYear, reportSelectedMonth]);
 
-  // الرسم البياني التفاعلي للمبيعات بدءاً من أول طلب فعلي في الفترة
-  const salesTrendChartData = useMemo(() => {
-    if (confirmedOrders.length === 0) {
+  const salesTrendChartData = {
+    buckets: reportData.salesTrend.buckets,
+    isDaily: reportData.salesTrend.isDaily,
+    maxRev: reportData.salesTrend.maxRevenue,
+    maxRevenue: reportData.salesTrend.maxRevenue,
+    totalRev: reportData.salesTrend.totalRevenue,
+    totalRevenue: reportData.salesTrend.totalRevenue,
+    avgRev: reportData.salesTrend.avgRevenue,
+    avgRevenue: reportData.salesTrend.avgRevenue,
+    topBucket: reportData.salesTrend.topPeriod,
+    topPeriod: reportData.salesTrend.topPeriod,
+    startDateStr: reportData.salesTrend.startDateStr,
+    endDateStr: reportData.salesTrend.endDateStr,
+  };
+
+  const menuItemsRankingData = {
+    items: reportData.items,
+    rankedItems: reportData.items,
+    totalItemsRevenue: reportData.totalRevenueAllItems,
+    totalRevenueAllItems: reportData.totalRevenueAllItems,
+    totalSoldAllItems: reportData.totalSoldAllItems,
+    topItem: reportData.topItem,
+    maxItemRev: reportData.items[0]?.revenue || 1,
+  };
+
+  const toggleReportItemChart = (itemName: string) => {
+    setReportSelectedItemForChart((prev) => (
+      prev.includes(itemName) ? prev.filter((name) => name !== itemName) : [...prev, itemName]
+    ));
+  };
+
+  const selectedItemCharts = reportSelectedItemForChart
+    .map((itemName) => {
+      const itemInfo = reportData.items.find((item) => item.name === itemName);
+      if (!itemInfo) return null;
+      const buckets = itemInfo.chartBuckets || [];
       return {
-        buckets: [] as Array<{
-          key: string;
-          label: string;
-          name: string;
-          date: Date;
-          revenue: number;
-          confirmedRevenue: number;
-          orderCount: number;
-          confirmedCount: number;
-        }>,
-        isDaily: true,
-        maxRev: 1,
-        maxRevenue: 1,
-        totalRev: 0,
-        totalRevenue: 0,
-        avgRev: 0,
-        avgRevenue: 0,
-        topBucket: null,
-        topPeriod: null,
-        startDateStr: 'لا يوجد',
-        endDateStr: 'لا يوجد'
+        name: itemName,
+        itemInfo,
+        buckets,
+        maxQty: Math.max(...buckets.map((b) => b.quantity), 1),
+        maxRev: Math.max(...buckets.map((b) => b.revenue), 1),
       };
-    }
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-    const sorted = [...confirmedOrders].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  const itemChartColors = [
+    { bar: 'from-indigo-600 to-sky-400', text: 'text-indigo-300', dot: 'bg-indigo-400' },
+    { bar: 'from-amber-600 to-yellow-300', text: 'text-amber-300', dot: 'bg-amber-400' },
+    { bar: 'from-emerald-600 to-teal-300', text: 'text-emerald-300', dot: 'bg-emerald-400' },
+    { bar: 'from-rose-600 to-pink-400', text: 'text-rose-300', dot: 'bg-rose-400' },
+    { bar: 'from-violet-600 to-purple-300', text: 'text-violet-300', dot: 'bg-violet-400' },
+    { bar: 'from-cyan-600 to-sky-300', text: 'text-cyan-300', dot: 'bg-cyan-400' },
+  ];
+
+  const combinedItemChart = (() => {
+    if (selectedItemCharts.length === 0) return null;
+    const labels: string[] = [];
+    selectedItemCharts.forEach((chart) => {
+      chart.buckets.forEach((bucket) => {
+        if (!labels.includes(bucket.label)) labels.push(bucket.label);
+      });
+    });
+    const series = selectedItemCharts.map((chart, idx) => ({
+      name: chart.name,
+      color: itemChartColors[idx % itemChartColors.length],
+      quantity: chart.itemInfo.quantity,
+      revenue: chart.itemInfo.revenue,
+      byLabel: new Map(chart.buckets.map((bucket) => [bucket.label, bucket])),
+    }));
+    const maxRev = Math.max(
+      ...series.flatMap((item) => labels.map((label) => item.byLabel.get(label)?.revenue || 0)),
+      1
     );
+    return { labels, series, maxRev };
+  })();
 
-    const firstDate = new Date(sorted[0].created_at);
-    const lastDate = new Date(sorted[sorted.length - 1].created_at);
-    const diffDays = Math.max(1, Math.round((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const customerAnalyticsData = {
+    activeList: reportData.customers.activeList,
+    inactiveList: reportData.customers.inactiveList,
+    totalCustomers: reportData.customers.totalCustomers,
+    activeCount: reportData.customers.activeCount,
+    inactiveCount: reportData.customers.inactiveCount,
+    activePercent: reportData.customers.activePercent,
+    inactivePercent: reportData.customers.inactivePercent,
+  };
 
-    // إذا كانت الفترة شهراً واحداً أو أقل من 40 يوماً، قسّم حسب الأيام، وإلا حسب الشهور
-    const isDaily = diffDays <= 40 || reportSelectedMonth !== 'all';
-
-    const bucketsMap = new Map<string, {
-      key: string;
-      label: string;
-      name: string;
-      date: Date;
-      revenue: number;
-      confirmedRevenue: number;
-      orderCount: number;
-      confirmedCount: number;
-    }>();
-
-    sorted.forEach(o => {
-      const d = new Date(o.created_at);
-      const amt = Number(o.total_amount) || 0;
-      let key = '';
-      let label = '';
-
-      if (isDaily) {
-        key = d.toISOString().slice(0, 10);
-        label = d.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short' });
-      } else {
-        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        label = d.toLocaleDateString('ar-EG-u-nu-latn', { month: 'short', year: 'numeric' });
-      }
-
-      if (!bucketsMap.has(key)) {
-        bucketsMap.set(key, {
-          key,
-          label,
-          name: label,
-          date: d,
-          revenue: 0,
-          confirmedRevenue: 0,
-          orderCount: 0,
-          confirmedCount: 0
-        });
-      }
-      const b = bucketsMap.get(key)!;
-      b.revenue += amt;
-      b.confirmedRevenue += amt;
-      b.orderCount += 1;
-      b.confirmedCount += 1;
-    });
-
-    const buckets = Array.from(bucketsMap.values()).sort(
-      (a, b) => a.date.getTime() - b.date.getTime()
-    );
-
-    const revenues = buckets.map(b => b.revenue);
-    const maxRev = Math.max(...revenues, 1);
-    const totalRev = revenues.reduce((acc, v) => acc + v, 0);
-    const avgRev = Math.round(totalRev / (buckets.length || 1));
-
-    let topBucket = buckets[0];
-    buckets.forEach(b => {
-      if (b.revenue > (topBucket ? topBucket.revenue : 0)) topBucket = b;
-    });
-
-    const topPeriod = topBucket ? {
-      name: topBucket.label,
-      confirmedRevenue: topBucket.revenue,
-      confirmedCount: topBucket.orderCount
-    } : null;
-
-    return {
-      buckets,
-      isDaily,
-      maxRev,
-      maxRevenue: maxRev,
-      totalRev,
-      totalRevenue: totalRev,
-      avgRev,
-      avgRevenue: avgRev,
-      topBucket,
-      topPeriod,
-      startDateStr: firstDate.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }),
-      endDateStr: lastDate.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' })
-    };
-  }, [confirmedOrders, reportSelectedMonth]);
-
-  // إجمالي صافي المبيعات لكل صنف بالترتيب والأفضل مبيعاً
-  const menuItemsRankingData = useMemo(() => {
-    const itemMap = new Map<string, {
-      name: string;
-      quantity: number;
-      revenue: number;
-      orderCount: number;
-      ordersList: any[];
-    }>();
-
-    let grandTotalItemsRevenue = 0;
-
-    confirmedOrders.forEach(order => {
-      const parsedDetails = parseOrderDetails(order.special_notes);
-      const itemsList = Array.isArray(order.items) && order.items.length > 0
-        ? order.items
-        : parsedDetails.items;
-
-      if (Array.isArray(itemsList)) {
-        itemsList.forEach((it: any) => {
-          let itemName = '';
-          let itemQty = 1;
-          let itemPrice = 0;
-
-          if (typeof it === 'string') {
-            const pi = parseItemLine(it);
-            itemName = pi.name;
-            itemQty = Number(pi.quantity) || 1;
-            if (pi.price) {
-              const cleanedPrice = Number(pi.price.replace(/[^\d\.]/g, ''));
-              if (!isNaN(cleanedPrice)) itemPrice = cleanedPrice;
-            }
-          } else if (it && typeof it === 'object') {
-            itemName = it.name || it.item_name || 'صنف';
-            itemQty = Number(it.quantity) || 1;
-            itemPrice = Number(it.total_price || it.price) || 0;
-          }
-
-          if (itemName) {
-            if (!itemMap.has(itemName)) {
-              itemMap.set(itemName, {
-                name: itemName,
-                quantity: 0,
-                revenue: 0,
-                orderCount: 0,
-                ordersList: []
-              });
-            }
-            const record = itemMap.get(itemName)!;
-            record.quantity += itemQty;
-            record.revenue += itemPrice;
-            record.orderCount += 1;
-            record.ordersList.push(order);
-            grandTotalItemsRevenue += itemPrice;
-          }
-        });
-      }
-    });
-
-    const list = Array.from(itemMap.values()).sort((a, b) => {
-      if (b.revenue !== a.revenue) return b.revenue - a.revenue;
-      return b.quantity - a.quantity;
-    });
-
-    const maxItemRev = list.length > 0 ? Math.max(...list.map(i => i.revenue), 1) : 1;
-    const totalSoldAllItems = list.reduce((acc, i) => acc + i.quantity, 0);
-
-    return {
-      items: list,
-      rankedItems: list,
-      totalItemsRevenue: grandTotalItemsRevenue,
-      totalRevenueAllItems: grandTotalItemsRevenue,
-      totalSoldAllItems,
-      topItem: list.length > 0 ? list[0] : null,
-      maxItemRev
-    };
-  }, [confirmedOrders]);
-
-  // رسم بياني مخصص لصنف معين عند اختياره
-  const selectedItemChartData = useMemo(() => {
-    if (!reportSelectedItemForChart) return null;
-    const itemInfo = menuItemsRankingData.items.find(i => i.name === reportSelectedItemForChart);
-    if (!itemInfo) return null;
-
-    const timeBucketsMap = new Map<string, { label: string; date: Date; quantity: number; revenue: number }>();
-
-    itemInfo.ordersList.forEach(order => {
-      const d = new Date(order.created_at);
-      const key = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short' });
-
-      const parsedDetails = parseOrderDetails(order.special_notes);
-      const itemsList = Array.isArray(order.items) && order.items.length > 0
-        ? order.items
-        : parsedDetails.items;
-
-      let thisOrderQty = 0;
-      let thisOrderRev = 0;
-
-      if (Array.isArray(itemsList)) {
-        itemsList.forEach((it: any) => {
-          let name = '';
-          let q = 1;
-          let p = 0;
-          if (typeof it === 'string') {
-            const pi = parseItemLine(it);
-            name = pi.name;
-            q = Number(pi.quantity) || 1;
-            if (pi.price) {
-              const cleaned = Number(pi.price.replace(/[^\d\.]/g, ''));
-              if (!isNaN(cleaned)) p = cleaned;
-            }
-          } else if (it && typeof it === 'object') {
-            name = it.name || it.item_name || '';
-            q = Number(it.quantity) || 1;
-            p = Number(it.total_price || it.price) || 0;
-          }
-
-          if (name === reportSelectedItemForChart) {
-            thisOrderQty += q;
-            thisOrderRev += p;
-          }
-        });
-      }
-
-      if (!timeBucketsMap.has(key)) {
-        timeBucketsMap.set(key, { label, date: d, quantity: 0, revenue: 0 });
-      }
-      const b = timeBucketsMap.get(key)!;
-      b.quantity += thisOrderQty;
-      b.revenue += thisOrderRev;
-    });
-
-    const buckets = Array.from(timeBucketsMap.values()).sort(
-      (a, b) => a.date.getTime() - b.date.getTime()
-    );
-
-    const maxQty = Math.max(...buckets.map(b => b.quantity), 1);
-    const maxRev = Math.max(...buckets.map(b => b.revenue), 1);
-
-    return {
-      itemInfo,
-      buckets,
-      maxQty,
-      maxRev
-    };
-  }, [reportSelectedItemForChart, menuItemsRankingData]);
-
-  // إحصائيات وتحليلات العملاء: النشطين والخاملين
-  const customerAnalyticsData = useMemo(() => {
-    const customerMap = new Map<string, {
-      phone: string;
-      name: string;
-      orderCount: number;
-      confirmedCount: number;
-      totalSpent: number;
-      firstOrderAt: string;
-      lastOrderAt: string;
-      daysSinceLastOrder: number;
-      lastAddress: string;
-    }>();
-
-    const nowTime = Date.now();
-
-    orders.forEach(o => {
-      const phone = (o.customer_phone || '').trim();
-      if (!phone) return;
-      const amt = Number(o.total_amount) || 0;
-      const isConfirmed = o.status === 'confirmed';
-
-      if (!customerMap.has(phone)) {
-        customerMap.set(phone, {
-          phone,
-          name: o.customer_name || 'عميل',
-          orderCount: 0,
-          confirmedCount: 0,
-          totalSpent: 0,
-          firstOrderAt: o.created_at || new Date().toISOString(),
-          lastOrderAt: o.created_at || new Date().toISOString(),
-          daysSinceLastOrder: 0,
-          lastAddress: o.delivery_address || ''
-        });
-      }
-
-      const c = customerMap.get(phone)!;
-      c.orderCount += 1;
-      if (isConfirmed) {
-        c.confirmedCount += 1;
-        c.totalSpent += amt;
-      }
-      if (o.customer_name && o.customer_name !== 'عميل') {
-        c.name = o.customer_name;
-      }
-      if (o.delivery_address) {
-        c.lastAddress = o.delivery_address;
-      }
-
-      const orderTime = new Date(o.created_at).getTime();
-      if (orderTime < new Date(c.firstOrderAt).getTime()) {
-        c.firstOrderAt = o.created_at;
-      }
-      if (orderTime > new Date(c.lastOrderAt).getTime()) {
-        c.lastOrderAt = o.created_at;
-      }
-    });
-
-    const activeList: any[] = [];
-    const inactiveList: any[] = [];
-
-    customerMap.forEach(c => {
-      const lastTime = new Date(c.lastOrderAt).getTime();
-      const diffDays = Math.floor((nowTime - lastTime) / (1000 * 60 * 60 * 24));
-      c.daysSinceLastOrder = diffDays;
-
-      // نشط: طلب خلال آخر 30 يوماً
-      if (diffDays <= 30) {
-        activeList.push(c);
-      } else {
-        inactiveList.push(c);
-      }
-    });
-
-    // ترتيب النشطين حسب إجمالي ما أنفقوه ثم عدد طلباتهم (VIPs)
-    activeList.sort((a, b) => b.totalSpent - a.totalSpent || b.orderCount - a.orderCount);
-
-    // ترتيب الخاملين حسب الأيام منذ آخر طلب تنازلياً (الأكثر انقطاعاً)
-    inactiveList.sort((a, b) => b.daysSinceLastOrder - a.daysSinceLastOrder);
-
-    const totalCustomers = customerMap.size;
-    const activePercent = totalCustomers > 0 ? Math.round((activeList.length / totalCustomers) * 100) : 0;
-    const inactivePercent = totalCustomers > 0 ? Math.round((inactiveList.length / totalCustomers) * 100) : 0;
-
-    return {
-      activeList,
-      inactiveList,
-      totalCustomers,
-      activePercent,
-      inactivePercent
-    };
-  }, [orders]);
-
-  // إحصائيات طرق الدفع للتقرير
-  const paymentMethodStats = useMemo(() => {
-    let cash = 0, wallet = 0, instapay = 0;
-    confirmedOrders.forEach(o => {
-      const amt = Number(o.total_amount) || 0;
-      if (o.payment_method === 'vodafone_cash') wallet += amt;
-      else if (o.payment_method === 'instapay') instapay += amt;
-      else cash += amt;
-    });
-    return { cash, wallet, instapay };
-  }, [confirmedOrders]);
-
-  // إحصائيات التوصيل والاستلام للتقرير
-  const orderTypeStats = useMemo(() => {
-    let delivery = 0, pickup = 0;
-    confirmedOrders.forEach(o => {
-      if (o.order_type === 'delivery') delivery += 1;
-      else pickup += 1;
-    });
-    return { delivery, pickup };
-  }, [confirmedOrders]);
+  const paymentMethodStats = reportData.paymentMethodStats;
+  const orderTypeStats = reportData.orderTypeStats;
 
   const formatOrderTime = (dateStr: string) => {
     if (!dateStr) return '';
@@ -2115,14 +1753,22 @@ export default function AdminPortal() {
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
                     ordersSubTab === 'shifts_history' ? 'bg-amber-800 text-amber-100' : 'bg-slate-800 text-amber-400 border border-amber-500/20'
                   }`}>
-                    {closedShifts.length} وردية
+                    {totalClosedShifts || closedShifts.length} وردية
                   </span>
                 </button>
 
                 {/* 3. تبويبة التقرير الشهري والسنوي */}
                 <button
                   type="button"
-                  onClick={() => setOrdersSubTab('reports')}
+                  onClick={() => {
+                    setReportSelectedYear('all');
+                    setReportSelectedMonth('all');
+                    setTimeFilter('month');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                    setReportCustomerLimit('50');
+                    setOrdersSubTab('reports');
+                  }}
                   className={`flex-1 py-3 px-3 sm:px-5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     ordersSubTab === 'reports'
                       ? 'bg-gradient-to-r from-rose-600 via-red-500 to-rose-600 text-white shadow-lg shadow-rose-600/30 ring-1 ring-rose-400/40'
@@ -2415,7 +2061,7 @@ export default function AdminPortal() {
                   <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
                     <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
                       <span className="text-xs text-slate-400 font-bold block">إجمالي الورديات المقفلة</span>
-                      <div className="text-2xl font-black text-amber-400 font-mono mt-1">{closedShifts.length} <span className="text-xs text-slate-400 font-medium">وردية</span></div>
+                      <div className="text-2xl font-black text-amber-400 font-mono mt-1">{totalClosedShifts || closedShifts.length} <span className="text-xs text-slate-400 font-medium">وردية</span></div>
                     </div>
                     <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30">
                       <span className="text-xs text-emerald-300 font-bold block">إجمالي الإيراد المحصل بالورديات</span>
@@ -2476,6 +2122,7 @@ export default function AdminPortal() {
 
                     <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
                       {[
+                        { id: 'recent', label: 'آخر 40' },
                         { id: 'all', label: 'كل الورديات' },
                         { id: 'today', label: 'اليوم' },
                         { id: 'week', label: 'هذا الأسبوع' },
@@ -2490,7 +2137,7 @@ export default function AdminPortal() {
                           type="button"
                           onClick={() => {
                             setShiftPeriodFilter(btn.id as any);
-                            if (btn.id !== 'all') setShiftFilterSpecificShift('all');
+                            setShiftFilterSpecificShift('all');
                           }}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                             shiftPeriodFilter === btn.id && shiftFilterSpecificShift === 'all'
@@ -2514,7 +2161,7 @@ export default function AdminPortal() {
                         onChange={(e) => {
                           setShiftFilterSpecificShift(e.target.value);
                           if (e.target.value !== 'all') setShiftPeriodFilter('specific');
-                          else setShiftPeriodFilter('all');
+                          else setShiftPeriodFilter('recent');
                         }}
                         className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                       >
@@ -2530,7 +2177,7 @@ export default function AdminPortal() {
                     {/* نتائج الفلترة */}
                     <div className="text-xs text-slate-400 font-bold bg-slate-950/60 px-3.5 py-1.5 rounded-xl border border-slate-800 flex items-center gap-2">
                       <span>الورديات المعروضة:</span>
-                      <span className="text-amber-400 font-black">{filteredClosedShifts.length} من أصل {closedShifts.length} وردية</span>
+                      <span className="text-amber-400 font-black">{filteredClosedShifts.length} من أصل {totalClosedShifts || closedShifts.length} وردية</span>
                     </div>
                   </div>
 
@@ -2903,7 +2550,7 @@ export default function AdminPortal() {
                           <span>البحث المباشر في فواتير كل الورديات المقفلة:</span>
                         </div>
                         <span className="text-[11px] font-bold text-slate-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
-                          الأرشيف المحفوظ: {allClosedShiftsOrdersWithShift.length} فاتورة مسجلة
+                          الأرشيف المحفوظ: {totalArchivedInvoices || closedShiftsCustomerSearchResults.length} فاتورة مسجلة
                         </span>
                       </div>
 
@@ -2938,7 +2585,9 @@ export default function AdminPortal() {
                         </span>
                         {shiftCustomerSearchQuery.trim() && (
                           <span className="text-amber-400 font-black">
-                            تم العثور على {closedShiftsCustomerSearchResults.length} فاتورة مطابقة
+                            {shiftCustomerSearchLoading
+                              ? 'جاري البحث في كل الأرشيف...'
+                              : `تم العثور على ${closedShiftsCustomerSearchResults.length} فاتورة مطابقة`}
                           </span>
                         )}
                       </div>
@@ -2953,6 +2602,16 @@ export default function AdminPortal() {
                         <h3 className="text-lg font-black text-white">ابحث برقم الهاتف أو اسم العميل</h3>
                         <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
                           اكتب في المستطيل أعلاه اسم العميل أو رقم هاتفه، وسيتم البحث الفوري في جميع فواتير الورديات السابقة التي تم تقفيلها وحفظها على السيرفر.
+                        </p>
+                      </div>
+                    ) : shiftCustomerSearchLoading ? (
+                      <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3 font-sans">
+                        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400 shadow-lg">
+                          <RefreshCw className="w-8 h-8 animate-spin" />
+                        </div>
+                        <h3 className="text-lg font-black text-white">جاري البحث في كل الورديات</h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                          البحث يشمل الأرشيف كامل، مش آخر 40 وردية فقط.
                         </p>
                       </div>
                     ) : closedShiftsCustomerSearchResults.length === 0 ? (
@@ -3462,8 +3121,30 @@ export default function AdminPortal() {
                     </div>
 
                     {/* أعلى فترة ومتوسط المبيعات */}
-                    {salesTrendChartData.buckets.length > 0 && salesTrendChartData.topPeriod && (
-                      <div className="flex items-center gap-2 flex-wrap">
+                    {salesTrendChartData.buckets.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => setReportSalesChartStyle('bars')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+                            reportSalesChartStyle === 'bars' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          أعمدة
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReportSalesChartStyle('line')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+                            reportSalesChartStyle === 'line' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          خط بالنقط
+                        </button>
+                      </div>
+                    {salesTrendChartData.topPeriod && (
+                      <>
                         <div className="px-3.5 py-1.5 rounded-2xl bg-slate-950/80 border border-amber-500/30 text-xs flex items-center gap-1.5">
                           <Trophy className="w-4 h-4 text-amber-400" />
                           <span className="text-slate-400 font-bold">الأعلى تحصيلاً:</span>
@@ -3474,7 +3155,9 @@ export default function AdminPortal() {
                           <span className="text-slate-400 font-bold">المتوسط:</span>
                           <span className="text-white font-black font-sans">{Math.round(salesTrendChartData.avgRevenue).toLocaleString()} ج.م</span>
                         </div>
-                      </div>
+                      </>
+                    )}
+                    </div>
                     )}
                   </div>
 
@@ -3486,71 +3169,31 @@ export default function AdminPortal() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {/* منطقة الرسم البياني العمودي المتناسق */}
-                      <div className="pt-8 pb-4 px-2 sm:px-4 bg-slate-950/70 border border-slate-800/80 rounded-2xl overflow-x-auto">
-                        <div className="min-w-[500px] flex items-end justify-between gap-2 sm:gap-4 h-64 sm:h-72 px-2">
-                          {salesTrendChartData.buckets.map((bucket, idx) => {
-                            const heightPct = salesTrendChartData.maxRevenue > 0
-                              ? Math.max(Math.round((bucket.confirmedRevenue / salesTrendChartData.maxRevenue) * 100), 4)
-                              : 4;
-                            const isTop = salesTrendChartData.topPeriod && bucket.name === salesTrendChartData.topPeriod.name && bucket.confirmedRevenue > 0;
-
-                            return (
-                              <div
-                                key={bucket.key || idx}
-                                className="flex-1 flex flex-col items-center h-full justify-end group relative cursor-pointer"
-                              >
-                                {/* نافذة التفاصيل عند التمرير (Tooltip) */}
-                                <div className="absolute -top-12 z-30 opacity-0 group-hover:opacity-100 transition-all pointer-events-none bg-slate-800 text-white text-[11px] font-bold rounded-xl px-3 py-1.5 shadow-2xl border border-slate-700 whitespace-nowrap">
-                                  <div>{bucket.name}</div>
-                                  <div className="text-emerald-400 font-sans">{bucket.confirmedRevenue.toLocaleString()} ج.م ({bucket.confirmedCount} طلب)</div>
-                                </div>
-
-                                {/* قيمة المبيعات فوق العمود */}
-                                <div className="mb-2 text-center">
-                                  {isTop && (
-                                    <div className="text-amber-400 text-[10px] font-black flex items-center justify-center gap-0.5 mb-0.5 animate-bounce">
-                                      <Crown className="w-3 h-3 text-amber-400" />
-                                      <span>الأعلى</span>
-                                    </div>
-                                  )}
-                                  <span className={`text-[10px] sm:text-xs font-black block font-sans transition-colors ${
-                                    isTop ? 'text-amber-300 font-black' : bucket.confirmedRevenue > 0 ? 'text-emerald-300' : 'text-slate-600'
-                                  }`}>
-                                    {bucket.confirmedRevenue > 0 ? bucket.confirmedRevenue.toLocaleString() : '0'}
-                                  </span>
-                                </div>
-
-                                {/* العمود نفسه */}
-                                <div className="w-full max-w-[48px] bg-slate-900 rounded-t-2xl overflow-hidden relative border border-slate-800/80 group-hover:border-emerald-500/50 transition-all">
-                                  <div
-                                    style={{ height: `${heightPct}%` }}
-                                    className={`w-full rounded-t-xl transition-all duration-700 ease-out relative ${
-                                      isTop
-                                        ? 'bg-gradient-to-t from-amber-600 via-amber-400 to-yellow-300 shadow-lg shadow-amber-500/30'
-                                        : bucket.confirmedRevenue > 0
-                                        ? 'bg-gradient-to-t from-emerald-700 via-emerald-500 to-teal-300 group-hover:from-emerald-600 group-hover:to-teal-200'
-                                        : 'bg-slate-800/40'
-                                    }`}
-                                  >
-                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                  </div>
-                                </div>
-
-                                {/* اسم الفترة بالأسفل وعدد الطلبات */}
-                                <div className="mt-3 text-center w-full">
-                                  <span className="text-[11px] font-black text-slate-300 block truncate group-hover:text-white transition-colors" title={bucket.name}>
-                                    {bucket.name}
-                                  </span>
-                                  <span className="text-[10px] text-slate-500 font-bold block font-sans">
-                                    {bucket.confirmedCount} طلب
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <ReportBarChart
+                        style={reportSalesChartStyle}
+                        maxValue={salesTrendChartData.maxRevenue}
+                        columns={salesTrendChartData.buckets.map((bucket) => {
+                          const isTop = Boolean(
+                            salesTrendChartData.topPeriod &&
+                            bucket.name === salesTrendChartData.topPeriod.name &&
+                            bucket.confirmedRevenue > 0
+                          );
+                          return {
+                            label: bucket.name,
+                            subLabel: `${bucket.confirmedCount} طلب`,
+                            valueLabel: `${bucket.confirmedRevenue.toLocaleString()} ج.م`,
+                            isTop,
+                            series: [{
+                              key: 'sales',
+                              value: bucket.confirmedRevenue,
+                              title: 'المبيعات',
+                              colorClass: isTop
+                                ? 'bg-gradient-to-t from-amber-600 via-amber-400 to-yellow-300'
+                                : 'bg-gradient-to-t from-emerald-700 via-emerald-500 to-teal-300',
+                            }],
+                          };
+                        })}
+                      />
 
                       {/* وسيلة إيضاح أسفل الرسم */}
                       <div className="flex items-center justify-center gap-6 text-xs text-slate-400 font-bold pt-2">
@@ -3587,15 +3230,61 @@ export default function AdminPortal() {
                       </div>
                     </div>
 
-                    {reportSelectedItemForChart && (
-                      <button
-                        type="button"
-                        onClick={() => setReportSelectedItemForChart(null)}
-                        className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700"
-                      >
-                        <X className="w-3.5 h-3.5 text-rose-400" />
-                        <span>إغلاق تحليل الصنف المحدد</span>
-                      </button>
+                    {reportSelectedItemForChart.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => setReportItemChartStyle('bars')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+                              reportItemChartStyle === 'bars' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            أعمدة
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReportItemChartStyle('line')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+                              reportItemChartStyle === 'line' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            خط بالنقط
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => setReportItemChartMode('separate')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+                              reportItemChartMode === 'separate'
+                                ? 'bg-indigo-600 text-white shadow-md'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            كل صنف لوحده
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReportItemChartMode('combined')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+                              reportItemChartMode === 'combined'
+                                ? 'bg-indigo-600 text-white shadow-md'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            رسم مجمع
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReportSelectedItemForChart([])}
+                          className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700"
+                        >
+                          <X className="w-3.5 h-3.5 text-rose-400" />
+                          <span>إغلاق تحليل الصنف المحدد</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -3627,7 +3316,7 @@ export default function AdminPortal() {
                         <div className="flex items-center gap-2 sm:self-center">
                           <button
                             type="button"
-                            onClick={() => setReportSelectedItemForChart(menuItemsRankingData.topItem!.name)}
+                            onClick={() => toggleReportItemChart(menuItemsRankingData.topItem!.name)}
                             className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-xs hover:brightness-110 transition shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer"
                           >
                             <TrendingUp className="w-4 h-4 stroke-[2.5]" />
@@ -3639,7 +3328,7 @@ export default function AdminPortal() {
                   )}
 
                   {/* إذا تم اختيار صنف محدد لعرض رسمه البياني */}
-                  {reportSelectedItemForChart && selectedItemChartData && (
+                  {selectedItemCharts.length > 0 && reportItemChartMode === 'combined' && combinedItemChart && (
                     <div className="p-5 sm:p-6 rounded-3xl bg-slate-950 border-2 border-indigo-500/50 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-300">
                       <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-2.5">
@@ -3648,7 +3337,65 @@ export default function AdminPortal() {
                           </div>
                           <div>
                             <h4 className="text-sm sm:text-base font-black text-white">
-                              تحليل حركة ومبيعات صنف: <span className="text-indigo-400 font-black">&quot;{reportSelectedItemForChart}&quot;</span>
+                              مقارنة حركة ومبيعات الأصناف المحددة
+                            </h4>
+                            <p className="text-xs text-slate-400 font-bold">
+                              {combinedItemChart.series.length} أصناف في رسم واحد للمقارنة
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {combinedItemChart.series.map((item) => (
+                          <span key={item.name} className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center gap-1.5">
+                            <span className={`w-2.5 h-2.5 rounded-full ${item.color.dot}`} />
+                            <span>{item.name}</span>
+                            <span className={`font-sans ${item.color.text}`}>{item.revenue.toLocaleString()} ج.م</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleReportItemChart(item.name)}
+                              className="text-slate-500 hover:text-white cursor-pointer"
+                              title="إلغاء التحديد"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+
+                      {combinedItemChart.labels.length === 0 ? (
+                        <p className="text-xs text-slate-500 py-6 text-center font-bold">لا توجد بيانات بيانية مسجلة للأصناف المحددة في هذه الفترة.</p>
+                      ) : (
+                        <ReportBarChart
+                          style={reportItemChartStyle}
+                          maxValue={combinedItemChart.maxRev}
+                          columns={combinedItemChart.labels.map((label) => ({
+                            label,
+                            series: combinedItemChart.series.map((item) => ({
+                              key: item.name,
+                              title: item.name,
+                              value: item.byLabel.get(label)?.revenue || 0,
+                              colorClass: `bg-gradient-to-t ${item.color.bar}`,
+                            })),
+                          }))}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {selectedItemCharts.length > 0 && reportItemChartMode === 'separate' && (
+                    <div className="space-y-4">
+                      {selectedItemCharts.map((selectedItemChartData) => (
+                    <div key={selectedItemChartData.name} className="p-5 sm:p-6 rounded-3xl bg-slate-950 border-2 border-indigo-500/50 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 flex items-center justify-center">
+                            <BarChart3 className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm sm:text-base font-black text-white">
+                              تحليل حركة ومبيعات صنف: <span className="text-indigo-400 font-black">&quot;{selectedItemChartData.name}&quot;</span>
                             </h4>
                             <p className="text-xs text-slate-400 font-bold">
                               إجمالي المباع: <span className="text-amber-300 font-black font-sans">{(selectedItemChartData.itemInfo?.quantity || 0).toLocaleString()} قطعة/طاجن</span> | إجمالي العائد: <span className="text-emerald-400 font-black font-sans">{(selectedItemChartData.itemInfo?.revenue || 0).toLocaleString()} ج.م</span>
@@ -3658,7 +3405,7 @@ export default function AdminPortal() {
 
                         <button
                           type="button"
-                          onClick={() => setReportSelectedItemForChart(null)}
+                          onClick={() => toggleReportItemChart(selectedItemChartData.name)}
                           className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
                           title="إغلاق"
                         >
@@ -3669,39 +3416,24 @@ export default function AdminPortal() {
                       {selectedItemChartData.buckets.length === 0 ? (
                         <p className="text-xs text-slate-500 py-6 text-center font-bold">لا توجد بيانات بيانية مسجلة لهذا الصنف في هذه الفترة.</p>
                       ) : (
-                        <div className="pt-6 pb-2 px-2 bg-slate-900/60 rounded-2xl overflow-x-auto">
-                          <div className="min-w-[450px] flex items-end justify-between gap-3 h-48 px-2">
-                            {selectedItemChartData.buckets.map((b, idx) => {
-                              const hPct = selectedItemChartData.maxRev > 0
-                                ? Math.max(Math.round((b.revenue / selectedItemChartData.maxRev) * 100), 6)
-                                : 6;
-                              return (
-                                <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer">
-                                  <div className="mb-1.5 text-center">
-                                    <span className="text-[10px] font-black text-indigo-300 block font-sans">
-                                      {b.revenue > 0 ? `${b.revenue.toLocaleString()} ج.م` : '0'}
-                                    </span>
-                                  </div>
-                                  <div className="w-full max-w-[36px] bg-slate-950 rounded-t-xl overflow-hidden border border-slate-800">
-                                    <div
-                                      style={{ height: `${hPct}%` }}
-                                      className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-sky-400 group-hover:from-indigo-500 group-hover:to-sky-300 transition-all duration-500"
-                                    />
-                                  </div>
-                                  <div className="mt-2 text-center w-full">
-                                    <span className="text-[10px] font-bold text-slate-400 block truncate">
-                                      {b.label}
-                                    </span>
-                                    <span className="text-[9px] text-amber-400 font-black font-sans block">
-                                      {b.quantity} ق
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
+                        <ReportBarChart
+                          style={reportItemChartStyle}
+                          maxValue={selectedItemChartData.maxRev}
+                          columns={selectedItemChartData.buckets.map((b) => ({
+                            label: b.label,
+                            subLabel: `${b.quantity} ق`,
+                            valueLabel: `${b.revenue.toLocaleString()} ج.م`,
+                            series: [{
+                              key: selectedItemChartData.name,
+                              title: selectedItemChartData.name,
+                              value: b.revenue,
+                              colorClass: 'bg-gradient-to-t from-indigo-600 to-sky-400',
+                            }],
+                          }))}
+                        />
                       )}
+                    </div>
+                      ))}
                     </div>
                   )}
 
@@ -3718,7 +3450,7 @@ export default function AdminPortal() {
                           : 0;
 
                         const rankBadge = idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`;
-                        const isSelected = reportSelectedItemForChart === item.name;
+                        const isSelected = reportSelectedItemForChart.includes(item.name);
 
                         return (
                           <div
@@ -3779,7 +3511,7 @@ export default function AdminPortal() {
 
                               <button
                                 type="button"
-                                onClick={() => setReportSelectedItemForChart(isSelected ? null : item.name)}
+                                onClick={() => toggleReportItemChart(item.name)}
                                 className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
                                   isSelected
                                     ? 'bg-indigo-600 text-white'
@@ -3829,7 +3561,7 @@ export default function AdminPortal() {
                         }`}
                       >
                         <UserCheck className="w-4 h-4" />
-                        <span>النشطون ({customerAnalyticsData.activeList.length})</span>
+                        <span>النشطون ({customerAnalyticsData.activeCount})</span>
                       </button>
 
                       <button
@@ -3842,7 +3574,7 @@ export default function AdminPortal() {
                         }`}
                       >
                         <UserX className="w-4 h-4" />
-                        <span>الخاملون ({customerAnalyticsData.inactiveList.length})</span>
+                        <span>الخاملون ({customerAnalyticsData.inactiveCount})</span>
                       </button>
                     </div>
                   </div>
@@ -3853,7 +3585,7 @@ export default function AdminPortal() {
                       <div>
                         <span className="text-xs font-bold text-emerald-400 block">🟢 العملاء النشطون (طلبوا خلال آخر 30 يوم)</span>
                         <span className="text-2xl font-black text-white mt-1 block font-sans">
-                          {customerAnalyticsData.activeList.length.toLocaleString()} <span className="text-xs text-emerald-300 font-bold font-sans">({customerAnalyticsData.activePercent}%)</span>
+                          {customerAnalyticsData.activeCount.toLocaleString()} <span className="text-xs text-emerald-300 font-bold font-sans">({customerAnalyticsData.activePercent}%)</span>
                         </span>
                       </div>
                       <div className="text-left">
@@ -3868,13 +3600,38 @@ export default function AdminPortal() {
                       <div>
                         <span className="text-xs font-bold text-rose-400 block">💤 العملاء الخاملون (لم يطلبوا منذ أكثر من 30 يوم)</span>
                         <span className="text-2xl font-black text-white mt-1 block font-sans">
-                          {customerAnalyticsData.inactiveList.length.toLocaleString()} <span className="text-xs text-rose-300 font-bold font-sans">({customerAnalyticsData.inactivePercent}%)</span>
+                          {customerAnalyticsData.inactiveCount.toLocaleString()} <span className="text-xs text-rose-300 font-bold font-sans">({customerAnalyticsData.inactivePercent}%)</span>
                         </span>
                       </div>
                       <div className="text-left">
                         <span className="text-[11px] text-slate-400 font-bold block">فرصة إعادة التنشيط:</span>
                         <span className="text-xs font-bold text-sky-400">عروض وخصومات خاصة</span>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <span className="text-xs font-black text-slate-300">عدد الأسماء المعروضة من السيرفر:</span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {[
+                        { id: 'all', label: 'الكل' },
+                        { id: '50', label: 'أول 50' },
+                        { id: '100', label: 'أول 100' },
+                        { id: '200', label: 'أول 200' },
+                      ].map((btn) => (
+                        <button
+                          key={btn.id}
+                          type="button"
+                          onClick={() => setReportCustomerLimit(btn.id as ReportCustomerLimit)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            reportCustomerLimit === btn.id
+                              ? 'bg-sky-600 text-white shadow-md shadow-sky-600/20'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -3893,7 +3650,7 @@ export default function AdminPortal() {
                         <div className="text-center py-8 text-slate-500 text-xs font-bold">لا يوجد عملاء نشطون مسجلون في آخر 30 يوماً.</div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {customerAnalyticsData.activeList.slice(0, 15).map((cust, idx) => (
+                          {customerAnalyticsData.activeList.map((cust, idx) => (
                             <div key={cust.phone} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3 hover:border-emerald-500/40 transition">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2.5">
@@ -3964,7 +3721,7 @@ export default function AdminPortal() {
                         <div className="text-center py-8 text-emerald-400 text-xs font-bold">رائع! لا يوجد أي عملاء خاملين حتى الآن. كل عملائك نشطون.</div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {customerAnalyticsData.inactiveList.slice(0, 15).map((cust) => {
+                          {customerAnalyticsData.inactiveList.map((cust) => {
                             const reactivationMsg = encodeURIComponent(
                               `أهلاً بحضرتك يا فندم! وحشتنا في مطعم لؤلؤة سنهور ❤️ يسعدنا نرجع نخدمك ومعانا كود خصم خاص لطلبك القادم! اطلب دلوقتي واستمتع بأشهى طواجن وكشري.`
                             );
@@ -6061,7 +5818,7 @@ export default function AdminPortal() {
                       type="button"
                       onClick={() => {
                         toggleWalletPayment();
-                        showSaveIndicator();
+                        persistAndConfirm();
                       }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-sm ${
                         isWalletPaymentEnabled
@@ -6087,10 +5844,30 @@ export default function AdminPortal() {
                       onChange={(e) => {
                         setWalletPhone(e.target.value);
                         setWalletPhoneNumber(e.target.value);
-                        showSaveIndicator();
+                      }}
+                      onBlur={() => {
+                        persistAndConfirm();
                       }}
                       placeholder="01000000000"
                       className="w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-amber-500 text-left font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                      <span>اسم صاحب المحفظة:</span>
+                      <span className="text-[10px] text-slate-500">يظهر للعميل تحت الرقم</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={walletAccountName || ''}
+                      onChange={(e) => {
+                        setWalletAccountName(e.target.value);
+                      }}
+                      onBlur={() => {
+                        persistAndConfirm();
+                      }}
+                      placeholder="إدارة لؤلؤة سنهور"
+                      className="w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 </div>
@@ -6120,7 +5897,7 @@ export default function AdminPortal() {
                       type="button"
                       onClick={() => {
                         toggleInstapayPayment();
-                        showSaveIndicator();
+                        persistAndConfirm();
                       }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-sm ${
                         isInstapayPaymentEnabled
@@ -6146,10 +5923,61 @@ export default function AdminPortal() {
                       onChange={(e) => {
                         setInstapayId(e.target.value);
                         setInstapayHandle(e.target.value);
-                        showSaveIndicator();
+                      }}
+                      onBlur={() => {
+                        persistAndConfirm();
                       }}
                       placeholder="username@instapay"
                       className="w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-purple-500 text-left font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                      <span>رابط زر إنستاباي:</span>
+                      <span className="text-[10px] text-slate-500">اختياري — لو فاضي الزر يتبني من المعرف</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={isGenericInstapayHomepage(instapayLink) ? '' : (instapayLink || '')}
+                      onChange={(e) => {
+                        setInstapayLink(e.target.value);
+                      }}
+                      onBlur={() => {
+                        setInstapayLink(normalizeInstapayLink(instapayLink));
+                        persistAndConfirm();
+                      }}
+                      placeholder="https://ipn.eg/S/username"
+                      className="w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-purple-500 text-left font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl border bg-slate-950/90 border-emerald-500/40 ring-1 ring-emerald-500/20 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                      <MessageCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-white block">رقم واتساب استلام الطلبات</span>
+                      <span className="text-[10px] text-slate-400">مستقل عن المحفظة وإنستاباي. لو هتستخدم نفس الرقم اكتبه هنا كمان.</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                      <span>رقم واتساب المطبخ / استلام الأوردر:</span>
+                      <span className="text-[10px] text-slate-500">يفتح عليه شات الطلب</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={ordersWhatsappNumber || ''}
+                      onChange={(e) => {
+                        setOrdersWhatsappNumber(e.target.value);
+                      }}
+                      onBlur={() => {
+                        persistAndConfirm();
+                      }}
+                      placeholder="01000000000"
+                      className="w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-emerald-500 text-left font-mono"
                     />
                   </div>
                 </div>
@@ -6242,10 +6070,12 @@ export default function AdminPortal() {
                   <label className="text-xs font-medium text-slate-300 block">رقم هاتف المحل المباشر للاتصال والاستفسار</label>
                   <input
                     type="text"
-                    value={restaurantPhone}
+                    value={restaurantPhoneNumber || ''}
                     onChange={(e) => {
-                      setRestaurantPhone(e.target.value);
-                      showSaveIndicator();
+                      setRestaurantPhoneNumber(e.target.value);
+                    }}
+                    onBlur={() => {
+                      persistAndConfirm();
                     }}
                     placeholder="01000000000"
                     className="w-full py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-rose-500 text-left font-mono"
@@ -7879,6 +7709,14 @@ export default function AdminPortal() {
         )}
 
         {/* إشعار نجاح الحذف المنبثق */}
+        {connectionNotice && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 text-white font-black text-xs shadow-2xl border border-amber-500/40 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-4">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span>{connectionNotice}</span>
+          </div>
+        )}
+
         {deleteNotice && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 text-white font-black text-xs shadow-2xl border border-red-500/40 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-4">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>

@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { CartItem, MenuItem, OrderType, PaymentMethod, CustomerInfo, CustomDishDetails } from '@/types';
 import { deliveryZones } from '@/data/mockData';
 import { useMenuStore } from './menuStore';
+import { resolveCartLineUnitPrice } from './orderPricing';
 
 interface CartStore {
   items: CartItem[];
@@ -28,6 +29,7 @@ interface CartStore {
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
   setIsCartOpen: (isOpen: boolean) => void;
+  refreshPricesFromMenu: () => { pricesChanged: boolean; unavailableCount: number; couponRemoved: boolean };
 
   // Calculations
   getItemsCount: () => number;
@@ -61,7 +63,12 @@ export const useCartStore = create<CartStore>()(
 
         if (existingIndex > -1) {
           const updated = [...currentItems];
-          updated[existingIndex].quantity += quantity;
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            quantity: updated[existingIndex].quantity + quantity,
+            price: itemPrice,
+            unavailable: false,
+          };
           set({ items: updated });
         } else {
           const newItem: CartItem = {
@@ -237,27 +244,84 @@ export const useCartStore = create<CartStore>()(
 
       setIsCartOpen: (isOpen) => set({ isCartOpen: isOpen }),
 
+      refreshPricesFromMenu: () => {
+        const menu = useMenuStore.getState();
+        const settings = {
+          items: menu.items,
+          dishBuilderSettings: menu.dishBuilderSettings,
+        };
+        let pricesChanged = false;
+        let unavailableCount = 0;
+        const next = get().items.map((item) => {
+          const priced = resolveCartLineUnitPrice({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            selectedSize: item.selectedSize,
+            customDishDetails: item.customDishDetails,
+            extras: item.extras,
+          }, settings);
+          if (!priced.ok) {
+            unavailableCount += 1;
+            if (!item.unavailable) pricesChanged = true;
+            return { ...item, unavailable: true };
+          }
+          const menuItem = (menu.items || []).find((entry) => entry.id === item.menuItemId);
+          const nextName = menuItem
+            ? (item.selectedSize ? `${menuItem.name} (${item.selectedSize})` : menuItem.name)
+            : item.name;
+          if (item.price !== priced.price || item.unavailable || item.name !== nextName) {
+            pricesChanged = true;
+          }
+          return {
+            ...item,
+            price: priced.price,
+            name: nextName,
+            imageUrl: menuItem?.imageUrl || item.imageUrl,
+            unavailable: false,
+          };
+        });
+        if (pricesChanged) {
+          set({ items: next });
+        }
+
+        let couponRemoved = false;
+        const code = get().appliedCoupon;
+        if (code) {
+          const result = get().applyCoupon(code);
+          if (!result.success) {
+            get().removeCoupon();
+            couponRemoved = true;
+          }
+        }
+
+        return { pricesChanged, unavailableCount, couponRemoved };
+      },
+
       getItemsCount: () => {
         return get().items.reduce((sum, item) => sum + item.quantity, 0);
       },
 
       getSubtotal: () => {
-        return get().items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        return get().items
+          .filter((item) => !item.unavailable)
+          .reduce((sum, item) => sum + item.price * item.quantity, 0);
       },
 
       getDeliveryFee: () => {
         if (get().orderType !== 'delivery') return 0;
         const currentZones = useMenuStore.getState().deliveryZones || deliveryZones;
         const zone = currentZones.find(z => z.id === get().selectedZoneId);
-        return zone ? zone.fee : (currentZones[0]?.fee || 15);
+        const fee = zone ? zone.fee : (currentZones[0]?.fee || 15);
+        return Math.max(0, Math.round(Number(fee) || 0));
       },
 
       getDiscountAmount: () => {
         const subtotal = get().getSubtotal();
         const percent = get().discountPercent || 0;
         const fixed = get().discountFixedAmount || 0;
-        const percentAmount = (subtotal * percent) / 100;
-        return Math.min(subtotal, Math.round(percentAmount + fixed));
+        const percentAmount = Math.round((subtotal * percent) / 100);
+        const fixedAmount = Math.round(Number(fixed) || 0);
+        return Math.min(subtotal, percentAmount + fixedAmount);
       },
 
       getTotal: () => {

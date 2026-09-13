@@ -19,15 +19,18 @@ import {
   Zap,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
   Gift,
   Edit3,
-  ChevronDown
+  ChevronDown,
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useCartStore, useCustomerStore } from '@/lib/store';
 import { useMenuStore, defaultKosharyCustomOptions, computeStoreStatus, defaultStoreScheduleSettings } from '@/lib/menuStore';
 import { deliveryZones, restaurantInfo, smartUpsellItems } from '@/data/mockData';
 import { generateWhatsAppMessage, openWhatsAppChat } from '@/lib/whatsapp';
+import { getInstapayOpenLink } from '@/lib/contactLinks';
 import { saveOrderToSupabase, warmupSupabase } from '@/lib/supabase';
 import { sounds } from '@/lib/sound';
 import { OrderType, PaymentMethod, CartItem } from '@/types';
@@ -56,7 +59,8 @@ export const CartDrawer: React.FC = () => {
     getDeliveryFee,
     getDiscountAmount,
     getTotal,
-    addItem
+    addItem,
+    refreshPricesFromMenu,
   } = useCartStore();
 
   const {
@@ -66,12 +70,17 @@ export const CartDrawer: React.FC = () => {
     isWalletPaymentEnabled = false,
     isInstapayPaymentEnabled = false,
     walletPhoneNumber = restaurantInfo.cashWalletNumber,
+    walletAccountName = restaurantInfo.cashWalletName,
     instapayHandle = restaurantInfo.instapayHandle,
+    instapayLink = restaurantInfo.instapayLink,
+    ordersWhatsappNumber = restaurantInfo.whatsapp,
     isCouponsEnabled = true,
     cartIncentiveSettings,
     isMinOrderEnabled = true,
     deliveryZones: menuDeliveryZones,
     storeScheduleSettings = defaultStoreScheduleSettings,
+    dishBuilderSettings,
+    syncWithServer,
   } = useMenuStore();
   const activeKosharyPresets = (kosharyCustomOptions && kosharyCustomOptions.length > 0)
     ? kosharyCustomOptions
@@ -108,8 +117,34 @@ export const CartDrawer: React.FC = () => {
   useEffect(() => {
     if (isCartOpen) {
       warmupSupabase();
+    } else {
+      setIsSendBtnMoved(false);
     }
   }, [isCartOpen]);
+
+  useEffect(() => {
+    if (isCartOpen) {
+      syncWithServer();
+    }
+  }, [isCartOpen, syncWithServer]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setPriceRefreshNotice(null);
+      return;
+    }
+    const result = refreshPricesFromMenu();
+    if (!isCartOpen) return;
+    if (result.unavailableCount > 0) {
+      setPriceRefreshNotice('فيه صنف في السلة اتشال أو توقف من المنيو. امسحه قبل ما تبعت الطلب.');
+    } else if (result.couponRemoved) {
+      setPriceRefreshNotice('الأسعار اتحدثت حسب المنيو الحالي، والكوبون اتشال لأنه مش مناسب للإجمالي الجديد.');
+    } else if (result.pricesChanged) {
+      setPriceRefreshNotice('الأسعار اتحدثت حسب المنيو الحالي. راجع الإجمالي قبل ما تبعت الطلب.');
+    }
+  }, [isCartOpen, menuStoreItems, dishBuilderSettings, refreshPricesFromMenu, items.length]);
+
+  const [isSendBtnMoved, setIsSendBtnMoved] = useState(false);
 
   // Notes state for cart items
   const [openNotesItemId, setOpenNotesItemId] = useState<string | null>(null);
@@ -148,6 +183,12 @@ export const CartDrawer: React.FC = () => {
   const [copiedWallet, setCopiedWallet] = useState(false);
   const [copiedInstapay, setCopiedInstapay] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderNotice, setOrderNotice] = useState<{ title: string; message: string } | null>(null);
+  const [priceRefreshNotice, setPriceRefreshNotice] = useState<string | null>(null);
+
+  const showOrderNotice = (title: string, message: string) => {
+    setOrderNotice({ title, message });
+  };
 
   if (!isCartOpen) return null;
 
@@ -209,15 +250,15 @@ export const CartDrawer: React.FC = () => {
 
     // Basic validation
     if (!customer.name.trim()) {
-      alert('من فضلك أدخل اسم العميل لتسجيل الطلب.');
+      showOrderNotice('الاسم مطلوب', 'اكتب الاسم الكريم في السلة عشان نقدر نسجّل الطلب.');
       return;
     }
     if (!customer.phone.trim()) {
-      alert('من فضلك أدخل رقم الهاتف لتأكيد الطلب والتوصيل.');
+      showOrderNotice('رقم الهاتف مطلوب', 'اكتب رقم الموبايل عشان المطعم يقدر يتواصل معاك ويأكد التوصيل.');
       return;
     }
     if (orderType === 'delivery' && !customer.address.trim()) {
-      alert('من فضلك أدخل العنوان بالتفصيل.');
+      showOrderNotice('العنوان مطلوب', 'للتوصيل لازم تكتب العنوان بالتفصيل: الشارع وعلامة مميزة.');
       return;
     }
 
@@ -245,6 +286,27 @@ export const CartDrawer: React.FC = () => {
       }
     }
 
+    await syncWithServer();
+    refreshPricesFromMenu();
+    const liveCart = useCartStore.getState();
+    if (liveCart.items.some((item) => item.unavailable) || liveCart.items.length === 0) {
+      if (preOpenedWindow && !preOpenedWindow.closed) {
+        try { preOpenedWindow.close(); } catch {}
+      }
+      setIsSubmitting(false);
+      showOrderNotice(
+        'صنف في السلة مش متاح',
+        'فيه صنف اتشال أو توقف من المنيو. امسحه من السلة وبعدين أرسل الطلب.'
+      );
+      return;
+    }
+    const liveItems = liveCart.items.filter((item) => !item.unavailable);
+    const liveSubtotal = liveCart.getSubtotal();
+    const liveDeliveryFee = liveCart.getDeliveryFee();
+    const liveDiscount = liveCart.getDiscountAmount();
+    const liveTotal = liveCart.getTotal();
+    const liveCoupon = liveCart.appliedCoupon;
+
     // Play celebration success chime
     sounds.playSuccessChime();
 
@@ -258,7 +320,7 @@ export const CartDrawer: React.FC = () => {
 
     try {
       // Generate clean summary of ordered items for kitchen / monitor display
-      const itemsLines = items.map((item) => {
+      const itemsLines = liveItems.map((item) => {
         let text = `${item.name} × ${item.quantity}`;
         if (item.selectedSize) text += ` (${item.selectedSize})`;
         const details: string[] = [];
@@ -337,19 +399,20 @@ export const CartDrawer: React.FC = () => {
         customer_name: customer.name,
         customer_phone: customer.phone,
         order_type: orderType,
+        selected_zone_id: selectedZoneId,
         delivery_zone: orderType === 'pickup' ? 'استلام من المطعم (تيك أواي)' : (selectedZone?.name || 'سنهور القبلية'),
         delivery_address: customer.address,
         building_notes: customer.buildingFloorNotes,
         special_notes: combinedNotes,
         payment_method: paymentMethod,
-        items_count: totalItems,
-        subtotal,
-        delivery_fee: deliveryFee,
-        discount_amount: discount,
-        total_amount: total,
-        coupon_code: appliedCoupon,
-        status: 'pending',
-        created_at: new Date().toISOString()
+        coupon_code: liveCoupon,
+        items: liveItems.map((item) => ({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize,
+          customDishDetails: item.customDishDetails,
+          extras: item.extras,
+        })),
       };
 
       const saveResult = await saveOrderToSupabase(orderPayload);
@@ -357,34 +420,47 @@ export const CartDrawer: React.FC = () => {
         throw new Error(saveResult.error || 'تعذر حفظ الطلب');
       }
 
+      const savedTotals = saveResult && 'totals' in saveResult ? saveResult.totals : null;
+      const waSubtotal = savedTotals?.subtotal ?? liveSubtotal;
+      const waDelivery = savedTotals?.delivery_fee ?? liveDeliveryFee;
+      const waDiscount = savedTotals?.discount_amount ?? liveDiscount;
+      const waTotal = savedTotals?.total_amount ?? liveTotal;
+      const waGiftReached = waSubtotal >= incentiveTarget;
+      const liveSettings = useMenuStore.getState();
+      const liveWallet = (liveSettings.walletPhoneNumber || walletPhoneNumber || restaurantInfo.cashWalletNumber || '').trim();
+      const liveInstapay = (liveSettings.instapayHandle || instapayHandle || restaurantInfo.instapayHandle || '').trim();
+      const liveOrdersWhatsapp = (liveSettings.ordersWhatsappNumber || ordersWhatsappNumber || restaurantInfo.whatsapp || '').trim();
+
       // Generate WhatsApp rich formatted message and open chat
       const waText = generateWhatsAppMessage({
-        items,
+        items: liveItems,
         customer,
         orderType,
         selectedZoneId,
         paymentMethod,
-        subtotal,
-        deliveryFee,
-        discountAmount: discount,
-        total,
-        couponCode: appliedCoupon,
-        freeGiftText: (cartIncentiveSettings?.isEnabled !== false && isGoalReached && cartIncentiveSettings?.includeInWhatsApp !== false)
+        subtotal: waSubtotal,
+        deliveryFee: waDelivery,
+        discountAmount: waDiscount,
+        total: waTotal,
+        couponCode: liveCoupon,
+        freeGiftText: (cartIncentiveSettings?.isEnabled !== false && waGiftReached && cartIncentiveSettings?.includeInWhatsApp !== false)
           ? rewardText
           : null,
-        deliveryZonesList: activeDeliveryZones
+        deliveryZonesList: liveSettings.deliveryZones?.length ? liveSettings.deliveryZones : activeDeliveryZones,
+        walletPhoneNumber: liveWallet,
+        instapayHandle: liveInstapay,
       });
 
       // Increment coupon usage count if a coupon was used
-      if (appliedCoupon) {
-        useMenuStore.getState().incrementCouponUsage(appliedCoupon);
+      if (liveCoupon) {
+        useMenuStore.getState().incrementCouponUsage(liveCoupon);
       }
 
       // تفريغ السلة فقط عند اكتمال ونجاح الطلب
       clearCart();
 
       // فتح محادثة الواتساب فوراً وبدون تأخير زمني لمنع حظر المتصفح
-      openWhatsAppChat(restaurantInfo.whatsapp, waText, preOpenedWindow);
+      openWhatsAppChat(liveOrdersWhatsapp, waText, preOpenedWindow);
       setIsSubmitting(false);
       setIsCartOpen(false);
     } catch (err: any) {
@@ -394,14 +470,29 @@ export const CartDrawer: React.FC = () => {
         } catch (e) {}
       }
       console.error('Order creation error:', err);
-      alert('حدث خطأ أثناء إرسال الطلب، يرجى المحاولة مرة أخرى.');
+      const raw = typeof err?.message === 'string' ? err.message.trim() : '';
+      showOrderNotice(
+        'تعذر إرسال الطلب',
+        raw && raw !== 'Failed to fetch' && !raw.toLowerCase().includes('network')
+          ? raw
+          : 'حصل خطأ أثناء إرسال الطلب. تأكد من الإنترنت وحاول مرة تانية. لو تكررت الرسالة، كلم المطعم على واتساب.'
+      );
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-xl h-full bg-white border-r border-slate-200 shadow-2xl flex flex-col justify-between overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-md animate-fadeIn"
+      onClick={() => {
+        if (isSubmitting) return;
+        setIsCartOpen(false);
+      }}
+    >
+      <div
+        className="relative w-full max-w-xl h-full bg-white border-r border-slate-200 shadow-2xl flex flex-col justify-between overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Drawer Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 bg-white/95 backdrop-blur-md flex items-center justify-between">
@@ -515,10 +606,16 @@ export const CartDrawer: React.FC = () => {
           ) : (
             <>
               {/* Items List */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+              <div className="space-y-3 p-3.5 rounded-3xl bg-rose-50 border-2 border-rose-300 ring-1 ring-rose-200 shadow-xs">
+                <label className="text-xs font-black text-rose-800 tracking-wide block">
                   الأصناف المختارة:
                 </label>
+                {priceRefreshNotice && (
+                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-bold leading-5">{priceRefreshNotice}</p>
+                  </div>
+                )}
                 {items.map((item) => {
                   const isKoshary = isKosharyItem(item);
                   const isNoteOpen = openNotesItemId === item.id;
@@ -575,7 +672,9 @@ export const CartDrawer: React.FC = () => {
                     <div
                       key={item.id}
                       className={`p-3.5 rounded-2xl border transition-all duration-300 space-y-2.5 ${
-                        isNoteOpen
+                        item.unavailable
+                          ? 'bg-rose-50 border-rose-300 shadow-sm'
+                          : isNoteOpen
                           ? 'bg-amber-50/50 border-amber-300 shadow-md ring-1 ring-amber-200'
                           : 'bg-slate-50 border-slate-200/80 hover:border-red-200'
                       }`}
@@ -606,9 +705,14 @@ export const CartDrawer: React.FC = () => {
                                 👑 طاجن مخصوص
                               </span>
                             )}
+                            {item.unavailable && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-black border border-rose-200 shrink-0">
+                                غير متاح
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs font-black text-red-600">
-                            {item.price * item.quantity} ج.م
+                            {item.unavailable ? 'اتشال من المنيو' : `${item.price * item.quantity} ج.م`}
                           </div>
                         </div>
 
@@ -904,10 +1008,10 @@ export const CartDrawer: React.FC = () => {
               </div>
 
               {/* Smart Upsell Carousel */}
-              <div className="space-y-2.5 pt-3 border-t border-slate-100">
+              <div className="space-y-2.5 p-3.5 rounded-3xl bg-amber-50 border-2 border-amber-300 ring-1 ring-amber-200 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                     إضافات تكمل الأكيلة (إضافة سريعة بنقرة واحدة):
                   </span>
                 </div>
@@ -1016,8 +1120,8 @@ export const CartDrawer: React.FC = () => {
               )}
 
               {/* Customer Information (CRM & Auto-save) */}
-              <div className="space-y-3 pt-3 border-t border-slate-100">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+              <div className="space-y-3 p-3.5 rounded-3xl bg-sky-50 border-2 border-sky-300 ring-1 ring-sky-200 shadow-xs">
+                <label className="text-xs font-black text-sky-900 tracking-wide block">
                   بيانات العميل (تُحفظ تلقائياً):
                 </label>
 
@@ -1145,7 +1249,7 @@ export const CartDrawer: React.FC = () => {
                       {walletPhoneNumber || restaurantInfo.cashWalletNumber}
                     </div>
                     <p className="text-[11px] text-slate-600 text-center">
-                      باسم: {restaurantInfo.cashWalletName} (برجاء إرسال إشعار التحويل عبر واتساب)
+                      باسم: {walletAccountName || restaurantInfo.cashWalletName} (برجاء إرسال إشعار التحويل عبر واتساب)
                     </p>
                   </div>
                 )}
@@ -1167,7 +1271,7 @@ export const CartDrawer: React.FC = () => {
                       {instapayHandle || restaurantInfo.instapayHandle}
                     </div>
                     <a
-                      href={restaurantInfo.instapayLink}
+                      href={getInstapayOpenLink(instapayHandle || restaurantInfo.instapayHandle, instapayLink)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs"
@@ -1260,14 +1364,45 @@ export const CartDrawer: React.FC = () => {
             <button
               onClick={handleConfirmOrder}
               disabled={isSubmitting}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-sm sm:text-base shadow-xl flex items-center justify-between transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+              onMouseEnter={() => setIsSendBtnMoved(true)}
+              onMouseLeave={() => setIsSendBtnMoved(false)}
+              onTouchStart={() => setIsSendBtnMoved(true)}
+              onTouchEnd={() => setTimeout(() => setIsSendBtnMoved(false), 450)}
+              className="group relative w-full py-3.5 px-4 sm:px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-sm sm:text-base shadow-xl flex items-center justify-between transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 overflow-hidden"
             >
-              <span className="flex items-center gap-2">
+              <span className="relative flex items-center gap-2 z-10 shrink-0">
                 <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
                 <span>{isSubmitting ? 'جاري تجهيز الفاتورة...' : 'إرسال الطلب عبر واتساب'}</span>
               </span>
-              <span className="font-black text-lg text-emerald-100">
-                {total} ج.م 💬
+
+              <div className="relative flex-1 h-11 mx-2 pointer-events-none">
+                <div
+                  style={{
+                    right: isSendBtnMoved || isSubmitting ? 'calc(100% - 50px)' : '8px',
+                    transition: 'all 0.65s cubic-bezier(0.25, 1, 0.5, 1)',
+                  }}
+                  className={`absolute top-1/2 -translate-y-1/2 w-[42px] h-[42px] flex items-center justify-center will-change-[right,transform] ${
+                    isSendBtnMoved || isSubmitting
+                      ? '-rotate-12 scale-110 drop-shadow-[0_8px_14px_rgba(0,0,0,0.35)]'
+                      : 'rotate-0 scale-100 drop-shadow-[0_3px_6px_rgba(0,0,0,0.25)]'
+                  }`}
+                >
+                  <img
+                    src="/koshary-box-transparent.png"
+                    alt=""
+                    className="w-full h-full object-contain pointer-events-none select-none"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+
+              <span className="relative z-10 flex items-center gap-1.5 shrink-0 font-black text-lg text-emerald-100">
+                <span>{total} ج.م</span>
+                <ArrowLeft
+                  className={`w-5 h-5 transition-transform duration-300 ${
+                    isSendBtnMoved || isSubmitting ? '-translate-x-1' : ''
+                  }`}
+                />
               </span>
             </button>
             <p className="text-[11px] text-slate-500 text-center mt-2 font-medium">
@@ -1277,6 +1412,29 @@ export const CartDrawer: React.FC = () => {
         )}
 
       </div>
+
+      {orderNotice && (
+        <div className="absolute inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-5 sm:p-6 text-right">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base font-black text-slate-900">{orderNotice.title}</h3>
+                <p className="text-sm text-slate-600 font-bold leading-6 mt-1">{orderNotice.message}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOrderNotice(null)}
+              className="w-full py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-black transition cursor-pointer"
+            >
+              حسنًا، هعدّل وأعيد الإرسال
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

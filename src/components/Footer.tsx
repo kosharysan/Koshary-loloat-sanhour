@@ -4,8 +4,14 @@ import React from 'react';
 import Image from 'next/image';
 import { Phone, MessageCircle, MapPin, Clock, Heart } from 'lucide-react';
 import { restaurantInfo } from '@/data/mockData';
+import { useMenuStore } from '@/lib/menuStore';
+import { getWhatsAppMeLink } from '@/lib/whatsapp';
+import { getTelHref } from '@/lib/contactLinks';
 
 export const Footer: React.FC = () => {
+  const ordersWhatsappNumber = useMenuStore((state) => state.ordersWhatsappNumber);
+  const restaurantPhoneNumber = useMenuStore((state) => state.restaurantPhoneNumber);
+
   return (
     <footer className="mt-20 px-4 pb-12">
       <div className="max-w-5xl mx-auto rounded-[2.5rem] bg-white/70 backdrop-blur-2xl border border-rose-200/80 shadow-[0_15px_40px_-5px_rgba(225,29,72,0.12)] p-6 sm:p-10 space-y-6">
@@ -40,15 +46,15 @@ export const Footer: React.FC = () => {
           {/* Quick Contact Icons */}
           <div className="flex flex-wrap items-center justify-center gap-3">
             <a
-              href={`tel:${restaurantInfo.phone}`}
+              href={getTelHref(restaurantPhoneNumber || restaurantInfo.phone)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white hover:bg-rose-50 border border-rose-200/80 hover:border-rose-400 text-slate-800 hover:text-rose-600 font-bold transition shadow-xs text-xs"
             >
               <Phone className="w-4 h-4 text-rose-600" />
-              <span>{restaurantInfo.phone}</span>
+              <span>{restaurantPhoneNumber || restaurantInfo.phone}</span>
             </a>
 
             <a
-              href={`https://wa.me/${restaurantInfo.whatsapp}`}
+              href={getWhatsAppMeLink(ordersWhatsappNumber || restaurantInfo.whatsapp)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-black transition shadow-xs text-xs"

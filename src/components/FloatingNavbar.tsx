@@ -6,10 +6,12 @@ import { Phone, MessageCircle, Share2, ShoppingBag, Check, Sparkles } from 'luci
 import { restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
 import { useMenuStore, computeStoreStatus, defaultStoreScheduleSettings } from '@/lib/menuStore';
+import { getWhatsAppMeLink } from '@/lib/whatsapp';
+import { getTelHref } from '@/lib/contactLinks';
 
 export const FloatingNavbar: React.FC = () => {
   const { getItemsCount, getTotal, setIsCartOpen } = useCartStore();
-  const { storeScheduleSettings = defaultStoreScheduleSettings } = useMenuStore();
+  const { storeScheduleSettings = defaultStoreScheduleSettings, ordersWhatsappNumber, restaurantPhoneNumber } = useMenuStore();
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -112,7 +114,7 @@ export const FloatingNavbar: React.FC = () => {
           
           {/* Quick Call */}
           <a
-            href={`tel:${restaurantInfo.phone}`}
+            href={getTelHref(restaurantPhoneNumber || restaurantInfo.phone)}
             className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border border-rose-200/90 flex items-center justify-center text-rose-700 transition-all hover:scale-105 active:scale-95 shadow-sm"
             title="اتصل بالمطعم"
           >
@@ -121,7 +123,7 @@ export const FloatingNavbar: React.FC = () => {
 
           {/* Quick WhatsApp */}
           <a
-            href={`https://wa.me/${restaurantInfo.whatsapp}`}
+            href={getWhatsAppMeLink(ordersWhatsappNumber || restaurantInfo.whatsapp)}
             target="_blank"
             rel="noopener noreferrer"
             className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 flex items-center justify-center text-emerald-600 transition-all hover:scale-105 active:scale-95 shadow-sm"

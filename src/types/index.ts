@@ -69,6 +69,7 @@ export interface CartItem {
     name: string;
     price: number;
   }[];
+  unavailable?: boolean;
 }
 
 export type OrderType = 'delivery' | 'pickup';

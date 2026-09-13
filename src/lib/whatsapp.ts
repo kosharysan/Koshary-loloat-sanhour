@@ -14,6 +14,8 @@ interface GenerateWhatsAppMessageProps {
   couponCode?: string | null;
   freeGiftText?: string | null;
   deliveryZonesList?: any[];
+  walletPhoneNumber?: string;
+  instapayHandle?: string;
 }
 
 // Unicode Right-to-Left Mark (RLM) to ensure 100% consistent right-aligned Arabic text in WhatsApp
@@ -31,10 +33,14 @@ export function generateWhatsAppMessage({
   total,
   couponCode,
   freeGiftText,
-  deliveryZonesList
+  deliveryZonesList,
+  walletPhoneNumber,
+  instapayHandle,
 }: GenerateWhatsAppMessageProps): string {
   const activeZones = (deliveryZonesList && deliveryZonesList.length > 0) ? deliveryZonesList : deliveryZones;
   const zone = activeZones.find(z => z.id === selectedZoneId) || activeZones[0];
+  const liveWallet = (walletPhoneNumber || restaurantInfo.cashWalletNumber || '').trim();
+  const liveInstapay = (instapayHandle || restaurantInfo.instapayHandle || '').trim();
 
   const orderTypeArabic = {
     delivery: '🛵 توصيل للمنزل (دليفري)',
@@ -43,8 +49,8 @@ export function generateWhatsAppMessage({
 
   const paymentMethodArabic = {
     cash: '💵 كاش عند الاستلام',
-    vodafone_cash: `📱 محفظة كاش (${restaurantInfo.cashWalletNumber})`,
-    instapay: `⚡ إنستاباي (${restaurantInfo.instapayHandle})`
+    vodafone_cash: `📱 محفظة كاش (${liveWallet})`,
+    instapay: `⚡ إنستاباي (${liveInstapay})`
   }[paymentMethod];
 
   // Items list formatting with guaranteed RTL alignment and clean indented bullets
@@ -186,11 +192,20 @@ export function formatWhatsAppNotification(
     .join('\n');
 }
 
-export function openWhatsAppChat(phone: string, text: string, targetWindow?: Window | null) {
-  let cleanPhone = phone.replace(/[^0-9]/g, '');
+export function normalizeWhatsAppPhone(phone: string) {
+  let cleanPhone = (phone || '').replace(/[^0-9]/g, '');
   if (cleanPhone.startsWith('01') && cleanPhone.length === 11) {
     cleanPhone = '2' + cleanPhone;
   }
+  return cleanPhone;
+}
+
+export function getWhatsAppMeLink(phone: string) {
+  return `https://wa.me/${normalizeWhatsAppPhone(phone)}`;
+}
+
+export function openWhatsAppChat(phone: string, text: string, targetWindow?: Window | null) {
+  const cleanPhone = normalizeWhatsAppPhone(phone);
   const encoded = encodeURIComponent(text);
 
   // Detect mobile vs desktop
@@ -236,6 +251,7 @@ export async function sendWhatsAppMessageApi(
   try {
     const res = await fetch('/api/whatsapp/send', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, text, instanceId, apiToken }),
     });

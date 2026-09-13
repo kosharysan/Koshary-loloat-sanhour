@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { ClosedShift } from '@/types';
+import { filterShiftsByPeriod, type ShiftPeriodFilter } from '@/lib/shiftArchive';
+import { EMPTY_REPORT, type ReportCustomerLimit, type ReportPayload, type ReportTimeFilter } from '@/lib/reportStats';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
@@ -12,15 +14,37 @@ export const supabase = isSupabaseConfigured
   : null;
 
 const LOCAL_ORDERS_KEY = 'loloat_sanhour_admin_orders';
+const LOCAL_CURRENT_ORDERS_KEY = 'loloat_sanhour_current_shift_orders';
+const LOCAL_STATUS_OVERRIDES_KEY = 'loloat_orders_status_overrides';
+const LOCAL_DELETED_ORDERS_KEY = 'loloat_deleted_order_ids';
+const LOCAL_SHIFTS_KEY = 'loloat_closed_shifts';
+const LOCAL_CURRENT_SHIFT_START_KEY = 'loloat_current_shift_start';
+const LOCAL_CURRENT_SHIFT_NUM_KEY = 'loloat_current_shift_number';
+const LOCAL_ARCHIVED_ORDER_IDS_KEY = 'loloat_archived_order_ids';
+
+async function apiFetch<T = any>(
+  path: string,
+  init?: RequestInit
+): Promise<{ ok: boolean; status: number; data: T | null }> {
+  const res = await fetch(path, {
+    ...init,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers || {}),
+    },
+  });
+  const data = (await res.json().catch(() => null)) as T | null;
+  return { ok: res.ok, status: res.status, data };
+}
 
 export async function saveOrderToSupabase(orderData: any) {
-  // Always persist to local admin orders cache first
   try {
     if (typeof window !== 'undefined') {
       const existing = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
       const newOrder = {
         ...orderData,
-        id: orderData.id || `ord-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        id: orderData.id || `ord-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       };
       localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify([newOrder, ...existing]));
     }
@@ -28,95 +52,59 @@ export async function saveOrderToSupabase(orderData: any) {
     console.error('Error caching order locally:', e);
   }
 
-  if (!isSupabaseConfigured || !supabase) {
-    console.log('[Supabase Mock] Order recorded locally:', orderData);
-    return { success: true, mode: 'local' };
-  }
+  const { ok, data } = await apiFetch<{
+    success: boolean;
+    error?: string;
+    data?: any;
+    totals?: { subtotal: number; delivery_fee: number; discount_amount: number; total_amount: number };
+  }>(
+    '/api/orders',
+    { method: 'POST', body: JSON.stringify(orderData) }
+  );
 
-  try {
-    const { data, error } = await supabase.from('orders').insert([orderData]).select();
-    if (error) throw error;
-    return { success: true, mode: 'live', data };
-  } catch (err: any) {
-    console.error('[Supabase Live Error]', err.message);
-    return { success: false, error: err.message };
+  if (!ok || !data?.success) {
+    return { success: false, error: data && 'error' in data ? data.error : 'تعذر حفظ الطلب' };
   }
+  return { success: true, mode: 'live', data: data.data, totals: data.totals };
 }
 
-/**
- * Pre-warm the Supabase connection (DNS + SSL + HTTP/2 Keep-Alive)
- * so that checkout operations execute instantaneously without cold-start delay.
- */
 export async function warmupSupabase() {
-  if (!isSupabaseConfigured || !supabase) return;
   try {
-    await supabase.from('orders').select('id').limit(1);
+    await fetch('/api/menu', { credentials: 'include' });
   } catch {}
 }
 
-const LOCAL_STATUS_OVERRIDES_KEY = 'loloat_orders_status_overrides';
-const LOCAL_DELETED_ORDERS_KEY = 'loloat_deleted_order_ids';
-
-export async function fetchOrdersFromDatabase() {
-  // 1. Gather local status overrides and deleted IDs
-  let localOverrides: Record<string, string> = {};
-  let localDeletedIds: string[] = [];
-  if (typeof window !== 'undefined') {
-    try {
-      localOverrides = JSON.parse(localStorage.getItem(LOCAL_STATUS_OVERRIDES_KEY) || '{}');
-      localDeletedIds = JSON.parse(localStorage.getItem(LOCAL_DELETED_ORDERS_KEY) || '[]');
-    } catch {}
+function readLocalOrdersCache(scope: 'all' | 'current' = 'all'): any[] {
+  if (typeof window === 'undefined') return [];
+  const key = scope === 'current' ? LOCAL_CURRENT_ORDERS_KEY : LOCAL_ORDERS_KEY;
+  try {
+    const local = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(local) ? local : [];
+  } catch {
+    return [];
   }
+}
 
-  // 2. Fetch from Supabase if configured
-  if (isSupabaseConfigured && supabase) {
-    try {
-      // Parallel fetch orders and restaurant_settings overrides
-      const [ordersRes, settingsData] = await Promise.all([
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        fetchRestaurantSettingsFromDb().catch(() => null)
-      ]);
+export async function fetchOrdersFromDatabase(
+  options?: { scope?: 'all' | 'current' }
+): Promise<{ orders: any[]; stale: boolean }> {
+  const scope = options?.scope === 'current' ? 'current' : 'all';
+  const path = scope === 'current' ? '/api/orders?scope=current' : '/api/orders';
+  const cacheKey = scope === 'current' ? LOCAL_CURRENT_ORDERS_KEY : LOCAL_ORDERS_KEY;
 
-      const cloudOverrides: Record<string, string> = settingsData?.orderStatusOverrides || {};
-      const cloudDeleted: string[] = settingsData?.deletedOrderIds || [];
-      const combinedOverrides = { ...cloudOverrides, ...localOverrides };
-      const combinedDeleted = new Set([...cloudDeleted, ...localDeletedIds]);
-
-      if (!ordersRes.error && Array.isArray(ordersRes.data)) {
-        const merged = ordersRes.data
-          .filter(order => !combinedDeleted.has(order.id))
-          .map(order => {
-            const override = combinedOverrides[order.id];
-            return override ? { ...order, status: override } : order;
-          });
-        return merged;
-      }
-    } catch (e) {
-      console.warn('Fallback to local orders cache:', e);
+  const { ok, data } = await apiFetch<{ success: boolean; data?: any[] }>(path);
+  if (ok && data && Array.isArray(data.data)) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(data.data));
+      } catch {}
     }
+    return { orders: data.data, stale: false };
   }
-
-  // 3. Fallback to local storage cache
-  if (typeof window !== 'undefined') {
-    try {
-      const local = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
-      const deletedSet = new Set(localDeletedIds);
-      const merged = local
-        .filter((o: any) => !deletedSet.has(o.id))
-        .map((o: any) => {
-          const override = localOverrides[o.id];
-          return override ? { ...o, status: override } : o;
-        });
-      return merged;
-    } catch {
-      return [];
-    }
-  }
-  return [];
+  return { orders: readLocalOrdersCache(scope), stale: true };
 }
 
 export async function updateOrderStatusInDb(orderId: string, newStatus: string) {
-  // 1. Instantly save in local overrides cache
   if (typeof window !== 'undefined') {
     try {
       const overrides = JSON.parse(localStorage.getItem(LOCAL_STATUS_OVERRIDES_KEY) || '{}');
@@ -126,33 +114,27 @@ export async function updateOrderStatusInDb(orderId: string, newStatus: string) 
       const orders = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
       const updated = orders.map((o: any) => (o.id === orderId ? { ...o, status: newStatus } : o));
       localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
+
+      const currentOrders = JSON.parse(localStorage.getItem(LOCAL_CURRENT_ORDERS_KEY) || '[]');
+      if (Array.isArray(currentOrders) && currentOrders.length > 0) {
+        localStorage.setItem(
+          LOCAL_CURRENT_ORDERS_KEY,
+          JSON.stringify(currentOrders.map((o: any) => (o.id === orderId ? { ...o, status: newStatus } : o)))
+        );
+      }
     } catch {}
   }
 
-  // 2. Persist to Supabase
-  if (isSupabaseConfigured && supabase) {
-    try {
-      // a. Direct table update
-      await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-
-      // b. Cloud shared settings sync (has UPDATE policy allowed across all clients)
-      const settings = await fetchRestaurantSettingsFromDb();
-      if (settings) {
-        const cloudOverrides = settings.orderStatusOverrides || {};
-        cloudOverrides[orderId] = newStatus;
-        await saveRestaurantSettingsToDb({
-          ...settings,
-          orderStatusOverrides: cloudOverrides
-        });
-      }
-    } catch (e) {
-      console.warn('Failed to update Supabase status:', e);
-    }
+  const { ok, data } = await apiFetch<{ success: boolean; error?: string }>(
+    `/api/orders/${encodeURIComponent(orderId)}`,
+    { method: 'PATCH', body: JSON.stringify({ status: newStatus }) }
+  );
+  if (!ok || !data?.success) {
+    console.warn('Failed to update order status:', data && 'error' in data ? data.error : '');
   }
 }
 
 export async function deleteOrderFromDatabase(orderId: string) {
-  // 1. Save deleted ID in local cache
   if (typeof window !== 'undefined') {
     try {
       const deleted = JSON.parse(localStorage.getItem(LOCAL_DELETED_ORDERS_KEY) || '[]');
@@ -160,89 +142,135 @@ export async function deleteOrderFromDatabase(orderId: string) {
         localStorage.setItem(LOCAL_DELETED_ORDERS_KEY, JSON.stringify([...deleted, orderId]));
       }
       const orders = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
-      const updated = orders.filter((o: any) => o.id !== orderId);
-      localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
+      localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(orders.filter((o: any) => o.id !== orderId)));
     } catch {}
   }
 
-  // 2. Delete from Supabase
-  if (isSupabaseConfigured && supabase) {
-    try {
-      await supabase.from('orders').delete().eq('id', orderId);
-
-      const settings = await fetchRestaurantSettingsFromDb();
-      if (settings) {
-        const cloudDeleted = settings.deletedOrderIds || [];
-        if (!cloudDeleted.includes(orderId)) {
-          await saveRestaurantSettingsToDb({
-            ...settings,
-            deletedOrderIds: [...cloudDeleted, orderId]
-          });
-        }
-      }
-    } catch (e: any) {
-      console.warn('Failed to delete order from Supabase:', e.message);
-    }
+  const { ok, data } = await apiFetch<{ success: boolean; error?: string }>(
+    `/api/orders/${encodeURIComponent(orderId)}`,
+    { method: 'DELETE' }
+  );
+  if (!ok || !data?.success) {
+    console.warn('Failed to delete order:', data && 'error' in data ? data.error : '');
   }
+}
+
+export async function fetchReportFromServer(options: {
+  period: ReportTimeFilter;
+  year?: string;
+  month?: string;
+  from?: string;
+  to?: string;
+  q?: string;
+  customerLimit?: ReportCustomerLimit;
+}): Promise<{ report: ReportPayload; stale: boolean }> {
+  const params = new URLSearchParams();
+  params.set('period', options.period);
+  if (options.year) params.set('year', options.year);
+  if (options.month) params.set('month', options.month);
+  if (options.from) params.set('from', options.from);
+  if (options.to) params.set('to', options.to);
+  if (options.q) params.set('q', options.q);
+  if (options.customerLimit) params.set('customerLimit', options.customerLimit);
+
+  const { ok, data } = await apiFetch<{ success: boolean; report?: ReportPayload; error?: string }>(
+    `/api/reports?${params.toString()}`
+  );
+  if (ok && data?.success && data.report) {
+    return { report: data.report, stale: false };
+  }
+  return { report: EMPTY_REPORT, stale: true };
 }
 
 export async function fetchRestaurantSettingsFromDb(): Promise<any | null> {
-  if (!isSupabaseConfigured || !supabase) return null;
-  try {
-    const { data, error } = await supabase
-      .from('restaurant_settings')
-      .select('data, updated_at')
-      .eq('id', 'main')
-      .maybeSingle();
-
-    if (error) {
-      console.warn('[Supabase] Could not fetch restaurant settings:', error.message);
-      return null;
-    }
-    return data ? data.data : null;
-  } catch (err: any) {
-    console.warn('[Supabase Settings Fetch Error]:', err.message);
-    return null;
-  }
+  const { ok, data } = await apiFetch<{ success: boolean; data?: any }>('/api/menu');
+  if (!ok || !data?.success) return null;
+  return data.data || null;
 }
 
 export async function saveRestaurantSettingsToDb(menuData: any): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: 'Supabase not configured' };
+  const { ok, data } = await apiFetch<{ success: boolean; error?: string }>(
+    '/api/settings',
+    { method: 'PUT', body: JSON.stringify(menuData) }
+  );
+  if (!ok || !data?.success) {
+    return { success: false, error: data && 'error' in data ? data.error : 'تعذر الحفظ في السيرفر' };
   }
-  try {
-    const { error } = await supabase
-      .from('restaurant_settings')
-      .upsert({
-        id: 'main',
-        data: menuData,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err: any) {
-    console.error('[Supabase Settings Save Error]:', err.message);
-    return { success: false, error: err.message };
-  }
+  return { success: true };
 }
 
-const LOCAL_SHIFTS_KEY = 'loloat_closed_shifts';
-const LOCAL_CURRENT_SHIFT_START_KEY = 'loloat_current_shift_start';
-const LOCAL_CURRENT_SHIFT_NUM_KEY = 'loloat_current_shift_number';
-const LOCAL_ARCHIVED_ORDER_IDS_KEY = 'loloat_archived_order_ids';
+export type FetchShiftsOptions = {
+  period?: ShiftPeriodFilter;
+  limit?: number;
+  shift?: string;
+  from?: string;
+  to?: string;
+  q?: string;
+  view?: 'full' | 'meta';
+};
 
-export async function fetchShiftsData(): Promise<{
+export async function fetchShiftsData(options?: FetchShiftsOptions): Promise<{
   closedShifts: ClosedShift[];
   currentShiftStartTime: string;
   currentShiftNumber: number;
   archivedOrderIds: string[];
+  totalClosedShifts: number;
+  totalArchivedInvoices: number;
+  customerMatches: { order: any; shift: ClosedShift }[];
+  totalMatches: number;
 }> {
+  const params = new URLSearchParams();
+  if (options?.view) params.set('view', options.view);
+  if (options?.period) params.set('period', options.period);
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.shift && options.shift !== 'all') params.set('shift', options.shift);
+  if (options?.from) params.set('from', options.from);
+  if (options?.to) params.set('to', options.to);
+  if (options?.q) params.set('q', options.q);
+
+  const query = params.toString();
+  const { ok, data } = await apiFetch<{
+    success: boolean;
+    closedShifts?: ClosedShift[];
+    currentShiftStartTime?: string;
+    currentShiftNumber?: number;
+    archivedOrderIds?: string[];
+    totalClosedShifts?: number;
+    totalArchivedInvoices?: number;
+    customerMatches?: { order: any; shift: ClosedShift }[];
+    totalMatches?: number;
+  }>(query ? `/api/shifts?${query}` : '/api/shifts');
+
+  if (ok && data?.success) {
+    const result = {
+      closedShifts: data.closedShifts || [],
+      currentShiftStartTime: data.currentShiftStartTime || '',
+      currentShiftNumber: Number(data.currentShiftNumber) || 1,
+      archivedOrderIds: data.archivedOrderIds || [],
+      totalClosedShifts: Number(data.totalClosedShifts) || (data.closedShifts || []).length,
+      totalArchivedInvoices: Number(data.totalArchivedInvoices) || 0,
+      customerMatches: data.customerMatches || [],
+      totalMatches: Number(data.totalMatches) || (data.customerMatches || []).length,
+    };
+    if (typeof window !== 'undefined') {
+      try {
+        if (!options?.view && !options?.period && !options?.q) {
+          localStorage.setItem(LOCAL_SHIFTS_KEY, JSON.stringify(result.closedShifts));
+        }
+        localStorage.setItem(LOCAL_CURRENT_SHIFT_START_KEY, result.currentShiftStartTime);
+        localStorage.setItem(LOCAL_CURRENT_SHIFT_NUM_KEY, String(result.currentShiftNumber));
+        if (result.archivedOrderIds.length > 0) {
+          localStorage.setItem(LOCAL_ARCHIVED_ORDER_IDS_KEY, JSON.stringify(result.archivedOrderIds));
+        }
+      } catch {}
+    }
+    return result;
+  }
+
   let localShifts: ClosedShift[] = [];
   let localStartTime = '';
   let localShiftNumber = 1;
   let localArchivedIds: string[] = [];
-
   if (typeof window !== 'undefined') {
     try {
       localShifts = JSON.parse(localStorage.getItem(LOCAL_SHIFTS_KEY) || '[]');
@@ -252,61 +280,25 @@ export async function fetchShiftsData(): Promise<{
     } catch {}
   }
 
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const settings = await fetchRestaurantSettingsFromDb();
-      if (settings) {
-        const cloudShifts = settings.closedShifts || [];
-        const cloudStartTime = settings.currentShiftStartTime || '';
-        const cloudShiftNumber = Number(settings.currentShiftNumber) || (cloudShifts.length + 1);
-        const cloudArchivedIds = settings.archivedOrderIds || [];
-
-        // دمج الورديات بدون تكرار
-        const shiftsMap = new Map<string, ClosedShift>();
-        [...cloudShifts, ...localShifts].forEach((s: ClosedShift) => {
-          if (s && s.id) shiftsMap.set(s.id, s);
-        });
-        const combinedShifts = Array.from(shiftsMap.values()).sort((a, b) => 
-          new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
-        );
-
-        const combinedArchived = Array.from(new Set([...cloudArchivedIds, ...localArchivedIds]));
-        const effectiveStartTime = cloudStartTime || localStartTime || new Date().toISOString();
-        const effectiveShiftNum = Math.max(cloudShiftNumber, localShiftNumber, combinedShifts.length + 1);
-
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem(LOCAL_SHIFTS_KEY, JSON.stringify(combinedShifts));
-            localStorage.setItem(LOCAL_CURRENT_SHIFT_START_KEY, effectiveStartTime);
-            localStorage.setItem(LOCAL_CURRENT_SHIFT_NUM_KEY, String(effectiveShiftNum));
-            localStorage.setItem(LOCAL_ARCHIVED_ORDER_IDS_KEY, JSON.stringify(combinedArchived));
-          } catch {}
-        }
-
-        return {
-          closedShifts: combinedShifts,
-          currentShiftStartTime: effectiveStartTime,
-          currentShiftNumber: effectiveShiftNum,
-          archivedOrderIds: combinedArchived,
-        };
-      }
-    } catch (e) {
-      console.warn('Failed to fetch shifts from Supabase:', e);
-    }
-  }
-
-  const effectiveStartTime = localStartTime || new Date().toISOString();
-  if (typeof window !== 'undefined' && !localStartTime) {
-    try {
-      localStorage.setItem(LOCAL_CURRENT_SHIFT_START_KEY, effectiveStartTime);
-    } catch {}
-  }
+  const filtered = options?.q || !options?.period
+    ? localShifts
+    : filterShiftsByPeriod(localShifts, {
+        period: options.period,
+        limit: options.limit,
+        shift: options.shift,
+        from: options.from,
+        to: options.to,
+      });
 
   return {
-    closedShifts: localShifts,
-    currentShiftStartTime: effectiveStartTime,
+    closedShifts: options?.view === 'meta' ? [] : filtered,
+    currentShiftStartTime: localStartTime || new Date().toISOString(),
     currentShiftNumber: localShiftNumber,
     archivedOrderIds: localArchivedIds,
+    totalClosedShifts: localShifts.length,
+    totalArchivedInvoices: 0,
+    customerMatches: [],
+    totalMatches: 0,
   };
 }
 
@@ -316,7 +308,6 @@ export async function closeShiftInDatabase(
   newShiftNumber: number,
   newArchivedOrderIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
-  // 1. تحديث التخزين المحلي فوراً
   if (typeof window !== 'undefined') {
     try {
       const existing = JSON.parse(localStorage.getItem(LOCAL_SHIFTS_KEY) || '[]');
@@ -330,27 +321,21 @@ export async function closeShiftInDatabase(
     }
   }
 
-  // 2. المزامنة مع Supabase السحابي
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const settings = (await fetchRestaurantSettingsFromDb()) || {};
-      const cloudShifts = settings.closedShifts || [];
-      const updatedShifts = [newClosedShift, ...cloudShifts.filter((s: any) => s.id !== newClosedShift.id)];
-
-      await saveRestaurantSettingsToDb({
-        ...settings,
-        closedShifts: updatedShifts,
-        currentShiftStartTime: newShiftStartTime,
-        currentShiftNumber: newShiftNumber,
-        archivedOrderIds: newArchivedOrderIds,
-      });
-      return { success: true };
-    } catch (err: any) {
-      console.error('Failed to save closed shift to Supabase:', err);
-      return { success: false, error: err.message };
+  const { ok, data } = await apiFetch<{ success: boolean; error?: string }>(
+    '/api/shifts',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        newClosedShift,
+        newShiftStartTime,
+        newShiftNumber,
+        newArchivedOrderIds,
+      }),
     }
-  }
+  );
 
+  if (!ok || !data?.success) {
+    return { success: false, error: data && 'error' in data ? data.error : 'تعذر تقفيل الوردية' };
+  }
   return { success: true };
 }
-
