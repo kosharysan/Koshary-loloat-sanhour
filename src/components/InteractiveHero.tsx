@@ -159,6 +159,57 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
           </p>
         </div>
 
+        {/* Action Buttons above the Main Card */}
+        <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
+          
+          {/* Button 1: المنيو */}
+          <button
+            type="button"
+            onClick={onNavigateToMenu}
+            className={`w-full ${
+              dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
+            } py-4 px-6 rounded-2xl bg-white/90 hover:bg-white text-slate-900 border-2 border-rose-200/90 hover:border-rose-400 font-black text-base shadow-[0_12px_30px_rgba(225,29,72,0.12)] hover:shadow-[0_18px_35px_rgba(225,29,72,0.22)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer`}
+          >
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors duration-300 shadow-xs shrink-0">
+              <Utensils className="w-5 h-5" />
+            </div>
+            <div className="text-right">
+              <span className="block text-sm sm:text-base font-black text-slate-900 leading-tight">
+                قائمة الطعام (المنيو)
+              </span>
+              <span className="text-[11px] text-rose-600 font-bold">
+                تصفح جميع الأصناف ⬇️
+              </span>
+            </div>
+          </button>
+
+          {/* Button 2: صمّم طاجنك الخاص (يظهر فقط إذا كان الكارت مفعلاً من الإدارة) */}
+          {dishBuilderSettings?.isEnabled && (
+            <button
+              type="button"
+              onClick={onToggleDishBuilder}
+              className={`w-full sm:flex-1 py-4 px-6 rounded-2xl font-black text-base shadow-[0_12px_35px_rgba(225,29,72,0.25)] hover:shadow-[0_18px_45px_rgba(225,29,72,0.35)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 border-2 cursor-pointer ${
+                isDishBuilderOpen
+                  ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-700'
+                  : 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white border-rose-400/60 ruby-button-shadow'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center shadow-xs shrink-0">
+                <Wand2 className={`w-5 h-5 ${isDishBuilderOpen ? 'rotate-45' : 'animate-pulse'}`} />
+              </div>
+              <div className="text-right">
+                <span className="block text-sm sm:text-base font-black text-white leading-tight">
+                  صمّم طاجنك الخاص
+                </span>
+                <span className="text-[11px] text-amber-200 font-bold flex items-center gap-1">
+                  {isDishBuilderOpen ? 'إغلاق أداة التصميم ✕' : 'ابتكر طاجنك الآن 👨‍🍳'}
+                </span>
+              </div>
+            </button>
+          )}
+
+        </div>
+
         {/* Central 3D Interactive Stage Card - Chic Medium Red Luxury Styling */}
         <div className="relative rounded-[2.5rem] elevated-stage-ruby p-6 sm:p-10 lg:p-12 overflow-hidden text-white">
           
@@ -309,57 +360,6 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
             </div>
 
           </div>
-
-        </div>
-
-        {/* Action Buttons directly under the Main Card */}
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
-          
-          {/* Button 1: المنيو */}
-          <button
-            type="button"
-            onClick={onNavigateToMenu}
-            className={`w-full ${
-              dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
-            } py-4 px-6 rounded-2xl bg-white/90 hover:bg-white text-slate-900 border-2 border-rose-200/90 hover:border-rose-400 font-black text-base shadow-[0_12px_30px_rgba(225,29,72,0.12)] hover:shadow-[0_18px_35px_rgba(225,29,72,0.22)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer`}
-          >
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors duration-300 shadow-xs shrink-0">
-              <Utensils className="w-5 h-5" />
-            </div>
-            <div className="text-right">
-              <span className="block text-sm sm:text-base font-black text-slate-900 leading-tight">
-                قائمة الطعام (المنيو)
-              </span>
-              <span className="text-[11px] text-rose-600 font-bold">
-                تصفح جميع الأصناف ⬇️
-              </span>
-            </div>
-          </button>
-
-          {/* Button 2: صمّم طاجنك الخاص (يظهر فقط إذا كان الكارت مفعلاً من الإدارة) */}
-          {dishBuilderSettings?.isEnabled && (
-            <button
-              type="button"
-              onClick={onToggleDishBuilder}
-              className={`w-full sm:flex-1 py-4 px-6 rounded-2xl font-black text-base shadow-[0_12px_35px_rgba(225,29,72,0.25)] hover:shadow-[0_18px_45px_rgba(225,29,72,0.35)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 border-2 cursor-pointer ${
-                isDishBuilderOpen
-                  ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-700'
-                  : 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white border-rose-400/60 ruby-button-shadow'
-              }`}
-            >
-              <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center shadow-xs shrink-0">
-                <Wand2 className={`w-5 h-5 ${isDishBuilderOpen ? 'rotate-45' : 'animate-pulse'}`} />
-              </div>
-              <div className="text-right">
-                <span className="block text-sm sm:text-base font-black text-white leading-tight">
-                  صمّم طاجنك الخاص
-                </span>
-                <span className="text-[11px] text-amber-200 font-bold flex items-center gap-1">
-                  {isDishBuilderOpen ? 'إغلاق أداة التصميم ✕' : 'ابتكر طاجنك الآن 👨‍🍳'}
-                </span>
-              </div>
-            </button>
-          )}
 
         </div>
 
