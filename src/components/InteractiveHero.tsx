@@ -166,23 +166,27 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         {/* Action Buttons above the Main Card */}
         <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
           
-          {/* Button 1: المنيو */}
+          {/* Button 1: قائمة الطعام (المنيو) بتصميم ملكي فاخر وخط كبير واضح وعالي التباين */}
           <button
             type="button"
             onClick={onNavigateToMenu}
             className={`w-full ${
               dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
-            } py-4 px-6 rounded-2xl bg-white/90 hover:bg-white text-slate-900 border-2 border-rose-200/90 hover:border-rose-400 font-black text-base shadow-[0_12px_30px_rgba(225,29,72,0.12)] hover:shadow-[0_18px_35px_rgba(225,29,72,0.22)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer`}
+            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 hover:from-slate-900 hover:to-slate-900 text-white border-2 border-amber-400/80 hover:border-amber-300 shadow-[0_15px_35px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_45px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 group cursor-pointer relative overflow-hidden`}
           >
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors duration-300 shadow-xs shrink-0">
-              <Utensils className="w-5 h-5" />
+            {/* لمعة خلفية ذهبية خفيفة */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all duration-500" />
+            
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-slate-950 flex items-center justify-center shadow-md shadow-amber-500/30 group-hover:scale-110 transition-transform duration-300 shrink-0">
+              <Utensils className="w-6 h-6 stroke-[2.5]" />
             </div>
-            <div className="text-right">
-              <span className="block text-sm sm:text-base font-black text-slate-900 leading-tight">
+            <div className="text-right flex-1 min-w-0">
+              <span className="block text-base sm:text-lg md:text-xl font-black text-white tracking-tight leading-tight group-hover:text-amber-200 transition-colors">
                 قائمة الطعام (المنيو)
               </span>
-              <span className="text-[11px] text-rose-600 font-bold">
-                تصفح جميع الأصناف ⬇️
+              <span className="text-xs sm:text-sm text-amber-300 font-black flex items-center gap-1.5 mt-0.5">
+                <span>تصفح جميع الأصناف والأسعار</span>
+                <span className="text-amber-400 animate-bounce">⬇️</span>
               </span>
             </div>
           </button>
@@ -192,20 +196,20 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
             <button
               type="button"
               onClick={onToggleDishBuilder}
-              className={`w-full sm:flex-1 py-4 px-6 rounded-2xl font-black text-base shadow-[0_12px_35px_rgba(225,29,72,0.25)] hover:shadow-[0_18px_45px_rgba(225,29,72,0.35)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 border-2 cursor-pointer ${
+              className={`w-full sm:flex-1 py-4 sm:py-4.5 px-6 rounded-2xl font-black text-base shadow-[0_15px_35px_rgba(225,29,72,0.3)] hover:shadow-[0_20px_45px_rgba(225,29,72,0.4)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 border-2 cursor-pointer ${
                 isDishBuilderOpen
                   ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-700'
                   : 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white border-rose-400/60 ruby-button-shadow'
               }`}
             >
-              <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center shadow-xs shrink-0">
-                <Wand2 className={`w-5 h-5 ${isDishBuilderOpen ? 'rotate-45' : 'animate-pulse'}`} />
+              <div className="w-12 h-12 rounded-2xl bg-white/20 text-white flex items-center justify-center shadow-xs shrink-0">
+                <Wand2 className={`w-6 h-6 ${isDishBuilderOpen ? 'rotate-45' : 'animate-pulse'}`} />
               </div>
-              <div className="text-right">
-                <span className="block text-sm sm:text-base font-black text-white leading-tight">
+              <div className="text-right flex-1 min-w-0">
+                <span className="block text-base sm:text-lg md:text-xl font-black text-white leading-tight">
                   صمّم طاجنك الخاص
                 </span>
-                <span className="text-[11px] text-amber-200 font-bold flex items-center gap-1">
+                <span className="text-xs sm:text-sm text-amber-200 font-black flex items-center gap-1 mt-0.5">
                   {isDishBuilderOpen ? 'إغلاق أداة التصميم ✕' : 'ابتكر طاجنك الآن 👨‍🍳'}
                 </span>
               </div>
