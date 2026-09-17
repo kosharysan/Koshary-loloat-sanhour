@@ -1,20 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Phone, MessageCircle, Share2, ShoppingBag, Check, Sparkles } from 'lucide-react';
+import { Phone, MessageCircle, Share2, ShoppingBag, Check, Sparkles, Globe, X } from 'lucide-react';
 import { restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
 import { useMenuStore, computeStoreStatus, defaultStoreScheduleSettings } from '@/lib/menuStore';
 import { getWhatsAppMeLink } from '@/lib/whatsapp';
 import { getTelHref } from '@/lib/contactLinks';
+import { SocialPlatformIcon } from '@/components/SocialPlatformIcon';
 
 export const FloatingNavbar: React.FC = () => {
   const { getItemsCount, getTotal, setIsCartOpen } = useCartStore();
-  const { storeScheduleSettings = defaultStoreScheduleSettings, ordersWhatsappNumber, restaurantPhoneNumber } = useMenuStore();
+  const { storeScheduleSettings = defaultStoreScheduleSettings, ordersWhatsappNumber, restaurantPhoneNumber, socialLinks } = useMenuStore();
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [isGlobeMenuOpen, setIsGlobeMenuOpen] = useState(false);
+  const globeMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -24,6 +27,20 @@ export const FloatingNavbar: React.FC = () => {
     }, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (globeMenuRef.current && !globeMenuRef.current.contains(event.target as Node)) {
+        setIsGlobeMenuOpen(false);
+      }
+    };
+    if (isGlobeMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isGlobeMenuOpen]);
 
   const itemsCount = mounted ? getItemsCount() : 0;
   const total = mounted ? getTotal() : 0;
@@ -132,13 +149,19 @@ export const FloatingNavbar: React.FC = () => {
             <MessageCircle className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </a>
 
-          {/* Share - Visible on all screens including mobile */}
+          {/* Globe Button (صفحاتنا والمشاركة) */}
           <button
-            onClick={handleShare}
-            className="w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-700 transition-all hover:scale-105 active:scale-95 shadow-sm"
-            title="مشاركة الرابط"
+            type="button"
+            onClick={() => setIsGlobeMenuOpen(!isGlobeMenuOpen)}
+            className={`w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full border flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${
+              isGlobeMenuOpen
+                ? 'bg-gradient-to-tr from-rose-600 to-red-500 text-white border-rose-600 ring-2 ring-rose-400/50 shadow-md'
+                : 'bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border-slate-200 text-slate-700'
+            }`}
+            title="صفحاتنا الرسمية والمشاركة"
+            aria-label="صفحاتنا الرسمية والمشاركة"
           >
-            {copied ? <Check className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-emerald-600" /> : <Share2 className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
+            <Globe className={`w-4.5 h-4.5 sm:w-5 sm:h-5 ${isGlobeMenuOpen ? 'animate-spin-slow text-white' : 'text-slate-700'}`} />
           </button>
 
           {/* Floating Cart Capsule: Icon + Amount directly without the word "السلة" */}
@@ -168,6 +191,71 @@ export const FloatingNavbar: React.FC = () => {
 
         </div>
       </div>
+
+      {/* الشريط العرضي الشيك المنسدل عند الضغط على زر الكرة الأرضية 🌐 */}
+      {isGlobeMenuOpen && (
+        <div
+          ref={globeMenuRef}
+          className="pointer-events-auto mt-2 max-w-5xl mx-auto rounded-2xl sm:rounded-full bg-white/95 backdrop-blur-2xl border border-rose-200/90 shadow-[0_15px_35px_-5px_rgba(225,29,72,0.22)] px-2.5 py-2 sm:px-4 sm:py-2.5 flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          {/* شريط الأزرار العرضي القابل للتمرير السلس على الموبايل */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5 flex-1">
+            {/* زر المشاركة الرسمي مع كشف النسخ الفوري */}
+            <button
+              type="button"
+              onClick={handleShare}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 text-xs sm:text-sm font-black border border-slate-200 transition-all hover:scale-105 active:scale-95 shadow-xs"
+              title="مشاركة رابط المنيو"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="text-emerald-700 font-bold">تم النسخ!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>مشاركة الرابط</span>
+                </>
+              )}
+            </button>
+
+            {/* فاصل جمالي رفيع */}
+            <div className="h-5 w-px bg-rose-200/80 shrink-0 mx-0.5" />
+
+            {/* روابط صفحات السوشيال ميديا الخاصة بالمطعم بشعاراتها الرسمية */}
+            {(socialLinks || [])
+              .filter((link) => link.isEnabled)
+              .map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-rose-50/90 to-amber-50/90 hover:from-rose-100 hover:to-amber-100 border border-rose-200/80 text-slate-800 text-xs sm:text-sm font-black shadow-xs transition-all hover:scale-105 active:scale-95 group"
+                  title={link.title}
+                >
+                  <SocialPlatformIcon platform={link.platform} size={19} className="group-hover:scale-110 transition-transform" />
+                  <span className="whitespace-nowrap">{link.title}</span>
+                </a>
+              ))}
+
+            {(!socialLinks || socialLinks.filter((l) => l.isEnabled).length === 0) && (
+              <span className="text-xs text-slate-400 px-2 font-medium">لا توجد صفحات إضافية مفعلة</span>
+            )}
+          </div>
+
+          {/* زر إغلاق القائمة */}
+          <button
+            type="button"
+            onClick={() => setIsGlobeMenuOpen(false)}
+            className="shrink-0 w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-600 flex items-center justify-center transition-all border border-rose-200/80 ml-0.5"
+            title="إغلاق القائمة"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </header>
   );
 };

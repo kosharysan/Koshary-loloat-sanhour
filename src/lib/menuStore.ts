@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, Coupon, CartIncentiveSettings, DeliveryZone, StoreScheduleSettings, StoreStatusResult, WhatsAppNotificationSettings } from '@/types';
+import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, Coupon, CartIncentiveSettings, DeliveryZone, StoreScheduleSettings, StoreStatusResult, WhatsAppNotificationSettings, RestaurantSocialLink } from '@/types';
 import { menuItems as defaultMenuItems, categories as defaultCategories, restaurantInfo, deliveryZones as defaultDeliveryZones } from '@/data/mockData';
 import { fetchRestaurantSettingsFromDb, saveRestaurantSettingsToDb } from '@/lib/supabase';
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate } from '@/lib/whatsapp';
@@ -196,6 +196,13 @@ export const defaultDishBuilderSettings: DishBuilderSettings = {
   ],
 };
 
+export const defaultSocialLinks: RestaurantSocialLink[] = [
+  { id: 'link-fb', title: 'فيسبوك', platform: 'facebook', url: 'https://facebook.com', isEnabled: true },
+  { id: 'link-ig', title: 'انستجرام', platform: 'instagram', url: 'https://instagram.com', isEnabled: true },
+  { id: 'link-tt', title: 'تيك توك', platform: 'tiktok', url: 'https://tiktok.com', isEnabled: true },
+  { id: 'link-map', title: 'موقعنا على الخريطة', platform: 'location', url: 'https://maps.google.com/?q=سنهور+القبلية+الفيوم', isEnabled: true },
+];
+
 interface MenuStore {
   items: MenuItem[];
   categories: Category[];
@@ -205,6 +212,12 @@ interface MenuStore {
   heroBadgeText: string;
   dishBuilderSettings: DishBuilderSettings;
   kosharyCustomOptions: string[];
+  socialLinks: RestaurantSocialLink[];
+  addSocialLink: (link: Omit<RestaurantSocialLink, 'id'>) => RestaurantSocialLink;
+  updateSocialLink: (id: string, updates: Partial<RestaurantSocialLink>) => void;
+  deleteSocialLink: (id: string) => void;
+  toggleSocialLink: (id: string) => void;
+  setSocialLinks: (links: RestaurantSocialLink[]) => void;
   customBaselineItems?: MenuItem[];
   customBaselineCategories?: Category[];
   customBaselineMarketingFilters?: MarketingSubFilter[];
@@ -307,6 +320,40 @@ export const useMenuStore = create<MenuStore>()(
       heroBadgeText: 'جاهز للطلب فوراً 🚀',
       dishBuilderSettings: defaultDishBuilderSettings,
       kosharyCustomOptions: defaultKosharyCustomOptions,
+      socialLinks: defaultSocialLinks,
+      addSocialLink: (link) => {
+        const newLink: RestaurantSocialLink = {
+          ...link,
+          id: `link-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        };
+        set((state) => ({ socialLinks: [...state.socialLinks, newLink] }));
+        get().saveToServer();
+        return newLink;
+      },
+      updateSocialLink: (id, updates) => {
+        set((state) => ({
+          socialLinks: state.socialLinks.map((l) => (l.id === id ? { ...l, ...updates } : l)),
+        }));
+        get().saveToServer();
+      },
+      deleteSocialLink: (id) => {
+        set((state) => ({
+          socialLinks: state.socialLinks.filter((l) => l.id !== id),
+        }));
+        get().saveToServer();
+      },
+      toggleSocialLink: (id) => {
+        set((state) => ({
+          socialLinks: state.socialLinks.map((l) =>
+            l.id === id ? { ...l, isEnabled: !l.isEnabled } : l
+          ),
+        }));
+        get().saveToServer();
+      },
+      setSocialLinks: (links) => {
+        set({ socialLinks: links });
+        get().saveToServer();
+      },
       isWalletPaymentEnabled: false,
       isInstapayPaymentEnabled: false,
       walletPhoneNumber: restaurantInfo.cashWalletNumber,
@@ -707,6 +754,9 @@ export const useMenuStore = create<MenuStore>()(
               restaurantPhoneNumber: remoteData.restaurantPhoneNumber || get().restaurantPhoneNumber,
               cartIncentiveSettings: remoteData.cartIncentiveSettings || get().cartIncentiveSettings,
               kosharyCustomOptions: remoteData.kosharyCustomOptions || get().kosharyCustomOptions,
+              socialLinks: (remoteData.socialLinks && Array.isArray(remoteData.socialLinks) && remoteData.socialLinks.length > 0)
+                ? remoteData.socialLinks
+                : (get().socialLinks && get().socialLinks.length > 0 ? get().socialLinks : defaultSocialLinks),
               isCouponsEnabled: typeof remoteData.isCouponsEnabled === 'boolean' ? remoteData.isCouponsEnabled : get().isCouponsEnabled,
               isMinOrderEnabled: typeof remoteData.isMinOrderEnabled === 'boolean' ? remoteData.isMinOrderEnabled : get().isMinOrderEnabled,
               monitorPassword: get().monitorPassword || '',
@@ -755,6 +805,7 @@ export const useMenuStore = create<MenuStore>()(
             restaurantPhoneNumber: get().restaurantPhoneNumber,
             cartIncentiveSettings: get().cartIncentiveSettings,
             kosharyCustomOptions: get().kosharyCustomOptions,
+            socialLinks: get().socialLinks,
             isCouponsEnabled: get().isCouponsEnabled,
             isMinOrderEnabled: get().isMinOrderEnabled,
             monitorPassword: get().monitorPassword || '',
@@ -896,6 +947,9 @@ export const useMenuStore = create<MenuStore>()(
         kosharyCustomOptions: (persistedState && Array.isArray(persistedState.kosharyCustomOptions) && persistedState.kosharyCustomOptions.length > 0)
           ? persistedState.kosharyCustomOptions
           : defaultKosharyCustomOptions,
+        socialLinks: (persistedState && Array.isArray(persistedState.socialLinks) && persistedState.socialLinks.length > 0)
+          ? persistedState.socialLinks
+          : defaultSocialLinks,
         heroFeaturedItemIds: (persistedState && Array.isArray(persistedState.heroFeaturedItemIds) && persistedState.heroFeaturedItemIds.length > 0)
           ? persistedState.heroFeaturedItemIds
           : (persistedState?.heroFeaturedItemId ? [persistedState.heroFeaturedItemId] : currentState.heroFeaturedItemIds || ['box-special', 'tagine-royal-mix', 'tagine-meat']),

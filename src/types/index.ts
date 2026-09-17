@@ -200,3 +200,19 @@ export interface ClosedShift {
   notes?: string;
 }
 
+export type SocialPlatform =
+  | 'facebook'
+  | 'instagram'
+  | 'tiktok'
+  | 'location'
+  | 'whatsapp'
+  | 'youtube'
+  | 'custom';
+
+export interface RestaurantSocialLink {
+  id: string;
+  title: string;
+  platform: SocialPlatform;
+  url: string;
+  isEnabled: boolean;
+}

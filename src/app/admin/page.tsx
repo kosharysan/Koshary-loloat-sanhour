@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Eye,
   Settings,
+  Globe,
   Calendar,
   Users,
   Trash2,
@@ -58,15 +59,16 @@ import {
   Star,
   Filter
 } from 'lucide-react';
-import { Coupon, DeliveryZone, StoreScheduleSettings, ClosedShift } from '@/types';
+import { Coupon, DeliveryZone, StoreScheduleSettings, ClosedShift, RestaurantSocialLink, SocialPlatform } from '@/types';
 import { restaurantInfo as defaultInfo, menuItems as defaultMenuItems, deliveryZones as defaultZones } from '@/data/mockData';
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, deleteOrderFromDatabase, fetchShiftsData, closeShiftInDatabase, fetchReportFromServer } from '@/lib/supabase';
 import { EMPTY_REPORT, type ReportCustomerLimit, type ReportPayload } from '@/lib/reportStats';
 import { MenuManagementTab } from '@/components/admin/MenuManagementTab';
 import { ReportBarChart, type ReportChartStyle } from '@/components/admin/ReportBarChart';
-import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, defaultWhatsAppNotificationSettings, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
+import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings, defaultStoreScheduleSettings, defaultWhatsAppNotificationSettings, defaultSocialLinks, computeStoreStatus, WEEK_DAYS_AR } from '@/lib/menuStore';
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat, sendWhatsAppMessageApi } from '@/lib/whatsapp';
 import { isGenericInstapayHomepage, normalizeInstapayLink } from '@/lib/contactLinks';
+import { SocialPlatformIcon } from '@/components/SocialPlatformIcon';
 
 // استخراج تفاصيل الأصناف وملاحظات العميل من النص المنظم للطلب
 function parseOrderDetails(specialNotes?: string) {
@@ -335,6 +337,12 @@ export default function AdminPortal() {
     updateWhatsAppNotificationSettings,
     toggleWhatsAppNotificationEnabled,
     resetWhatsAppNotificationSettings,
+    socialLinks,
+    addSocialLink,
+    updateSocialLink,
+    deleteSocialLink,
+    toggleSocialLink,
+    setSocialLinks,
   } = useMenuStore();
 
   const [tempMonitorPassword, setTempMonitorPassword] = useState(monitorPassword || '');
@@ -464,6 +472,69 @@ export default function AdminPortal() {
       (z.estimatedMinutes && z.estimatedMinutes.toLowerCase().includes(zoneSearchQuery.toLowerCase()))
     );
   }, [currentDeliveryZones, zoneSearchQuery]);
+
+  // Social Links Management State (قائمة روابط وصفحات المطعم والسوشيال ميديا 🌐)
+  const [isSocialModalOpen, setIsSocialModalOpen] = useState(false);
+  const [editingSocialLink, setEditingSocialLink] = useState<RestaurantSocialLink | null>(null);
+  const [socialFormPlatform, setSocialFormPlatform] = useState<SocialPlatform>('facebook');
+  const [socialFormTitle, setSocialFormTitle] = useState('');
+  const [socialFormUrl, setSocialFormUrl] = useState('');
+  const [socialNotice, setSocialNotice] = useState<string | null>(null);
+  const [socialLinkToDelete, setSocialLinkToDelete] = useState<RestaurantSocialLink | null>(null);
+
+  const currentSocialLinks = (socialLinks && socialLinks.length > 0)
+    ? socialLinks
+    : defaultSocialLinks;
+
+  const showSocialNotice = (msg: string) => {
+    setSocialNotice(msg);
+    setTimeout(() => setSocialNotice(null), 4000);
+  };
+
+  const openAddSocialModal = () => {
+    setEditingSocialLink(null);
+    setSocialFormPlatform('facebook');
+    setSocialFormTitle('صفحتنا على فيسبوك');
+    setSocialFormUrl('');
+    setIsSocialModalOpen(true);
+  };
+
+  const openEditSocialModal = (link: RestaurantSocialLink) => {
+    setEditingSocialLink(link);
+    setSocialFormPlatform(link.platform);
+    setSocialFormTitle(link.title);
+    setSocialFormUrl(link.url);
+    setIsSocialModalOpen(true);
+  };
+
+  const handleSaveSocial = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUrl = socialFormUrl.trim();
+    const cleanTitle = socialFormTitle.trim() || 'رابط';
+    if (!cleanUrl) {
+      alert('يرجى كتابة رابط صالح (مثال: https://facebook.com/...)');
+      return;
+    }
+
+    if (editingSocialLink) {
+      updateSocialLink(editingSocialLink.id, {
+        platform: socialFormPlatform,
+        title: cleanTitle,
+        url: cleanUrl,
+      });
+      showSocialNotice(`تم تعديل رابط "${cleanTitle}" بنجاح ✓`);
+    } else {
+      addSocialLink({
+        platform: socialFormPlatform,
+        title: cleanTitle,
+        url: cleanUrl,
+        isEnabled: true,
+      });
+      showSocialNotice(`تمت إضافة رابط "${cleanTitle}" بنجاح 🌐`);
+    }
+    setIsSocialModalOpen(false);
+    showSaveIndicator();
+  };
 
   // Cart Gift Incentive State (أضف بـ 75 ج.م للحصول على تحلية أو كانز هدية!)
   const activeIncentive = cartIncentiveSettings || defaultCartIncentiveSettings;
@@ -6900,6 +6971,164 @@ export default function AdminPortal() {
             </div>
           </div>
 
+          {/* كارت إدارة صفحات وروابط المطعم والسوشيال ميديا (قائمة الكرة الأرضية 🌐) */}
+          <div className="bg-slate-900/95 border-2 border-rose-500/30 rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* رأس الكارت */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-lg shadow-rose-500/10">
+                  <Globe className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                    <span>إدارة صفحات وروابط المطعم والسوشيال ميديا</span>
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      قائمة الكرة الأرضية 🌐
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    الروابط التي تفتح في الشريط العرضي عند ضغط الزبون على زر الكرة الأرضية بالمنيو (فيسبوك، انستجرام، تيك توك، الخريطة... إلخ)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={openAddSocialModal}
+                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs shadow-lg shadow-rose-600/20 transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة رابط جديد</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('هل أنت متأكد من رغبتك في استعادة الروابط الافتراضية؟')) {
+                      setSocialLinks(defaultSocialLinks);
+                      showSocialNotice('تمت استعادة الروابط الافتراضية بنجاح ✓');
+                      showSaveIndicator();
+                    }
+                  }}
+                  className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                  title="استعادة الروابط والصفحات الافتراضية"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>الافتراضي</span>
+                </button>
+              </div>
+            </div>
+
+            {/* إشعار الحفظ والتعديل */}
+            {socialNotice && (
+              <div className="p-3 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-black flex items-center gap-2 animate-fadeIn">
+                <Check className="w-4 h-4" />
+                <span>{socialNotice}</span>
+              </div>
+            )}
+
+            {/* شبكة عرض الروابط الحالية */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {currentSocialLinks.map((link) => (
+                <div
+                  key={link.id}
+                  className={`p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 ${
+                    link.isEnabled
+                      ? 'bg-slate-950/80 border-slate-700/80 hover:border-slate-600 shadow-md'
+                      : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                  }`}
+                >
+                  {/* الأيقونة والبيانات */}
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 shadow-inner">
+                      <SocialPlatformIcon platform={link.platform} size={24} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-black text-white truncate">{link.title}</h4>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                          link.isEnabled
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}>
+                          {link.isEnabled ? 'مفعل 🟢' : 'معطل ⚪'}
+                        </span>
+                      </div>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-slate-400 hover:text-rose-400 truncate block mt-0.5 font-mono dir-ltr text-right flex items-center gap-1 group"
+                        title={link.url}
+                      >
+                        <span className="truncate">{link.url}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0 opacity-60 group-hover:opacity-100" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* أزرار التحكم */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* تفعيل / تعطيل */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleSocialLink(link.id);
+                        showSocialNotice(link.isEnabled ? `تم تعطيل رابط "${link.title}"` : `تم تفعيل رابط "${link.title}"`);
+                        showSaveIndicator();
+                      }}
+                      className={`p-2 rounded-xl transition cursor-pointer text-xs font-bold border ${
+                        link.isEnabled
+                          ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
+                      }`}
+                      title={link.isEnabled ? 'اضغط للتعطيل' : 'اضغط للتفعيل'}
+                    >
+                      {link.isEnabled ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                    </button>
+
+                    {/* تعديل */}
+                    <button
+                      type="button"
+                      onClick={() => openEditSocialModal(link)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer"
+                      title="تعديل الرابط"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+
+                    {/* حذف */}
+                    <button
+                      type="button"
+                      onClick={() => setSocialLinkToDelete(link)}
+                      className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition cursor-pointer"
+                      title="حذف الرابط"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {currentSocialLinks.length === 0 && (
+              <div className="p-8 rounded-2xl bg-slate-950/40 border border-slate-800 text-center space-y-2">
+                <Globe className="w-10 h-10 text-slate-600 mx-auto" />
+                <p className="text-sm font-bold text-slate-400">لا توجد صفحات أو روابط مضافة حالياً</p>
+                <button
+                  type="button"
+                  onClick={openAddSocialModal}
+                  className="text-xs text-rose-400 hover:underline font-bold"
+                >
+                  اضغط هنا لإضافة أول رابط الآن
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* قسم إدارة خيارات وملاحظات الكشري السريعة (قائمة بدون) - أسفل الإعدادات خالص */}
           <div className="bg-slate-900/90 border-2 border-amber-500/30 rounded-3xl p-6 sm:p-7 space-y-5 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -7702,6 +7931,196 @@ export default function AdminPortal() {
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>نعم، احذف الكوبون</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* مودال إضافة أو تعديل رابط السوشيال ميديا 🌐 */}
+        {isSocialModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0"
+              onClick={() => setIsSocialModalOpen(false)}
+            />
+            <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 w-full max-w-lg space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-10">
+              {/* رأس المودال */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">
+                      {editingSocialLink ? 'تعديل رابط الصفحة' : 'إضافة صفحة أو رابط جديد'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      سيظهر في القائمة العرضية تحت زر الكرة الأرضية بالمنيو
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSocialModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveSocial} className="space-y-4">
+                {/* اختيار المنصة باللوجو الرسمي */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    اختر المنصة / نوع الرابط (الشعار الرسمي الملون يظهر تلقائياً):
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { key: 'facebook' as SocialPlatform, name: 'فيسبوك', defaultTitle: 'صفحتنا على فيسبوك' },
+                      { key: 'instagram' as SocialPlatform, name: 'انستجرام', defaultTitle: 'انستجرام' },
+                      { key: 'tiktok' as SocialPlatform, name: 'تيك توك', defaultTitle: 'تيك توك' },
+                      { key: 'location' as SocialPlatform, name: 'موقعنا (خريطة)', defaultTitle: 'موقعنا على الخريطة' },
+                      { key: 'whatsapp' as SocialPlatform, name: 'واتساب', defaultTitle: 'واتساب' },
+                      { key: 'youtube' as SocialPlatform, name: 'يوتيوب', defaultTitle: 'قناتنا على يوتيوب' },
+                      { key: 'custom' as SocialPlatform, name: 'رابط خارجي', defaultTitle: 'رابط مخصص' },
+                    ].map((p) => {
+                      const isSelected = socialFormPlatform === p.key;
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => {
+                            setSocialFormPlatform(p.key);
+                            if (
+                              !socialFormTitle ||
+                              [
+                                'صفحتنا على فيسبوك',
+                                'انستجرام',
+                                'تيك توك',
+                                'موقعنا على الخريطة',
+                                'واتساب',
+                                'قناتنا على يوتيوب',
+                                'رابط مخصص',
+                              ].includes(socialFormTitle)
+                            ) {
+                              setSocialFormTitle(p.defaultTitle);
+                            }
+                          }}
+                          className={`p-2 rounded-xl border flex items-center gap-2 text-xs font-black transition cursor-pointer ${
+                            isSelected
+                              ? 'bg-rose-500/20 border-rose-500 text-white ring-2 ring-rose-500/40 shadow-sm'
+                              : 'bg-slate-800/60 border-slate-700/80 text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          <SocialPlatformIcon platform={p.key} size={20} />
+                          <span className="truncate">{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* عنوان الزر */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    عنوان الزر المعروض للزبون:
+                  </label>
+                  <input
+                    type="text"
+                    value={socialFormTitle}
+                    onChange={(e) => setSocialFormTitle(e.target.value)}
+                    placeholder="مثال: صفحتنا على فيسبوك..."
+                    required
+                    className="w-full py-2.5 px-3.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                {/* الرابط URL */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    الرابط (URL):
+                  </label>
+                  <input
+                    type="url"
+                    value={socialFormUrl}
+                    onChange={(e) => setSocialFormUrl(e.target.value)}
+                    placeholder="https://..."
+                    required
+                    className="w-full py-2.5 px-3.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-rose-500 text-left font-mono dir-ltr"
+                  />
+                </div>
+
+                {/* معاينة حية لشكل الزر */}
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                  <span className="text-[11px] font-bold text-slate-400 block">معاينة شكل الزر في المنيو:</span>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-rose-500/20 to-amber-500/20 border border-rose-500/40">
+                    <SocialPlatformIcon platform={socialFormPlatform} size={19} />
+                    <span className="text-xs font-black text-white px-1">
+                      {socialFormTitle.trim() || 'عنوان الرابط'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* أزرار الحفظ والإلغاء */}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs shadow-lg shadow-rose-600/20 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{editingSocialLink ? 'حفظ التعديلات' : 'إضافة وتثبيت الرابط'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsSocialModalOpen(false)}
+                    className="py-3 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* تأكيد حذف رابط 🗑️ */}
+        {socialLinkToDelete && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0"
+              onClick={() => setSocialLinkToDelete(null)}
+            />
+            <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl text-center z-10 animate-in zoom-in-95 duration-200">
+              <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-black text-white">تأكيد حذف الرابط</h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  هل أنت متأكد من حذف رابط &quot;{socialLinkToDelete.title}&quot; نهائياً؟
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteSocialLink(socialLinkToDelete.id);
+                    const title = socialLinkToDelete.title;
+                    setSocialLinkToDelete(null);
+                    showSocialNotice(`تم حذف رابط "${title}" بنجاح ✓`);
+                    showSaveIndicator();
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition cursor-pointer active:scale-95"
+                >
+                  نعم، احذف
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSocialLinkToDelete(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+                >
+                  إلغاء
                 </button>
               </div>
             </div>

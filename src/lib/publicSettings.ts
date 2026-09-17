@@ -21,6 +21,7 @@ export const PUBLIC_SETTINGS_KEYS = [
   'kosharyCustomOptions',
   'isCouponsEnabled',
   'isMinOrderEnabled',
+  'socialLinks',
 ] as const;
 
 export type PublicSettingsKey = (typeof PUBLIC_SETTINGS_KEYS)[number];
