@@ -402,3 +402,45 @@ body {
   animation: softGoldShimmer 3.5s ease-in-out infinite;
   will-change: opacity, transform, filter;
 }
+
+/* ========================================================== */
+/* Menu Button Floating Koshary Boxes (Counter-balanced float) */
+/* ========================================================== */
+@keyframes kosharyFloatA {
+  0%, 100% {
+    transform: translateY(4px) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(3deg);
+  }
+}
+
+@keyframes kosharyFloatB {
+  0%, 100% {
+    transform: translateY(-5px) rotate(3deg);
+  }
+  50% {
+    transform: translateY(4px) rotate(-3deg);
+  }
+}
+
+.animate-koshary-float-a {
+  animation: kosharyFloatA 2.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-koshary-float-b {
+  animation: kosharyFloatB 2.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Reversing the motion smoothly when hovering the button */
+.group:hover .animate-koshary-float-a,
+.group:active .animate-koshary-float-a {
+  animation-direction: reverse;
+}
+
+.group:hover .animate-koshary-float-b,
+.group:active .animate-koshary-float-b {
+  animation-direction: reverse;
+}
