@@ -166,27 +166,27 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         {/* Action Buttons above the Main Card */}
         <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
           
-          {/* Button 1: قائمة الطعام (المنيو) بتصميم ملكي فاخر وخط كبير واضح وعالي التباين */}
+          {/* Button 1: قائمة الطعام (المنيو) بألوان هوية لؤلؤة سنهور (الياقوت الملكي والذهب العسلي) */}
           <button
             type="button"
             onClick={onNavigateToMenu}
             className={`w-full ${
               dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
-            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 hover:from-slate-900 hover:to-slate-900 text-white border-2 border-amber-400/80 hover:border-amber-300 shadow-[0_15px_35px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_45px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 group cursor-pointer relative overflow-hidden`}
+            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white border-2 border-amber-300 shadow-[0_15px_35px_rgba(225,29,72,0.35)] hover:shadow-[0_20px_45px_rgba(245,158,11,0.4)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 group cursor-pointer relative overflow-hidden`}
           >
-            {/* لمعة خلفية ذهبية خفيفة */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all duration-500" />
+            {/* لمعة خلفية ناعمة */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none group-hover:bg-white/25 transition-all duration-500" />
             
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-slate-950 flex items-center justify-center shadow-md shadow-amber-500/30 group-hover:scale-110 transition-transform duration-300 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white border border-white/30 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300 shrink-0">
               <Utensils className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div className="text-right flex-1 min-w-0">
-              <span className="block text-base sm:text-lg md:text-xl font-black text-white tracking-tight leading-tight group-hover:text-amber-200 transition-colors">
+              <span className="block text-base sm:text-lg md:text-xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
                 قائمة الطعام (المنيو)
               </span>
-              <span className="text-xs sm:text-sm text-amber-300 font-black flex items-center gap-1.5 mt-0.5">
+              <span className="text-xs sm:text-sm text-amber-200 font-black flex items-center gap-1.5 mt-0.5">
                 <span>تصفح جميع الأصناف والأسعار</span>
-                <span className="text-amber-400 animate-bounce">⬇️</span>
+                <span className="animate-bounce">⬇️</span>
               </span>
             </div>
           </button>
