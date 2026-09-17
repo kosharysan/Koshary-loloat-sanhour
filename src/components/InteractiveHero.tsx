@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Sparkles, Flame, Star, ShoppingBag, ArrowLeft, ShieldCheck, Heart, Utensils, Wand2, Crown } from 'lucide-react';
+import { Sparkles, Flame, Star, ShoppingBag, ArrowLeft, ShieldCheck, Heart, Utensils, Wand2, Crown, X, Plus, Minus, Check } from 'lucide-react';
 import { menuItems, restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
 import { useMenuStore } from '@/lib/menuStore';
@@ -47,18 +47,47 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
 
   const { flyToCart } = useFlyToCart();
   const heroImageRef = useRef<HTMLDivElement>(null);
+  const modalDishImgRef = useRef<HTMLDivElement>(null);
+
+  // State for the dish confirmation popup modal
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [confirmQuantity, setConfirmQuantity] = useState(1);
+  const [confirmSelectedSize, setConfirmSelectedSize] = useState<string>('');
 
   const [dishImgError, setDishImgError] = useState(false);
   useEffect(() => {
     setDishImgError(false);
   }, [activeDish?.id, activeDish?.imageUrl]);
 
-  const handleAddHeroDish = () => {
+  const handleOpenConfirmModal = () => {
     sounds.playAddChime();
-    if (heroImageRef.current) {
-      flyToCart(heroImageRef.current, activeDish.imageUrl || '/menu/koshary-box.jpg');
+    setConfirmQuantity(1);
+    if (activeDish.sizes && activeDish.sizes.length > 0) {
+      setConfirmSelectedSize(activeDish.sizes[0].name);
+    } else {
+      setConfirmSelectedSize('');
     }
-    addItem(activeDish, 1);
+    setIsConfirmModalOpen(true);
+  };
+
+  const modalCurrentPrice = confirmSelectedSize && activeDish.sizes
+    ? activeDish.sizes.find(s => s.name === confirmSelectedSize)?.price || activeDish.price
+    : activeDish.price;
+
+  const modalTotalPrice = modalCurrentPrice * confirmQuantity;
+
+  const handleConfirmAddToCart = () => {
+    sounds.playAddChime();
+    const sourceEl = modalDishImgRef.current || heroImageRef.current;
+    if (sourceEl) {
+      flyToCart(sourceEl, activeDish.imageUrl || '/menu/koshary-box.jpg');
+    }
+    addItem(
+      activeDish,
+      confirmQuantity,
+      confirmSelectedSize || undefined
+    );
+    setIsConfirmModalOpen(false);
   };
 
   return (
@@ -166,16 +195,16 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         {/* Action Buttons above the Main Card */}
         <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
           
-          {/* Button 1: قائمة الطعام (المنيو) بنصوص وأيقونة في المنتصف - إطار زجاجي موحد وظل متوهج، ونبيتي عند الوقوف/الضغط */}
+          {/* Button 1: قائمة الطعام (المنيو) بنصوص وأيقونة في المنتصف - إطار زجاجي ناعم وظل متوهج، ونبيتي عند الوقوف/الضغط */}
           <button
             type="button"
             onClick={onNavigateToMenu}
             className={`w-full ${
               dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
-            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white bg-clip-padding border-2 border-white/60 hover:border-[#800020] active:border-[#800020] shadow-[0_12px_35px_rgba(225,29,72,0.35),0_0_18px_rgba(255,255,255,0.25)] hover:shadow-[0_15px_35px_rgba(128,0,32,0.45)] active:shadow-[0_10px_25px_rgba(128,0,32,0.55)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer relative overflow-hidden`}
+            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white border-2 border-white/25 hover:border-[#800020] active:border-[#800020] shadow-[0_10px_35px_rgba(225,29,72,0.35),0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_15px_35px_rgba(128,0,32,0.45)] active:shadow-[0_10px_25px_rgba(128,0,32,0.55)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer relative overflow-hidden`}
           >
-            {/* لمعة علوية ناعمة متناسقة في المنتصف لمنع تركز الإضاءة في طرف دون الآخر */}
-            <div className="absolute -top-6 inset-x-0 mx-auto w-48 h-20 bg-white/20 rounded-full blur-xl pointer-events-none group-hover:bg-white/30 transition-all duration-500" />
+            {/* لمعة خلفية ناعمة */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none group-hover:bg-white/25 transition-all duration-500" />
             
             <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white border border-white/40 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300 shrink-0">
               <Utensils className="w-6 h-6 stroke-[2.5]" />
@@ -356,8 +385,9 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
               {/* Add to Cart Hero Button */}
               <div className="pt-1">
                 <button
-                  onClick={handleAddHeroDish}
-                  className="w-full py-4 px-8 rounded-2xl bg-white hover:bg-rose-50 text-rose-900 font-black text-base shadow-2xl flex items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                  type="button"
+                  onClick={handleOpenConfirmModal}
+                  className="w-full py-4 px-8 rounded-2xl bg-white hover:bg-rose-50 text-rose-900 font-black text-base shadow-2xl flex items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 >
                   <ShoppingBag className="w-5 h-5 text-rose-700" />
                   <span className="text-rose-900">اطلب هذا الطبق الآن</span>
@@ -372,6 +402,189 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         </div>
 
       </div>
+
+      {/* نافذة منبثقة لتأكيد إضافة الطبق بتفاصيله وسعره إلى السلة */}
+      {isConfirmModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsConfirmModalOpen(false);
+          }}
+        >
+          <div
+            className="relative w-full max-w-md rounded-3xl overflow-hidden bg-white border border-rose-100 shadow-2xl animate-scaleUp text-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 p-5 text-white">
+              <button
+                type="button"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition cursor-pointer"
+                aria-label="إغلاق"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30">
+                  <ShoppingBag className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white leading-tight">
+                    تأكيد إضافة الطبق للسلة
+                  </h3>
+                  <p className="text-xs text-amber-100 font-medium mt-0.5">
+                    راجع تفاصيل الطبق وتأكيد السعر قبل الإضافة
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto no-scrollbar">
+              
+              {/* تفاصيل الطبق (الصورة والاسم والوصف) */}
+              <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100">
+                <div
+                  ref={modalDishImgRef}
+                  className="relative w-20 h-20 rounded-2xl overflow-hidden bg-white shadow-sm shrink-0 border border-rose-200"
+                >
+                  <Image
+                    src={dishImgError || !activeDish?.imageUrl ? '/menu/koshary-box.jpg' : activeDish.imageUrl}
+                    alt={activeDish.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full">
+                      طبق مميز 🔥
+                    </span>
+                    <span className="text-xs font-black text-amber-600 flex items-center gap-0.5">
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                      4.9
+                    </span>
+                  </div>
+                  <h4 className="text-base font-black text-slate-900 leading-snug">
+                    {activeDish.name}
+                  </h4>
+                  <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                    {activeDish.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* اختيار الحجم إن وجد */}
+              {activeDish.sizes && activeDish.sizes.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-800 block">
+                    اختر الحجم المطلوب:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {activeDish.sizes.map((s) => {
+                      const isSelected = confirmSelectedSize === s.name;
+                      return (
+                        <button
+                          key={s.name}
+                          type="button"
+                          onClick={() => setConfirmSelectedSize(s.name)}
+                          className={`flex items-center justify-between p-3 rounded-xl border text-xs font-black transition cursor-pointer ${
+                            isSelected
+                              ? 'bg-rose-50 border-rose-600 text-rose-700 shadow-xs'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <span>{s.name}</span>
+                          <span className="text-rose-600 font-black">{s.price} ج.م</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* اختيار الكمية */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div>
+                  <span className="text-xs font-black text-slate-800 block">
+                    الكمية المطلوبة:
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    حدد عدد الأطباق
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl p-1 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmQuantity(Math.max(1, confirmQuantity - 1))}
+                    className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                    aria-label="تقليل الكمية"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-7 text-center text-base font-black text-slate-900">
+                    {confirmQuantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmQuantity(confirmQuantity + 1)}
+                    className="w-8 h-8 rounded-lg bg-rose-600 text-white hover:bg-rose-500 flex items-center justify-center transition active:scale-90 shadow-sm cursor-pointer"
+                    aria-label="زيادة الكمية"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* صندوق تأكيد السعر بدقة فائقة */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-red-500/10 border-2 border-amber-400/50 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600 font-bold">
+                  <span>سعر الطبق الواحد ({confirmSelectedSize || 'الحجم الأساسي'}):</span>
+                  <span className="font-black text-slate-800">{modalCurrentPrice} جنيه</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-600 font-bold">
+                  <span>الكمية المحددة:</span>
+                  <span className="font-black text-slate-800">× {confirmQuantity}</span>
+                </div>
+                <div className="pt-2 border-t border-amber-300/40 flex items-center justify-between">
+                  <span className="text-sm font-black text-slate-900">
+                    💰 إجمالي السعر للتأكيد:
+                  </span>
+                  <div className="flex items-baseline gap-1 text-rose-700">
+                    <span className="text-2xl font-black">{modalTotalPrice}</span>
+                    <span className="text-xs font-black">جنيه مصري</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* أزرار التأكيد أو الإلغاء */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleConfirmAddToCart}
+                className="w-full sm:flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-black text-sm shadow-lg shadow-rose-600/25 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>نعم، أضف للسلة ({modalTotalPrice} ج.م)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-black text-xs transition active:scale-95 cursor-pointer"
+              >
+                إلغاء / تراجع
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </section>
   );
 };
