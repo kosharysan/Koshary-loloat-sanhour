@@ -166,16 +166,16 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         {/* Action Buttons above the Main Card */}
         <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
           
-          {/* Button 1: قائمة الطعام (المنيو) بنصوص وأيقونة في المنتصف - إطار زجاجي ناعم وظل متوهج، ونبيتي عند الوقوف/الضغط */}
+          {/* Button 1: قائمة الطعام (المنيو) بنصوص وأيقونة في المنتصف - إطار زجاجي موحد وظل متوهج، ونبيتي عند الوقوف/الضغط */}
           <button
             type="button"
             onClick={onNavigateToMenu}
             className={`w-full ${
               dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
-            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white border-2 border-white/25 hover:border-[#800020] active:border-[#800020] shadow-[0_10px_35px_rgba(225,29,72,0.35),0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_15px_35px_rgba(128,0,32,0.45)] active:shadow-[0_10px_25px_rgba(128,0,32,0.55)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer relative overflow-hidden`}
+            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white bg-clip-padding border-2 border-white/60 hover:border-[#800020] active:border-[#800020] shadow-[0_12px_35px_rgba(225,29,72,0.35),0_0_18px_rgba(255,255,255,0.25)] hover:shadow-[0_15px_35px_rgba(128,0,32,0.45)] active:shadow-[0_10px_25px_rgba(128,0,32,0.55)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer relative overflow-hidden`}
           >
-            {/* لمعة خلفية ناعمة */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none group-hover:bg-white/25 transition-all duration-500" />
+            {/* لمعة علوية ناعمة متناسقة في المنتصف لمنع تركز الإضاءة في طرف دون الآخر */}
+            <div className="absolute -top-6 inset-x-0 mx-auto w-48 h-20 bg-white/20 rounded-full blur-xl pointer-events-none group-hover:bg-white/30 transition-all duration-500" />
             
             <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white border border-white/40 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300 shrink-0">
               <Utensils className="w-6 h-6 stroke-[2.5]" />
