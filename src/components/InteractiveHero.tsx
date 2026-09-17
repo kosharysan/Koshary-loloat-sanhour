@@ -166,13 +166,13 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         {/* Action Buttons above the Main Card */}
         <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
           
-          {/* Button 1: قائمة الطعام (المنيو) بنصوص وأيقونة في المنتصف وإطار لؤلؤي فاخر */}
+          {/* Button 1: قائمة الطعام (المنيو) بنصوص وأيقونة في المنتصف وإطار نبيتي أحمر داكن */}
           <button
             type="button"
             onClick={onNavigateToMenu}
             className={`w-full ${
               dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
-            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white border-2 border-white/50 hover:border-white shadow-[0_15px_35px_rgba(225,29,72,0.35)] hover:shadow-[0_20px_45px_rgba(225,29,72,0.45)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer relative overflow-hidden`}
+            } py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white border-2 border-[#800020] hover:border-[#580015] shadow-[0_15px_35px_rgba(128,0,32,0.35)] hover:shadow-[0_20px_45px_rgba(128,0,32,0.45)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3.5 group cursor-pointer relative overflow-hidden`}
           >
             {/* لمعة خلفية ناعمة */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none group-hover:bg-white/25 transition-all duration-500" />
