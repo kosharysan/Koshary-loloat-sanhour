@@ -225,10 +225,10 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
 
             {/* الكلام في المنتصف */}
             <div className="text-center flex-1 min-w-0 z-10 px-2">
-              <span className="block text-base sm:text-lg md:text-xl font-black text-white tracking-tight leading-tight drop-shadow-sm whitespace-nowrap">
+              <span className="block text-base sm:text-lg md:text-xl font-black text-white tracking-tight leading-snug drop-shadow-sm whitespace-nowrap">
                 قائمة الطعام (المنيو)
               </span>
-              <span className="text-xs sm:text-sm text-amber-100 font-black block mt-0.5 whitespace-nowrap">
+              <span className="text-xs sm:text-sm text-amber-100 font-black block mt-1.5 sm:mt-2 whitespace-nowrap">
                 تصفح جميع الأصناف والأسعار
               </span>
             </div>
