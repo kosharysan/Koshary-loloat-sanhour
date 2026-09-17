@@ -26,6 +26,7 @@ export const FloatingNavbar: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const globeMenuRef = useRef<HTMLDivElement>(null);
+  const globeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -37,18 +38,26 @@ export const FloatingNavbar: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (globeMenuRef.current && !globeMenuRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (
+        globeMenuRef.current &&
+        !globeMenuRef.current.contains(target) &&
+        globeButtonRef.current &&
+        !globeButtonRef.current.contains(target)
+      ) {
         setIsGlobeMenuOpen(false);
       }
     };
     if (isGlobeMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [isGlobeMenuOpen]);
+  }, [isGlobeMenuOpen, setIsGlobeMenuOpen]);
 
   const itemsCount = mounted ? getItemsCount() : 0;
   const total = mounted ? getTotal() : 0;
@@ -159,6 +168,7 @@ export const FloatingNavbar: React.FC = () => {
 
           {/* Globe Button (صفحاتنا والمشاركة) */}
           <button
+            ref={globeButtonRef}
             type="button"
             onClick={toggleGlobeMenu}
             className={`w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full border flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${
