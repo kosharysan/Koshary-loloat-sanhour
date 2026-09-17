@@ -21,7 +21,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
   isDishBuilderOpen = false,
 }) => {
   const { addItem, setIsCartOpen } = useCartStore();
-  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings } = useMenuStore();
+  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings, isGlobeMenuOpen } = useMenuStore();
 
   // Filter out any dishes that are disabled / unavailable
   const availableItems = items.filter(i => i.isAvailable !== false);
@@ -62,7 +62,9 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
   };
 
   return (
-    <section className="relative pt-24 pb-12 overflow-hidden">
+    <section className={`relative pb-12 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      isGlobeMenuOpen ? 'pt-64 sm:pt-72 md:pt-64' : 'pt-24'
+    }`}>
       
       {/* Background radial luxury lighting */}
       <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[750px] h-[550px] bg-gradient-to-b from-rose-200/40 via-red-100/30 to-transparent rounded-full blur-[140px] pointer-events-none -z-10"></div>
@@ -72,8 +74,10 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         {/* Brand Official Identity Hero Banner */}
         <div className="text-center flex flex-col items-center space-y-4 mb-6">
           
-          {/* Prominent Official Logo Emblem */}
-          <div className="relative group cursor-pointer">
+          {/* Prominent Official Logo Emblem مع أنيميشن النزول الفخم عند فتح القائمة */}
+          <div className={`relative group cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isGlobeMenuOpen ? 'translate-y-3 sm:translate-y-4 scale-[0.98]' : 'translate-y-0 scale-100'
+          }`}>
             {/* Ambient Animated Aura */}
             <div className="absolute -inset-2 bg-gradient-to-r from-rose-600 via-amber-400 to-red-600 rounded-full blur-md opacity-75 group-hover:opacity-100 transition duration-700 animate-pulse"></div>
             

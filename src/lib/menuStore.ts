@@ -213,6 +213,9 @@ interface MenuStore {
   dishBuilderSettings: DishBuilderSettings;
   kosharyCustomOptions: string[];
   socialLinks: RestaurantSocialLink[];
+  isGlobeMenuOpen: boolean;
+  setIsGlobeMenuOpen: (open: boolean) => void;
+  toggleGlobeMenu: () => void;
   addSocialLink: (link: Omit<RestaurantSocialLink, 'id'>) => RestaurantSocialLink;
   updateSocialLink: (id: string, updates: Partial<RestaurantSocialLink>) => void;
   deleteSocialLink: (id: string) => void;
@@ -354,6 +357,9 @@ export const useMenuStore = create<MenuStore>()(
         set({ socialLinks: links });
         get().saveToServer();
       },
+      isGlobeMenuOpen: false,
+      setIsGlobeMenuOpen: (open) => set({ isGlobeMenuOpen: open }),
+      toggleGlobeMenu: () => set((state) => ({ isGlobeMenuOpen: !state.isGlobeMenuOpen })),
       isWalletPaymentEnabled: false,
       isInstapayPaymentEnabled: false,
       walletPhoneNumber: restaurantInfo.cashWalletNumber,

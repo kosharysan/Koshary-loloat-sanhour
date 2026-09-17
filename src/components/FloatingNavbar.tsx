@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Phone, MessageCircle, Share2, ShoppingBag, Check, Sparkles, Globe, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
 import { useMenuStore, computeStoreStatus, defaultStoreScheduleSettings } from '@/lib/menuStore';
@@ -12,11 +13,18 @@ import { SocialPlatformIcon } from '@/components/SocialPlatformIcon';
 
 export const FloatingNavbar: React.FC = () => {
   const { getItemsCount, getTotal, setIsCartOpen } = useCartStore();
-  const { storeScheduleSettings = defaultStoreScheduleSettings, ordersWhatsappNumber, restaurantPhoneNumber, socialLinks } = useMenuStore();
+  const {
+    storeScheduleSettings = defaultStoreScheduleSettings,
+    ordersWhatsappNumber,
+    restaurantPhoneNumber,
+    socialLinks,
+    isGlobeMenuOpen,
+    setIsGlobeMenuOpen,
+    toggleGlobeMenu,
+  } = useMenuStore();
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  const [isGlobeMenuOpen, setIsGlobeMenuOpen] = useState(false);
   const globeMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,7 +160,7 @@ export const FloatingNavbar: React.FC = () => {
           {/* Globe Button (صفحاتنا والمشاركة) */}
           <button
             type="button"
-            onClick={() => setIsGlobeMenuOpen(!isGlobeMenuOpen)}
+            onClick={toggleGlobeMenu}
             className={`w-9.5 h-9.5 sm:w-10.5 sm:h-10.5 rounded-full border flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm ${
               isGlobeMenuOpen
                 ? 'bg-gradient-to-tr from-rose-600 to-red-500 text-white border-rose-600 ring-2 ring-rose-400/50 shadow-md'
@@ -192,70 +200,83 @@ export const FloatingNavbar: React.FC = () => {
         </div>
       </div>
 
-      {/* الشريط العرضي الشيك المنسدل عند الضغط على زر الكرة الأرضية 🌐 */}
-      {isGlobeMenuOpen && (
-        <div
-          ref={globeMenuRef}
-          className="pointer-events-auto mt-2 max-w-5xl mx-auto rounded-2xl sm:rounded-full bg-white/95 backdrop-blur-2xl border border-rose-200/90 shadow-[0_15px_35px_-5px_rgba(225,29,72,0.22)] px-2.5 py-2 sm:px-4 sm:py-2.5 flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200"
-        >
-          {/* شريط الأزرار العرضي القابل للتمرير السلس على الموبايل */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5 flex-1">
-            {/* زر المشاركة الرسمي مع كشف النسخ الفوري */}
-            <button
-              type="button"
-              onClick={handleShare}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 text-xs sm:text-sm font-black border border-slate-200 transition-all hover:scale-105 active:scale-95 shadow-xs"
-              title="مشاركة رابط المنيو"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="text-emerald-700 font-bold">تم النسخ!</span>
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>مشاركة الرابط</span>
-                </>
-              )}
-            </button>
-
-            {/* فاصل جمالي رفيع */}
-            <div className="h-5 w-px bg-rose-200/80 shrink-0 mx-0.5" />
-
-            {/* روابط صفحات السوشيال ميديا الخاصة بالمطعم بشعاراتها الرسمية */}
-            {(socialLinks || [])
-              .filter((link) => link.isEnabled)
-              .map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-rose-50/90 to-amber-50/90 hover:from-rose-100 hover:to-amber-100 border border-rose-200/80 text-slate-800 text-xs sm:text-sm font-black shadow-xs transition-all hover:scale-105 active:scale-95 group"
-                  title={link.title}
-                >
-                  <SocialPlatformIcon platform={link.platform} size={19} className="group-hover:scale-110 transition-transform" />
-                  <span className="whitespace-nowrap">{link.title}</span>
-                </a>
-              ))}
-
-            {(!socialLinks || socialLinks.filter((l) => l.isEnabled).length === 0) && (
-              <span className="text-xs text-slate-400 px-2 font-medium">لا توجد صفحات إضافية مفعلة</span>
-            )}
-          </div>
-
-          {/* زر إغلاق القائمة */}
-          <button
-            type="button"
-            onClick={() => setIsGlobeMenuOpen(false)}
-            className="shrink-0 w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-600 flex items-center justify-center transition-all border border-rose-200/80 ml-0.5"
-            title="إغلاق القائمة"
+      {/* الشريط العرضي الشيك المنسدل عند الضغط على زر الكرة الأرضية 🌐 مع أنيميشن فخم وإمكانية الصفوف المتعددة */}
+      <AnimatePresence>
+        {isGlobeMenuOpen && (
+          <motion.div
+            ref={globeMenuRef}
+            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.96 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+            className="pointer-events-auto mt-2.5 max-w-4xl mx-auto rounded-3xl bg-white/95 backdrop-blur-2xl border-2 border-rose-200/95 shadow-[0_20px_50px_-10px_rgba(225,29,72,0.25)] p-3 sm:p-4.5"
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+            {/* شريط العنوان وزر الإغلاق */}
+            <div className="flex items-center justify-between pb-2 mb-3 border-b border-rose-100/90 px-1">
+              <div className="flex items-center gap-2">
+                <div className="w-6.5 h-6.5 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <Globe className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs sm:text-sm font-black text-slate-800">
+                  صفحات ومواقع لؤلؤة سنهور الرسمية
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGlobeMenuOpen(false)}
+                className="w-7 h-7 rounded-full bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-600 flex items-center justify-center transition border border-rose-200/80 cursor-pointer"
+                title="إغلاق القائمة"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* الأزرار مصفوفة بنظام الـ Wrap بحيث تظهر جميعها في صف أو صفين بدون سحب أفقي، مع زيادة ارتفاع الأزرار */}
+            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5">
+              {/* زر المشاركة الرسمي مع كشف النسخ الفوري وارتفاع أكبر */}
+              <button
+                type="button"
+                onClick={handleShare}
+                className="h-11 sm:h-12 px-4.5 sm:px-6 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 text-xs sm:text-sm font-black border border-slate-300/80 transition-all hover:scale-105 active:scale-95 shadow-xs flex items-center gap-2.5 cursor-pointer shrink-0"
+                title="مشاركة رابط المنيو"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span className="text-emerald-700 font-bold">تم النسخ!</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-5 h-5 text-rose-600 shrink-0" />
+                    <span>مشاركة الرابط</span>
+                  </>
+                )}
+              </button>
+
+              {/* روابط صفحات السوشيال ميديا الخاصة بالمطعم بشعاراتها الرسمية وبارتفاع أكبر وبدون سحب */}
+              {(socialLinks || [])
+                .filter((link) => link.isEnabled)
+                .map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-11 sm:h-12 px-4.5 sm:px-6 rounded-2xl bg-gradient-to-r from-rose-50/95 via-white to-amber-50/95 hover:from-rose-100 hover:to-amber-100 border border-rose-200/90 text-slate-800 text-xs sm:text-sm font-black shadow-xs hover:shadow-md transition-all hover:scale-105 active:scale-95 group flex items-center gap-2.5 shrink-0"
+                    title={link.title}
+                  >
+                    <SocialPlatformIcon platform={link.platform} size={24} className="group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="whitespace-nowrap">{link.title}</span>
+                  </a>
+                ))}
+
+              {(!socialLinks || socialLinks.filter((l) => l.isEnabled).length === 0) && (
+                <span className="text-xs text-slate-400 px-2 font-medium">لا توجد صفحات إضافية مفعلة</span>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 };
