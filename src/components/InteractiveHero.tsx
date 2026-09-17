@@ -90,6 +90,18 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
     setIsConfirmModalOpen(false);
   };
 
+  const handleCancelAndGoToMenu = () => {
+    setIsConfirmModalOpen(false);
+    if (onNavigateToMenu) {
+      onNavigateToMenu();
+    } else {
+      const el = document.getElementById('full-menu');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   return (
     <section className={`relative pb-12 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
       isGlobeMenuOpen ? 'pt-64 sm:pt-72 md:pt-64' : 'pt-24'
@@ -574,10 +586,11 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsConfirmModalOpen(false)}
-                className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-black text-xs transition active:scale-95 cursor-pointer"
+                onClick={handleCancelAndGoToMenu}
+                className="w-full sm:w-auto py-3.5 px-5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-black text-xs transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shadow-xs"
               >
-                إلغاء / تراجع
+                <Utensils className="w-3.5 h-3.5 text-slate-500" />
+                <span>إلغاء / تراجع والذهاب لمنيو الطعام</span>
               </button>
             </div>
 
