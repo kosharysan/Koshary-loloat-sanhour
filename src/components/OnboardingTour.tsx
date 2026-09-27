@@ -33,6 +33,68 @@ interface OnboardingTourProps {
   onComplete?: () => void;
 }
 
+const TOUR_STEPS: TourStep[] = [
+  {
+    targetId: 'hero-menu-btn',
+    badge: 'الخطوة 1 من 4',
+    title: 'تصفح قائمة الطعام والمنيو 🍲',
+    description: 'ابدأ بالضغط هنا للانتقال مباشرة إلى المنيو الكامل، وتصفح جميع العلب، الطواجن الفخار، والإضافات والمشروبات مع الأسعار.',
+    hint: 'انقر على التالي أو اضغط على الزر للنزول للمنيو',
+    preferredPosition: 'bottom',
+    onEnter: () => {
+      const el = document.getElementById('hero-menu-btn');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    },
+  },
+  {
+    targetId: 'tour-first-product-card',
+    badge: 'الخطوة 2 من 4',
+    title: 'اختيار وتخصيص وجبتك 🍽️',
+    description: 'اضغط على زر (+) في أي طبق لإضافته للسلة فوراً، وبإمكانك اختيار المقاس وكتابة أي تعليمات خاصة للشيف (مثل صلصة برة أو تقلية زيادة).',
+    hint: 'يمكنك أيضاً تصميم طاجنك الخاص بمكوناتك المفضلة',
+    preferredPosition: 'top',
+    onEnter: () => {
+      const el = document.getElementById('tour-first-product-card');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    },
+  },
+  {
+    targetId: 'floating-navbar-cart-btn',
+    badge: 'الخطوة 3 من 4',
+    title: 'سلة الطلبات ومراجعة الحساب 🛒',
+    description: 'هنا تتجمع أكلاتك اللذيذة! اضغط على السلة في أي وقت لمعاينة محتويات طلبك، حساب الإجمالي، وتطبيق كوبونات الخصم.',
+    hint: 'السلة تظهر لك إجمالي الحساب لحظياً',
+    preferredPosition: 'bottom',
+    onEnter: () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+  },
+  {
+    targetId: 'tour-cart-checkout-btn',
+    badge: 'الخطوة 4 من 4 والأخيرة',
+    title: 'إتمام الطلب الفوري عبر واتساب 🚀',
+    description: 'اختر عنوان التوصيل وطريقة الدفع، ثم اضغط لتأكيد طلبك عبر واتساب بفاتورة منسقة وسريعة ليصلك ساخناً وطازجاً!',
+    hint: 'طلبك يصل مباشرة لإدارة المطعم للتجهيز الفوري',
+    preferredPosition: 'top',
+    onEnter: () => {
+      useCartStore.getState().setIsCartOpen(true);
+      setTimeout(() => {
+        const el = document.getElementById('tour-cart-checkout-btn');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    },
+    onLeave: () => {
+      useCartStore.getState().setIsCartOpen(false);
+    },
+  },
+];
+
 export const OnboardingTour: React.FC<OnboardingTourProps> = ({
   isOpen,
   onClose,
@@ -41,91 +103,50 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
-  const { setIsCartOpen } = useCartStore();
 
-  const steps: TourStep[] = [
-    {
-      targetId: 'hero-menu-btn',
-      badge: 'الخطوة 1 من 4',
-      title: 'تصفح قائمة الطعام والمنيو 🍲',
-      description: 'ابدأ بالضغط هنا للانتقال مباشرة إلى المنيو الكامل، وتصفح جميع العلب، الطواجن الفخار، والإضافات والمشروبات مع الأسعار.',
-      hint: 'انقر على التالي أو اضغط على الزر للنزول للمنيو',
-      preferredPosition: 'bottom',
-      onEnter: () => {
-        const el = document.getElementById('hero-menu-btn');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      },
-    },
-    {
-      targetId: 'tour-first-product-card',
-      badge: 'الخطوة 2 من 4',
-      title: 'اختيار وتخصيص وجبتك 🍽️',
-      description: 'اضغط على زر (+) في أي طبق لإضافته للسلة فوراً، وبإمكانك اختيار المقاس وكتابة أي تعليمات خاصة للشيف (مثل صلصة برة أو تقلية زيادة).',
-      hint: 'يمكنك أيضاً تصميم طاجنك الخاص بمكوناتك المفضلة',
-      preferredPosition: 'top',
-      onEnter: () => {
-        const el = document.getElementById('tour-first-product-card');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      },
-    },
-    {
-      targetId: 'floating-navbar-cart-btn',
-      badge: 'الخطوة 3 من 4',
-      title: 'سلة الطلبات ومراجعة الحساب 🛒',
-      description: 'هنا تتجمع أكلاتك اللذيذة! اضغط على السلة في أي وقت لمعاينة محتويات طلبك، حساب الإجمالي، وتطبيق كوبونات الخصم.',
-      hint: 'السلة تظهر لك إجمالي الحساب لحظياً',
-      preferredPosition: 'bottom',
-      onEnter: () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      },
-    },
-    {
-      targetId: 'tour-cart-checkout-btn',
-      badge: 'الخطوة 4 من 4 والأخيرة',
-      title: 'إتمام الطلب الفوري عبر واتساب 🚀',
-      description: 'اختر عنوان التوصيل وطريقة الدفع، ثم اضغط لتأكيد طلبك عبر واتساب بفاتورة منسقة وسريعة ليصلك ساخناً وطازجاً!',
-      hint: 'طلبك يصل مباشرة لإدارة المطعم للتجهيز الفوري',
-      preferredPosition: 'top',
-      onEnter: () => {
-        setIsCartOpen(true);
-        setTimeout(() => {
-          const el = document.getElementById('tour-cart-checkout-btn');
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 300);
-      },
-      onLeave: () => {
-        setIsCartOpen(false);
-      },
-    },
-  ];
-
-  const currentStep = steps[currentStepIndex];
+  const currentStep = TOUR_STEPS[currentStepIndex];
 
   // Update target rectangle on resize/scroll/step change
   const updateTargetRect = useCallback(() => {
-    if (!isOpen || !currentStep) {
+    if (!isOpen) {
       setTargetRect(null);
       return;
     }
-    const el = document.getElementById(currentStep.targetId);
+    const step = TOUR_STEPS[currentStepIndex];
+    if (!step) {
+      setTargetRect(null);
+      return;
+    }
+    const el = document.getElementById(step.targetId);
     if (el) {
       const rect = el.getBoundingClientRect();
-      setTargetRect(rect);
+      setTargetRect(prev => {
+        if (
+          prev &&
+          Math.round(prev.top) === Math.round(rect.top) &&
+          Math.round(prev.left) === Math.round(rect.left) &&
+          Math.round(prev.width) === Math.round(rect.width) &&
+          Math.round(prev.height) === Math.round(rect.height)
+        ) {
+          return prev;
+        }
+        return rect;
+      });
     } else {
-      // Fallback if target element is not found on screen
       setTargetRect(null);
     }
-  }, [isOpen, currentStep]);
+  }, [isOpen, currentStepIndex]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleResize = () => {
-      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+      setWindowSize(prev => {
+        if (prev.width === window.innerWidth && prev.height === window.innerHeight) {
+          return prev;
+        }
+        return { width: window.innerWidth, height: window.innerHeight };
+      });
       updateTargetRect();
     };
 
@@ -137,7 +158,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', updateTargetRect);
     };
-  }, [updateTargetRect]);
+  }, [isOpen, updateTargetRect]);
 
   // Handle step enter/leave
   useEffect(() => {
@@ -161,7 +182,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
   const handleNext = () => {
     sounds.playAddChime();
-    if (currentStepIndex < steps.length - 1) {
+    if (currentStepIndex < TOUR_STEPS.length - 1) {
       setCurrentStepIndex(prev => prev + 1);
     } else {
       handleComplete();
@@ -320,7 +341,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
         {/* Step Progress Dots */}
         <div className="flex items-center justify-center gap-1.5 mb-4">
-          {steps.map((_, idx) => (
+          {TOUR_STEPS.map((_, idx) => (
             <span
               key={idx}
               className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -352,7 +373,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
             onClick={handleNext}
             className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 via-red-600 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white text-xs sm:text-sm font-black shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
           >
-            {currentStepIndex === steps.length - 1 ? (
+            {currentStepIndex === TOUR_STEPS.length - 1 ? (
               <>
                 <Check className="w-4 h-4 stroke-[3]" />
                 <span>فهمت ذلك! ابدأ الطلب 🚀</span>
