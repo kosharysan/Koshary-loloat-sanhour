@@ -21,7 +21,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
   isDishBuilderOpen = false,
 }) => {
   const { addItem, setIsCartOpen } = useCartStore();
-  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings, isGlobeMenuOpen } = useMenuStore();
+  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings, isGlobeMenuOpen, isHeroFeaturedCardEnabled } = useMenuStore();
 
   // Filter out any dishes that are disabled / unavailable
   const availableItems = items.filter(i => i.isAvailable !== false);
@@ -271,8 +271,9 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
 
         </div>
 
-        {/* Central 3D Interactive Stage Card - Chic Medium Red Luxury Styling */}
-        <div className="relative rounded-[2.5rem] elevated-stage-ruby p-6 sm:p-10 lg:p-12 overflow-hidden text-white">
+        {/* Central 3D Interactive Stage Card - Chic Medium Red Luxury Styling (يظهر فقط إذا كان مفعلاً من الإدارة) */}
+        {isHeroFeaturedCardEnabled !== false && (
+          <div className="relative rounded-[2.5rem] elevated-stage-ruby p-6 sm:p-10 lg:p-12 overflow-hidden text-white">
           
           {/* Subtle Glow Overlay */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_30%,_rgba(255,255,255,0.18)_0%,_transparent_60%)] pointer-events-none" />
@@ -424,6 +425,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
           </div>
 
         </div>
+      )}
 
       </div>
 

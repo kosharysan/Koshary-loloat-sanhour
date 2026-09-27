@@ -51,7 +51,8 @@ import {
   Wallet,
   Wand2,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  EyeOff
 } from 'lucide-react';
 import { useMenuStore, defaultKosharyCustomOptions } from '@/lib/menuStore';
 import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings } from '@/types';
@@ -80,6 +81,8 @@ export const MenuManagementTab: React.FC = () => {
     heroFeaturedItemId,
     heroFeaturedItemIds,
     heroBadgeText,
+    isHeroFeaturedCardEnabled,
+    toggleHeroFeaturedCardEnabled,
     setHeroFeaturedDish,
     setHeroFeaturedDishes,
     dishBuilderSettings,
@@ -1837,7 +1840,35 @@ export const MenuManagementTab: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+                    {/* زر التبديل السريع لإظهار / إخفاء الكارت بالواجهة */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleHeroFeaturedCardEnabled();
+                        setHeroSaveSuccess(true);
+                        setTimeout(() => setHeroSaveSuccess(false), 3500);
+                      }}
+                      className={`px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95 border ${
+                        isHeroFeaturedCardEnabled !== false
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50 shadow-emerald-950/40 ring-2 ring-emerald-500/20'
+                          : 'bg-slate-800 hover:bg-slate-700 text-amber-200 border-amber-500/40 shadow-slate-950/40'
+                      }`}
+                      title={isHeroFeaturedCardEnabled !== false ? 'انقر لإخفاء الكارت من الصفحة الرئيسية' : 'انقر لإظهار الكارت في الصفحة الرئيسية'}
+                    >
+                      {isHeroFeaturedCardEnabled !== false ? (
+                        <>
+                          <Eye className="w-4 h-4 text-emerald-200" />
+                          <span>الكارت ظاهر بالواجهة 🟢</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-4 h-4 text-amber-300" />
+                          <span>الكارت مخفي حالياً ⚪</span>
+                        </>
+                      )}
+                    </button>
+
                     {heroSaveSuccess && (
                       <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-black animate-pulse flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -2078,6 +2109,12 @@ export const MenuManagementTab: React.FC = () => {
                     </div>
 
                     {/* Preview Ruby Box */}
+                    {isHeroFeaturedCardEnabled === false && (
+                      <div className="p-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs font-black flex items-center justify-center gap-2">
+                        <EyeOff className="w-4 h-4 text-amber-300 shrink-0" />
+                        <span>تنبيه: هذا الكارت مخفي حالياً ولن يظهر للزبائن في الصفحة الرئيسية</span>
+                      </div>
+                    )}
                     <div className="rounded-3xl bg-gradient-to-b from-rose-900 via-red-950 to-slate-950 border-2 border-rose-700/50 p-6 text-center space-y-4 shadow-2xl relative overflow-hidden">
                       
                       {/* Preview Switcher Tabs matching Home Page Hero */}

@@ -21,6 +21,7 @@ import {
   AlertCircle,
   ExternalLink,
   Eye,
+  EyeOff,
   Settings,
   Globe,
   Calendar,
@@ -343,6 +344,8 @@ export default function AdminPortal() {
     deleteSocialLink,
     toggleSocialLink,
     setSocialLinks,
+    isHeroFeaturedCardEnabled,
+    toggleHeroFeaturedCardEnabled,
   } = useMenuStore();
 
   const [tempMonitorPassword, setTempMonitorPassword] = useState(monitorPassword || '');
@@ -5619,6 +5622,70 @@ export default function AdminPortal() {
             </div>
           )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* كارت إدارة الكارت التفاعلي الرئيسي بالواجهة (إظهار / إخفاء) */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 shadow-sm">
+                    <Crown className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      <span>كارت الأطباق التفاعلي بالواجهة</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      إظهار أو إخفاء الكارت الأحمر الكبير للأطباق المميزة في الصفحة الرئيسية
+                    </p>
+                  </div>
+                </div>
+
+                <span className={`px-2.5 py-1 rounded-full text-xs font-black flex items-center gap-1.5 border shadow-sm ${
+                  isHeroFeaturedCardEnabled !== false
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${isHeroFeaturedCardEnabled !== false ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
+                  <span>{isHeroFeaturedCardEnabled !== false ? 'ظاهر للزبائن 🟢' : 'مخفي حالياً ⚪'}</span>
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+                <div className="text-right">
+                  <span className="text-xs font-bold text-white block">حالة ظهور الكارت في الواجهة</span>
+                  <span className="text-[11px] text-slate-400">
+                    {isHeroFeaturedCardEnabled !== false
+                      ? 'الكارت الأحمر معروض بكافة تفاصيله وأطباقه للزبائن.'
+                      : 'الكارت مخفي تماماً ولن يظهر في الصفحة الرئيسية.'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleHeroFeaturedCardEnabled();
+                    showSaveIndicator();
+                  }}
+                  className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95 ${
+                    isHeroFeaturedCardEnabled !== false
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                  }`}
+                >
+                  {isHeroFeaturedCardEnabled !== false ? (
+                    <>
+                      <Eye className="w-4 h-4" />
+                      <span>تعطيل وإخفاء الكارت</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4 text-amber-400" />
+                      <span>تفعيل وإظهار الكارت</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
             {/* كارت إدارة حالة المطعم ومواعيد العمل والإجازات الأسبوعية */}
             {(() => {
               const liveStatus = computeStoreStatus(storeScheduleSettings);

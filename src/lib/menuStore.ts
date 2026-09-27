@@ -210,6 +210,9 @@ interface MenuStore {
   heroFeaturedItemId: string;
   heroFeaturedItemIds: string[];
   heroBadgeText: string;
+  isHeroFeaturedCardEnabled: boolean;
+  setIsHeroFeaturedCardEnabled: (enabled: boolean) => void;
+  toggleHeroFeaturedCardEnabled: () => void;
   dishBuilderSettings: DishBuilderSettings;
   kosharyCustomOptions: string[];
   socialLinks: RestaurantSocialLink[];
@@ -227,6 +230,7 @@ interface MenuStore {
   customBaselineHeroFeaturedItemId?: string;
   customBaselineHeroFeaturedItemIds?: string[];
   customBaselineHeroBadgeText?: string;
+  customBaselineIsHeroFeaturedCardEnabled?: boolean;
   customBaselineDishBuilderSettings?: DishBuilderSettings;
   customBaselineKosharyCustomOptions?: string[];
   addKosharyCustomOption: (option: string) => void;
@@ -321,6 +325,15 @@ export const useMenuStore = create<MenuStore>()(
       heroFeaturedItemId: 'box-special',
       heroFeaturedItemIds: ['box-special', 'tagine-royal-mix', 'tagine-meat'],
       heroBadgeText: 'جاهز للطلب فوراً 🚀',
+      isHeroFeaturedCardEnabled: true,
+      setIsHeroFeaturedCardEnabled: (enabled) => {
+        set({ isHeroFeaturedCardEnabled: enabled });
+        get().saveToServer();
+      },
+      toggleHeroFeaturedCardEnabled: () => {
+        set((state) => ({ isHeroFeaturedCardEnabled: !state.isHeroFeaturedCardEnabled }));
+        get().saveToServer();
+      },
       dishBuilderSettings: defaultDishBuilderSettings,
       kosharyCustomOptions: defaultKosharyCustomOptions,
       socialLinks: defaultSocialLinks,
@@ -727,6 +740,7 @@ export const useMenuStore = create<MenuStore>()(
           customBaselineHeroFeaturedItemId: get().heroFeaturedItemId,
           customBaselineHeroFeaturedItemIds: JSON.parse(JSON.stringify(get().heroFeaturedItemIds)),
           customBaselineHeroBadgeText: get().heroBadgeText,
+          customBaselineIsHeroFeaturedCardEnabled: get().isHeroFeaturedCardEnabled,
           customBaselineDishBuilderSettings: JSON.parse(JSON.stringify(get().dishBuilderSettings)),
           customBaselineKosharyCustomOptions: JSON.parse(JSON.stringify(get().kosharyCustomOptions)),
         });
@@ -748,6 +762,9 @@ export const useMenuStore = create<MenuStore>()(
               heroFeaturedItemIds: remoteData.heroFeaturedItemIds || get().heroFeaturedItemIds,
               heroFeaturedItemId: remoteData.heroFeaturedItemId || get().heroFeaturedItemId,
               heroBadgeText: remoteData.heroBadgeText || get().heroBadgeText,
+              isHeroFeaturedCardEnabled: typeof remoteData.isHeroFeaturedCardEnabled === 'boolean'
+                ? remoteData.isHeroFeaturedCardEnabled
+                : (typeof get().isHeroFeaturedCardEnabled === 'boolean' ? get().isHeroFeaturedCardEnabled : true),
               isWalletPaymentEnabled: typeof remoteData.isWalletPaymentEnabled === 'boolean' ? remoteData.isWalletPaymentEnabled : get().isWalletPaymentEnabled,
               isInstapayPaymentEnabled: typeof remoteData.isInstapayPaymentEnabled === 'boolean' ? remoteData.isInstapayPaymentEnabled : get().isInstapayPaymentEnabled,
               walletPhoneNumber: remoteData.walletPhoneNumber || get().walletPhoneNumber,
@@ -801,6 +818,7 @@ export const useMenuStore = create<MenuStore>()(
             heroFeaturedItemIds: get().heroFeaturedItemIds,
             heroFeaturedItemId: get().heroFeaturedItemId,
             heroBadgeText: get().heroBadgeText,
+            isHeroFeaturedCardEnabled: typeof get().isHeroFeaturedCardEnabled === 'boolean' ? get().isHeroFeaturedCardEnabled : true,
             isWalletPaymentEnabled: get().isWalletPaymentEnabled,
             isInstapayPaymentEnabled: get().isInstapayPaymentEnabled,
             walletPhoneNumber: get().walletPhoneNumber,
@@ -840,6 +858,7 @@ export const useMenuStore = create<MenuStore>()(
         const baselineHeroItemId = get().customBaselineHeroFeaturedItemId;
         const baselineHeroItemIds = get().customBaselineHeroFeaturedItemIds;
         const baselineHeroBadge = get().customBaselineHeroBadgeText;
+        const baselineHeroEnabled = get().customBaselineIsHeroFeaturedCardEnabled;
         const baselineDishBuilder = get().customBaselineDishBuilderSettings;
         const baselineKosharyOptions = get().customBaselineKosharyCustomOptions;
         if (baselineItems && baselineItems.length > 0) {
@@ -850,6 +869,7 @@ export const useMenuStore = create<MenuStore>()(
             heroFeaturedItemId: baselineHeroItemId || 'box-special',
             heroFeaturedItemIds: baselineHeroItemIds && baselineHeroItemIds.length > 0 ? JSON.parse(JSON.stringify(baselineHeroItemIds)) : ['box-special', 'tagine-royal-mix', 'tagine-meat'],
             heroBadgeText: baselineHeroBadge || 'جاهز للطلب فوراً 🚀',
+            isHeroFeaturedCardEnabled: typeof baselineHeroEnabled === 'boolean' ? baselineHeroEnabled : true,
             dishBuilderSettings: baselineDishBuilder ? JSON.parse(JSON.stringify(baselineDishBuilder)) : defaultDishBuilderSettings,
             kosharyCustomOptions: baselineKosharyOptions ? JSON.parse(JSON.stringify(baselineKosharyOptions)) : defaultKosharyCustomOptions,
           });
@@ -861,6 +881,7 @@ export const useMenuStore = create<MenuStore>()(
             heroFeaturedItemId: 'box-special',
             heroFeaturedItemIds: ['box-special', 'tagine-royal-mix', 'tagine-meat'],
             heroBadgeText: 'جاهز للطلب فوراً 🚀',
+            isHeroFeaturedCardEnabled: true,
             dishBuilderSettings: defaultDishBuilderSettings,
             kosharyCustomOptions: defaultKosharyCustomOptions,
           });
@@ -874,6 +895,7 @@ export const useMenuStore = create<MenuStore>()(
           heroFeaturedItemId: 'box-special',
           heroFeaturedItemIds: ['box-special', 'tagine-royal-mix', 'tagine-meat'],
           heroBadgeText: 'جاهز للطلب فوراً 🚀',
+          isHeroFeaturedCardEnabled: true,
           dishBuilderSettings: defaultDishBuilderSettings,
           kosharyCustomOptions: defaultKosharyCustomOptions,
           customBaselineItems: undefined,
@@ -882,6 +904,7 @@ export const useMenuStore = create<MenuStore>()(
           customBaselineHeroFeaturedItemId: undefined,
           customBaselineHeroFeaturedItemIds: undefined,
           customBaselineHeroBadgeText: undefined,
+          customBaselineIsHeroFeaturedCardEnabled: undefined,
           customBaselineDishBuilderSettings: undefined,
           customBaselineKosharyCustomOptions: undefined,
         });
@@ -961,6 +984,9 @@ export const useMenuStore = create<MenuStore>()(
           : (persistedState?.heroFeaturedItemId ? [persistedState.heroFeaturedItemId] : currentState.heroFeaturedItemIds || ['box-special', 'tagine-royal-mix', 'tagine-meat']),
         heroFeaturedItemId: persistedState?.heroFeaturedItemId || currentState.heroFeaturedItemId || 'box-special',
         heroBadgeText: persistedState?.heroBadgeText || currentState.heroBadgeText || 'جاهز للطلب فوراً 🚀',
+        isHeroFeaturedCardEnabled: typeof persistedState?.isHeroFeaturedCardEnabled === 'boolean'
+          ? persistedState.isHeroFeaturedCardEnabled
+          : true,
         dishBuilderSettings: (persistedState && persistedState.dishBuilderSettings)
           ? {
               ...defaultDishBuilderSettings,

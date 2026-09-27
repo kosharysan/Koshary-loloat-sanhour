@@ -22,6 +22,7 @@ export const PUBLIC_SETTINGS_KEYS = [
   'isCouponsEnabled',
   'isMinOrderEnabled',
   'socialLinks',
+  'isHeroFeaturedCardEnabled',
 ] as const;
 
 export type PublicSettingsKey = (typeof PUBLIC_SETTINGS_KEYS)[number];
