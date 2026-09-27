@@ -43,7 +43,7 @@ const TOUR_STEPS: TourStep[] = [
     hint: 'انقر على التالي أو اضغط على الزر للنزول للمنيو',
     preferredPosition: 'bottom',
     onEnter: () => {
-      const el = document.getElementById('hero-menu-btn');
+      const el = document.getElementById('hero-menu-btn') || document.getElementById('full-menu');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -141,7 +141,10 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       setTargetRect(null);
       return;
     }
-    const el = document.getElementById(step.targetId);
+    let el = document.getElementById(step.targetId);
+    if (!el && step.targetId === 'hero-menu-btn') {
+      el = document.getElementById('full-menu');
+    }
     if (el) {
       const rect = el.getBoundingClientRect();
       setTargetRect(prev => {

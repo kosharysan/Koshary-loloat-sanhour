@@ -21,7 +21,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
   isDishBuilderOpen = false,
 }) => {
   const { addItem, setIsCartOpen } = useCartStore();
-  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings, isGlobeMenuOpen, isHeroFeaturedCardEnabled } = useMenuStore();
+  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings, isGlobeMenuOpen, isHeroFeaturedCardEnabled, isHeroMenuButtonEnabled } = useMenuStore();
 
   // Filter out any dishes that are disabled / unavailable
   const availableItems = items.filter(i => i.isAvailable !== false);
@@ -208,42 +208,44 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
         <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 max-w-2xl mx-auto">
           
           {/* Button 1: قائمة الطعام (المنيو) - الشوكة والسكينة على اليمين (ثابتة)، الكلام في المنتصف، وعلبة الكشري على الشمال (متحركة) */}
-          <button
-            id="hero-menu-btn"
-            type="button"
-            onClick={onNavigateToMenu}
-            className={`w-full ${
-              dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
-            } py-3.5 sm:py-4 px-4 sm:px-5 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white border-2 border-white/25 hover:border-[#800020] active:border-[#800020] shadow-[0_10px_35px_rgba(225,29,72,0.35),0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_15px_35px_rgba(128,0,32,0.45)] active:shadow-[0_10px_25px_rgba(128,0,32,0.55)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-between group cursor-pointer relative overflow-hidden`}
-          >
-            {/* لمعة خلفية ناعمة */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none group-hover:bg-white/25 transition-all duration-500" />
-            
-            {/* الشوكة والسكينة على اليمين - ثابتة غير متحركة */}
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white border border-white/40 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300 shrink-0 z-10">
-              <Utensils className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
-            </div>
+          {isHeroMenuButtonEnabled !== false && (
+            <button
+              id="hero-menu-btn"
+              type="button"
+              onClick={onNavigateToMenu}
+              className={`w-full ${
+                dishBuilderSettings?.isEnabled ? 'sm:flex-1' : 'sm:max-w-md'
+              } py-3.5 sm:py-4 px-4 sm:px-5 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white border-2 border-white/25 hover:border-[#800020] active:border-[#800020] shadow-[0_10px_35px_rgba(225,29,72,0.35),0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_15px_35px_rgba(128,0,32,0.45)] active:shadow-[0_10px_25px_rgba(128,0,32,0.55)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-between group cursor-pointer relative overflow-hidden`}
+            >
+              {/* لمعة خلفية ناعمة */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none group-hover:bg-white/25 transition-all duration-500" />
+              
+              {/* الشوكة والسكينة على اليمين - ثابتة غير متحركة */}
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white border border-white/40 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300 shrink-0 z-10">
+                <Utensils className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+              </div>
 
-            {/* الكلام في المنتصف */}
-            <div className="text-center flex-1 min-w-0 z-10 px-2">
-              <span className="block text-base sm:text-lg md:text-xl font-black text-white tracking-tight leading-snug drop-shadow-sm whitespace-nowrap">
-                قائمة الطعام (المنيو)
-              </span>
-              <span className="text-xs sm:text-sm text-amber-100 font-black block mt-1.5 sm:mt-2 whitespace-nowrap">
-                تصفح جميع الأصناف والأسعار
-              </span>
-            </div>
+              {/* الكلام في المنتصف */}
+              <div className="text-center flex-1 min-w-0 z-10 px-2">
+                <span className="block text-base sm:text-lg md:text-xl font-black text-white tracking-tight leading-snug drop-shadow-sm whitespace-nowrap">
+                  قائمة الطعام (المنيو)
+                </span>
+                <span className="text-xs sm:text-sm text-amber-100 font-black block mt-1.5 sm:mt-2 whitespace-nowrap">
+                  تصفح جميع الأصناف والأسعار
+                </span>
+              </div>
 
-            {/* علبة كشري الشمال - هي فقط المتحركة للأعلى والأسفل */}
-            <div className="relative w-10 h-10 sm:w-12 sm:h-12 shrink-0 pointer-events-none flex items-center justify-center animate-koshary-float-b z-10">
-              <img
-                src="/koshary-box-transparent.png"
-                alt="علبة كشري"
-                className="w-full h-full object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)] select-none transition-transform duration-300 group-hover:scale-110"
-                draggable={false}
-              />
-            </div>
-          </button>
+              {/* علبة كشري الشمال - هي فقط المتحركة للأعلى والأسفل */}
+              <div className="relative w-10 h-10 sm:w-12 sm:h-12 shrink-0 pointer-events-none flex items-center justify-center animate-koshary-float-b z-10">
+                <img
+                  src="/koshary-box-transparent.png"
+                  alt="علبة كشري"
+                  className="w-full h-full object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)] select-none transition-transform duration-300 group-hover:scale-110"
+                  draggable={false}
+                />
+              </div>
+            </button>
+          )}
 
           {/* Button 2: صمّم طاجنك الخاص (يظهر فقط إذا كان الكارت مفعلاً من الإدارة) */}
           {dishBuilderSettings?.isEnabled && (

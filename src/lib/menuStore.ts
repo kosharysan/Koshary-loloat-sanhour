@@ -213,6 +213,9 @@ interface MenuStore {
   isHeroFeaturedCardEnabled: boolean;
   setIsHeroFeaturedCardEnabled: (enabled: boolean) => void;
   toggleHeroFeaturedCardEnabled: () => void;
+  isHeroMenuButtonEnabled: boolean;
+  setIsHeroMenuButtonEnabled: (enabled: boolean) => void;
+  toggleHeroMenuButtonEnabled: () => void;
   dishBuilderSettings: DishBuilderSettings;
   kosharyCustomOptions: string[];
   socialLinks: RestaurantSocialLink[];
@@ -231,6 +234,7 @@ interface MenuStore {
   customBaselineHeroFeaturedItemIds?: string[];
   customBaselineHeroBadgeText?: string;
   customBaselineIsHeroFeaturedCardEnabled?: boolean;
+  customBaselineIsHeroMenuButtonEnabled?: boolean;
   customBaselineDishBuilderSettings?: DishBuilderSettings;
   customBaselineKosharyCustomOptions?: string[];
   addKosharyCustomOption: (option: string) => void;
@@ -332,6 +336,15 @@ export const useMenuStore = create<MenuStore>()(
       },
       toggleHeroFeaturedCardEnabled: () => {
         set((state) => ({ isHeroFeaturedCardEnabled: !state.isHeroFeaturedCardEnabled }));
+        get().saveToServer();
+      },
+      isHeroMenuButtonEnabled: true,
+      setIsHeroMenuButtonEnabled: (enabled) => {
+        set({ isHeroMenuButtonEnabled: enabled });
+        get().saveToServer();
+      },
+      toggleHeroMenuButtonEnabled: () => {
+        set((state) => ({ isHeroMenuButtonEnabled: !state.isHeroMenuButtonEnabled }));
         get().saveToServer();
       },
       dishBuilderSettings: defaultDishBuilderSettings,
@@ -741,6 +754,7 @@ export const useMenuStore = create<MenuStore>()(
           customBaselineHeroFeaturedItemIds: JSON.parse(JSON.stringify(get().heroFeaturedItemIds)),
           customBaselineHeroBadgeText: get().heroBadgeText,
           customBaselineIsHeroFeaturedCardEnabled: get().isHeroFeaturedCardEnabled,
+          customBaselineIsHeroMenuButtonEnabled: get().isHeroMenuButtonEnabled,
           customBaselineDishBuilderSettings: JSON.parse(JSON.stringify(get().dishBuilderSettings)),
           customBaselineKosharyCustomOptions: JSON.parse(JSON.stringify(get().kosharyCustomOptions)),
         });
@@ -765,6 +779,9 @@ export const useMenuStore = create<MenuStore>()(
               isHeroFeaturedCardEnabled: typeof remoteData.isHeroFeaturedCardEnabled === 'boolean'
                 ? remoteData.isHeroFeaturedCardEnabled
                 : (typeof get().isHeroFeaturedCardEnabled === 'boolean' ? get().isHeroFeaturedCardEnabled : true),
+              isHeroMenuButtonEnabled: typeof remoteData.isHeroMenuButtonEnabled === 'boolean'
+                ? remoteData.isHeroMenuButtonEnabled
+                : (typeof get().isHeroMenuButtonEnabled === 'boolean' ? get().isHeroMenuButtonEnabled : true),
               isWalletPaymentEnabled: typeof remoteData.isWalletPaymentEnabled === 'boolean' ? remoteData.isWalletPaymentEnabled : get().isWalletPaymentEnabled,
               isInstapayPaymentEnabled: typeof remoteData.isInstapayPaymentEnabled === 'boolean' ? remoteData.isInstapayPaymentEnabled : get().isInstapayPaymentEnabled,
               walletPhoneNumber: remoteData.walletPhoneNumber || get().walletPhoneNumber,
@@ -819,6 +836,7 @@ export const useMenuStore = create<MenuStore>()(
             heroFeaturedItemId: get().heroFeaturedItemId,
             heroBadgeText: get().heroBadgeText,
             isHeroFeaturedCardEnabled: typeof get().isHeroFeaturedCardEnabled === 'boolean' ? get().isHeroFeaturedCardEnabled : true,
+            isHeroMenuButtonEnabled: typeof get().isHeroMenuButtonEnabled === 'boolean' ? get().isHeroMenuButtonEnabled : true,
             isWalletPaymentEnabled: get().isWalletPaymentEnabled,
             isInstapayPaymentEnabled: get().isInstapayPaymentEnabled,
             walletPhoneNumber: get().walletPhoneNumber,
@@ -859,6 +877,7 @@ export const useMenuStore = create<MenuStore>()(
         const baselineHeroItemIds = get().customBaselineHeroFeaturedItemIds;
         const baselineHeroBadge = get().customBaselineHeroBadgeText;
         const baselineHeroEnabled = get().customBaselineIsHeroFeaturedCardEnabled;
+        const baselineHeroMenuEnabled = get().customBaselineIsHeroMenuButtonEnabled;
         const baselineDishBuilder = get().customBaselineDishBuilderSettings;
         const baselineKosharyOptions = get().customBaselineKosharyCustomOptions;
         if (baselineItems && baselineItems.length > 0) {
@@ -870,6 +889,7 @@ export const useMenuStore = create<MenuStore>()(
             heroFeaturedItemIds: baselineHeroItemIds && baselineHeroItemIds.length > 0 ? JSON.parse(JSON.stringify(baselineHeroItemIds)) : ['box-special', 'tagine-royal-mix', 'tagine-meat'],
             heroBadgeText: baselineHeroBadge || 'جاهز للطلب فوراً 🚀',
             isHeroFeaturedCardEnabled: typeof baselineHeroEnabled === 'boolean' ? baselineHeroEnabled : true,
+            isHeroMenuButtonEnabled: typeof baselineHeroMenuEnabled === 'boolean' ? baselineHeroMenuEnabled : true,
             dishBuilderSettings: baselineDishBuilder ? JSON.parse(JSON.stringify(baselineDishBuilder)) : defaultDishBuilderSettings,
             kosharyCustomOptions: baselineKosharyOptions ? JSON.parse(JSON.stringify(baselineKosharyOptions)) : defaultKosharyCustomOptions,
           });
@@ -882,6 +902,7 @@ export const useMenuStore = create<MenuStore>()(
             heroFeaturedItemIds: ['box-special', 'tagine-royal-mix', 'tagine-meat'],
             heroBadgeText: 'جاهز للطلب فوراً 🚀',
             isHeroFeaturedCardEnabled: true,
+            isHeroMenuButtonEnabled: true,
             dishBuilderSettings: defaultDishBuilderSettings,
             kosharyCustomOptions: defaultKosharyCustomOptions,
           });
@@ -896,6 +917,7 @@ export const useMenuStore = create<MenuStore>()(
           heroFeaturedItemIds: ['box-special', 'tagine-royal-mix', 'tagine-meat'],
           heroBadgeText: 'جاهز للطلب فوراً 🚀',
           isHeroFeaturedCardEnabled: true,
+          isHeroMenuButtonEnabled: true,
           dishBuilderSettings: defaultDishBuilderSettings,
           kosharyCustomOptions: defaultKosharyCustomOptions,
           customBaselineItems: undefined,
@@ -905,6 +927,7 @@ export const useMenuStore = create<MenuStore>()(
           customBaselineHeroFeaturedItemIds: undefined,
           customBaselineHeroBadgeText: undefined,
           customBaselineIsHeroFeaturedCardEnabled: undefined,
+          customBaselineIsHeroMenuButtonEnabled: undefined,
           customBaselineDishBuilderSettings: undefined,
           customBaselineKosharyCustomOptions: undefined,
         });
@@ -986,6 +1009,9 @@ export const useMenuStore = create<MenuStore>()(
         heroBadgeText: persistedState?.heroBadgeText || currentState.heroBadgeText || 'جاهز للطلب فوراً 🚀',
         isHeroFeaturedCardEnabled: typeof persistedState?.isHeroFeaturedCardEnabled === 'boolean'
           ? persistedState.isHeroFeaturedCardEnabled
+          : true,
+        isHeroMenuButtonEnabled: typeof persistedState?.isHeroMenuButtonEnabled === 'boolean'
+          ? persistedState.isHeroMenuButtonEnabled
           : true,
         dishBuilderSettings: (persistedState && persistedState.dishBuilderSettings)
           ? {

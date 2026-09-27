@@ -15,6 +15,7 @@ import { Footer } from '@/components/Footer';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { FlyAnimationProvider } from '@/context/FlyAnimationContext';
 import { OnboardingTour } from '@/components/OnboardingTour';
+import { FloatingTourButton } from '@/components/FloatingTourButton';
 import { categories as fallbackCategories, menuItems as fallbackMenuItems } from '@/data/mockData';
 import { useMenuStore } from '@/lib/menuStore';
 import { MenuItem } from '@/types';
@@ -332,8 +333,9 @@ export default function Home() {
       {/* 7. Slide-over Luxury Cart Drawer */}
       <CartDrawer />
 
-      {/* 8. Floating Quick Cart Button */}
+      {/* 8. Floating Quick Cart Button & Floating Tour Replay Button */}
       <FloatingCartButton />
+      <FloatingTourButton isTourOpen={isTourOpen} />
 
       {/* 9. Luxury Footer */}
       <Footer />
