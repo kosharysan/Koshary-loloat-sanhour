@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { sounds } from '@/lib/sound';
 import { useCartStore } from '@/lib/store';
+import { useMenuStore } from '@/lib/menuStore';
 
 export interface TourStep {
   targetId: string;
@@ -36,7 +37,7 @@ interface OnboardingTourProps {
 const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'hero-menu-btn',
-    badge: 'الخطوة 1 من 4',
+    badge: 'الخطوة 1 من 5',
     title: 'تصفح قائمة الطعام والمنيو 🍲',
     description: 'ابدأ بالضغط هنا للانتقال مباشرة إلى المنيو الكامل، وتصفح جميع العلب، الطواجن الفخار، والإضافات والمشروبات مع الأسعار.',
     hint: 'انقر على التالي أو اضغط على الزر للنزول للمنيو',
@@ -50,7 +51,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'tour-first-product-card',
-    badge: 'الخطوة 2 من 4',
+    badge: 'الخطوة 2 من 5',
     title: 'اختيار وتخصيص وجبتك 🍽️',
     description: 'اضغط على زر (+) في أي طبق لإضافته للسلة فوراً، وبإمكانك اختيار المقاس وكتابة أي تعليمات خاصة للشيف (مثل صلصة برة أو تقلية زيادة).',
     hint: 'يمكنك أيضاً تصميم طاجنك الخاص بمكوناتك المفضلة',
@@ -64,7 +65,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'floating-navbar-cart-btn',
-    badge: 'الخطوة 3 من 4',
+    badge: 'الخطوة 3 من 5',
     title: 'سلة الطلبات ومراجعة الحساب 🛒',
     description: 'هنا تتجمع أكلاتك اللذيذة! اضغط على السلة في أي وقت لمعاينة محتويات طلبك، حساب الإجمالي، وتطبيق كوبونات الخصم.',
     hint: 'السلة تظهر لك إجمالي الحساب لحظياً',
@@ -74,11 +75,34 @@ const TOUR_STEPS: TourStep[] = [
     },
   },
   {
+    targetId: 'tour-customer-info-section',
+    badge: 'الخطوة 4 من 5',
+    title: 'تسجيل بياناتك (الاسم والموبايل والعنوان) ✍️',
+    description: 'سجّل اسمك الكريم ورقم الموبايل، وحدد عنوانك بالتفصيل ومنطقة التوصيل. النظام يحفظ بياناتك تلقائياً لراحتك في كل مرة تطلب فيها!',
+    hint: 'تُحفظ بياناتك بأمان على جهازك لسرعة طلبك القادم بدون إعادة كتابتها',
+    preferredPosition: 'top',
+    onEnter: () => {
+      useCartStore.getState().setIsCartOpen(true);
+      if (useCartStore.getState().items.length === 0) {
+        const firstAvailable = useMenuStore.getState().items[0];
+        if (firstAvailable) {
+          useCartStore.getState().addItem(firstAvailable, 1);
+        }
+      }
+      setTimeout(() => {
+        const el = document.getElementById('tour-customer-info-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 350);
+    },
+  },
+  {
     targetId: 'tour-cart-checkout-btn',
-    badge: 'الخطوة 4 من 4 والأخيرة',
-    title: 'إتمام الطلب الفوري عبر واتساب 🚀',
-    description: 'اختر عنوان التوصيل وطريقة الدفع، ثم اضغط لتأكيد طلبك عبر واتساب بفاتورة منسقة وسريعة ليصلك ساخناً وطازجاً!',
-    hint: 'طلبك يصل مباشرة لإدارة المطعم للتجهيز الفوري',
+    badge: 'الخطوة 5 من 5 والأخيرة',
+    title: 'إرسال وتأكيد الطلب عبر واتساب 🚀',
+    description: 'اختر طريقة الدفع (كاش، فودافون كاش، إنستاباي)، واضغط هنا لتجهيز فاتورتك المنسقة وإرسالها فوراً للمطعم على واتساب للتجهيز الساخن!',
+    hint: 'طلبك يذهب مباشرة لإدارة المطعم للتنفيذ الفوري',
     preferredPosition: 'top',
     onEnter: () => {
       useCartStore.getState().setIsCartOpen(true);
@@ -87,7 +111,7 @@ const TOUR_STEPS: TourStep[] = [
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      }, 300);
+      }, 350);
     },
     onLeave: () => {
       useCartStore.getState().setIsCartOpen(false);
@@ -300,13 +324,13 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
           left: `${tooltipLeft}px`,
           width: `${tooltipWidth}px`,
         }}
-        className="fixed z-[100000] rounded-3xl bg-slate-900/98 backdrop-blur-2xl border-2 border-amber-400/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] p-5 text-white transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] animate-scaleUp"
+        className="fixed z-[100000] rounded-3xl bg-white/98 backdrop-blur-2xl border-2 border-rose-300 ring-4 ring-amber-400/40 shadow-[0_25px_60px_-10px_rgba(225,29,72,0.28)] p-5 text-slate-900 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] animate-scaleUp"
       >
         {/* Card Header with Step Counter and Close */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3.5">
+        <div className="flex items-center justify-between pb-3 border-b border-rose-100 mb-3.5">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
-            <span className="text-xs font-black text-amber-300 bg-amber-400/15 border border-amber-400/30 px-3 py-1 rounded-full">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping"></span>
+            <span className="text-xs font-black text-rose-700 bg-rose-50 border border-rose-200/90 px-3 py-1 rounded-full shadow-2xs">
               {currentStep.badge}
             </span>
           </div>
@@ -314,7 +338,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
           <button
             type="button"
             onClick={handleDismiss}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition border border-slate-700 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 flex items-center justify-center transition border border-slate-200/80 cursor-pointer"
             title="تخطي الجولة"
             aria-label="تخطي الجولة"
           >
@@ -324,16 +348,16 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
         {/* Card Content */}
         <div className="space-y-2 mb-4">
-          <h3 className="text-base sm:text-lg font-black text-white leading-snug">
+          <h3 className="text-base sm:text-lg font-black text-slate-950 leading-snug">
             {currentStep.title}
           </h3>
-          <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-600 font-bold leading-relaxed">
             {currentStep.description}
           </p>
 
           {currentStep.hint && (
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-400/20 text-[11px] text-amber-200 font-bold flex items-center gap-1.5 mt-2">
-              <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <div className="p-2.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-[11px] text-amber-950 font-black flex items-center gap-2 mt-2.5 shadow-2xs">
+              <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
               <span>{currentStep.hint}</span>
             </div>
           )}
@@ -346,22 +370,22 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
               key={idx}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 idx === currentStepIndex
-                  ? 'w-7 bg-gradient-to-r from-amber-400 to-rose-500'
+                  ? 'w-7 bg-gradient-to-r from-red-600 to-amber-500'
                   : idx < currentStepIndex
-                  ? 'w-2 bg-emerald-400'
-                  : 'w-2 bg-slate-700'
+                  ? 'w-2 bg-emerald-500'
+                  : 'w-2 bg-slate-200'
               }`}
             />
           ))}
         </div>
 
         {/* Card Actions Footer */}
-        <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+        <div className="flex items-center gap-2 pt-2 border-t border-rose-100">
           {currentStepIndex > 0 && (
             <button
               type="button"
               onClick={handlePrev}
-              className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95"
+              className="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200"
             >
               <ArrowRight className="w-3.5 h-3.5" />
               <span>السابق</span>

@@ -1121,7 +1121,10 @@ export const CartDrawer: React.FC = () => {
               )}
 
               {/* Customer Information (CRM & Auto-save) */}
-              <div className="space-y-3 p-3.5 rounded-3xl bg-sky-50 border-2 border-sky-300 ring-1 ring-sky-200 shadow-xs">
+              <div 
+                id="tour-customer-info-section" 
+                className="space-y-3 p-3.5 rounded-3xl bg-sky-50 border-2 border-sky-300 ring-1 ring-sky-200 shadow-xs"
+              >
                 <label className="text-xs font-black text-sky-900 tracking-wide block">
                   بيانات العميل (تُحفظ تلقائياً):
                 </label>
