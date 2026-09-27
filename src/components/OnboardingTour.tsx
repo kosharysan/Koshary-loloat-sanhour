@@ -29,7 +29,7 @@ interface OnboardingTourProps {
 const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'hero-menu-btn',
-    badge: '1/5',
+    badge: '1/6',
     title: 'قائمة الطعام 🍲',
     description: 'تصفح كل الأصناف والأسعار',
     onEnter: () => {
@@ -42,7 +42,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'tour-first-product-card',
-    badge: '2/5',
+    badge: '2/6',
     title: 'اختر وجبتك 🍽️',
     description: 'اضغط (+) لإضافة الطبق للسلة',
     onEnter: () => {
@@ -54,7 +54,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'floating-navbar-cart-btn',
-    badge: '3/5',
+    badge: '3/6',
     title: 'سلة الطلبات 🛒',
     description: 'اضغط لمعاينة طلبك وحساب الإجمالي',
     onEnter: () => {
@@ -62,10 +62,33 @@ const TOUR_STEPS: TourStep[] = [
     },
   },
   {
+    targetId: 'tour-delivery-location-section',
+    badge: '4/6',
+    title: 'تحديد المكان 📍',
+    description: 'اختر منطقتك وطريقة الاستلام',
+    onEnter: () => {
+      useCartStore.getState().setIsCartOpen(true);
+      useCartStore.getState().setOrderType('delivery');
+      if (useCartStore.getState().items.length === 0) {
+        const firstAvailable = useMenuStore.getState().items[0];
+        if (firstAvailable) {
+          useCartStore.getState().addItem(firstAvailable, 1);
+        }
+      }
+      setTimeout(() => {
+        const scrollContainer = document.getElementById('cart-drawer-scroll-container');
+        const el = document.getElementById('tour-delivery-location-section');
+        if (scrollContainer && el) {
+          scrollContainer.scrollTo({ top: Math.max(0, el.offsetTop - 25), behavior: 'smooth' });
+        }
+      }, 50);
+    },
+  },
+  {
     targetId: 'tour-customer-info-section',
-    badge: '4/5',
-    title: 'بيانات التوصيل ✍️',
-    description: 'اكتب اسمك ورقمك وعنوانك',
+    badge: '5/6',
+    title: 'بيانات العميل ✍️',
+    description: 'سجل اسمك ورقمك وعنوانك',
     onEnter: () => {
       useCartStore.getState().setIsCartOpen(true);
       if (useCartStore.getState().items.length === 0) {
@@ -78,14 +101,14 @@ const TOUR_STEPS: TourStep[] = [
         const scrollContainer = document.getElementById('cart-drawer-scroll-container');
         const el = document.getElementById('tour-customer-info-section');
         if (scrollContainer && el) {
-          scrollContainer.scrollTo({ top: Math.max(0, el.offsetTop - 30), behavior: 'smooth' });
+          scrollContainer.scrollTo({ top: Math.max(0, el.offsetTop - 25), behavior: 'smooth' });
         }
       }, 50);
     },
   },
   {
     targetId: 'tour-cart-checkout-btn',
-    badge: '5/5',
+    badge: '6/6',
     title: 'إرسال الطلب 🚀',
     description: 'أكّد طلبك عبر واتساب فوراً',
     onEnter: () => {
