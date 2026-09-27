@@ -11,11 +11,13 @@ import { useFlyToCart } from '@/context/FlyAnimationContext';
 interface ProductCardProps {
   item: MenuItem;
   onOpenCustomizer: (item: MenuItem) => void;
+  id?: string;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   item,
-  onOpenCustomizer
+  onOpenCustomizer,
+  id,
 }) => {
   const { items, addItem, updateQuantity } = useCartStore();
   const { flyToCart, returnFromCart } = useFlyToCart();
@@ -70,6 +72,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div 
+      id={id}
       onClick={handleCardClick}
       role="button"
       tabIndex={0}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Phone, MessageCircle, Share2, ShoppingBag, Check, Sparkles, Globe, X } from 'lucide-react';
+import { Phone, MessageCircle, Share2, ShoppingBag, Check, Sparkles, Globe, X, Lightbulb } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
@@ -261,6 +261,22 @@ export const FloatingNavbar: React.FC = () => {
                     <span>مشاركة الرابط</span>
                   </>
                 )}
+              </button>
+
+              {/* زر شرح خطوات الطلب (جولة إرشادية تفاعلية) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGlobeMenuOpen(false);
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('open-onboarding-tour'));
+                  }, 150);
+                }}
+                className="h-11 sm:h-12 px-4.5 sm:px-6 rounded-2xl bg-amber-50 hover:bg-amber-100 active:bg-amber-200 border border-amber-300 text-amber-900 text-xs sm:text-sm font-black transition-all hover:scale-105 active:scale-95 shadow-xs flex items-center gap-2 cursor-pointer shrink-0"
+                title="شرح خطوات عمل طلب أونلاين"
+              >
+                <Lightbulb className="w-4.5 h-4.5 text-amber-600 animate-pulse shrink-0" />
+                <span>كيف تطلب؟ (جولة توضيحية)</span>
               </button>
 
               {/* روابط صفحات السوشيال ميديا الخاصة بالمطعم بشعاراتها الرسمية وبارتفاع أكبر وبدون سحب */}

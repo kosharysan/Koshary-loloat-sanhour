@@ -84,14 +84,23 @@ export const Footer: React.FC = () => {
             <span>جميع الحقوق محفوظة © {new Date().getFullYear()} مطعم {restaurantInfo.name} | طعم لا يُنسى</span>
             <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" />
           </div>
-          <a
-            href="/admin"
-            title="بوابة إدارة المطعم"
-            className="text-slate-400 hover:text-rose-600 transition flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-200/60"
-          >
-            <span className="text-[10px]">بوابة الإدارة</span>
-            <span className="text-xs">🔒</span>
-          </a>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-onboarding-tour'))}
+              className="text-amber-800 hover:text-amber-900 transition flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200/90 font-bold text-[11px] cursor-pointer"
+            >
+              <span>💡 شرح خطوات الطلب</span>
+            </button>
+            <a
+              href="/admin"
+              title="بوابة إدارة المطعم"
+              className="text-slate-400 hover:text-rose-600 transition flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-200/60"
+            >
+              <span className="text-[10px]">بوابة الإدارة</span>
+              <span className="text-xs">🔒</span>
+            </a>
+          </div>
         </div>
 
       </div>

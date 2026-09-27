@@ -209,6 +209,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
           
           {/* Button 1: قائمة الطعام (المنيو) - الشوكة والسكينة على اليمين (ثابتة)، الكلام في المنتصف، وعلبة الكشري على الشمال (متحركة) */}
           <button
+            id="hero-menu-btn"
             type="button"
             onClick={onNavigateToMenu}
             className={`w-full ${

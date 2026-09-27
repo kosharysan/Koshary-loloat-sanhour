@@ -14,6 +14,7 @@ import { FloatingCartButton } from '@/components/FloatingCartButton';
 import { Footer } from '@/components/Footer';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { FlyAnimationProvider } from '@/context/FlyAnimationContext';
+import { OnboardingTour } from '@/components/OnboardingTour';
 import { categories as fallbackCategories, menuItems as fallbackMenuItems } from '@/data/mockData';
 import { useMenuStore } from '@/lib/menuStore';
 import { MenuItem } from '@/types';
@@ -36,6 +37,30 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [isDishBuilderOpen, setIsDishBuilderOpen] = useState<boolean>(false);
+  const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
+
+  // Setup Onboarding Tour listeners and auto-trigger for first-time visitors
+  React.useEffect(() => {
+    const handleOpenTour = () => setIsTourOpen(true);
+    window.addEventListener('open-onboarding-tour', handleOpenTour);
+
+    if (typeof window !== 'undefined') {
+      const hasCompletedTour = localStorage.getItem('lolat_tour_completed_v1');
+      if (!hasCompletedTour) {
+        const timer = setTimeout(() => {
+          setIsTourOpen(true);
+        }, 1600);
+        return () => {
+          clearTimeout(timer);
+          window.removeEventListener('open-onboarding-tour', handleOpenTour);
+        };
+      }
+    }
+
+    return () => {
+      window.removeEventListener('open-onboarding-tour', handleOpenTour);
+    };
+  }, []);
 
   // Reset activeCategory to 'all' if the selected category was deleted
   React.useEffect(() => {
@@ -264,9 +289,10 @@ export default function Home() {
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                       {[...categoryItems]
                         .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-                        .map((item) => (
+                        .map((item, itemIdx) => (
                         <ProductCard
                           key={item.id}
+                          id={index === 0 && itemIdx === 0 ? 'tour-first-product-card' : undefined}
                           item={item}
                           onOpenCustomizer={(itemToCustomize) => setCustomizingItem(itemToCustomize)}
                         />
@@ -281,9 +307,10 @@ export default function Home() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {[...filteredItems]
               .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-              .map((item) => (
+              .map((item, itemIdx) => (
               <ProductCard
                 key={item.id}
+                id={itemIdx === 0 ? 'tour-first-product-card' : undefined}
                 item={item}
                 onOpenCustomizer={(itemToCustomize) => setCustomizingItem(itemToCustomize)}
               />
@@ -310,6 +337,12 @@ export default function Home() {
 
       {/* 9. Luxury Footer */}
       <Footer />
+
+      {/* 10. Interactive Step-by-Step Onboarding Spotlight Tour */}
+      <OnboardingTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+      />
 
       </div>
       </main>

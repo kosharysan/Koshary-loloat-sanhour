@@ -596,6 +596,7 @@ export const CartDrawer: React.FC = () => {
                 </p>
               </div>
               <button
+                id={items.length === 0 ? "tour-cart-checkout-btn" : undefined}
                 onClick={() => setIsCartOpen(false)}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md ruby-button-shadow transition"
               >
@@ -1362,6 +1363,7 @@ export const CartDrawer: React.FC = () => {
         {items.length > 0 && (
           <div className="p-4 sm:p-5 border-t border-slate-200 bg-white">
             <button
+              id="tour-cart-checkout-btn"
               onClick={handleConfirmOrder}
               disabled={isSubmitting}
               onMouseEnter={() => setIsSendBtnMoved(true)}
