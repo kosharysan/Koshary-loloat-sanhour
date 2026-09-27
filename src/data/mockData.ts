@@ -79,7 +79,6 @@ export const menuItems: MenuItem[] = [
     name: 'علبة لؤلؤة سنهور الخاصة',
     description: 'التوليفة الملكية: مكرونات مشكلة، أرز بالشعرية الذهبية، عدس بلدي، حمص، تقلية مقرمشة زيادة، مع صلصة ودقة خاصة',
     price: 45,
-    originalPrice: 50,
     imageUrl: '/menu/koshary-box.jpg',
     isAvailable: true,
     displayOrder: 1,

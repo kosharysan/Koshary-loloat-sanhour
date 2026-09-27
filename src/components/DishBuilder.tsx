@@ -6,6 +6,8 @@ import { useCartStore } from '@/lib/store';
 import { useMenuStore, defaultDishBuilderSettings, defaultKosharyCustomOptions } from '@/lib/menuStore';
 import { DishBuilderOption } from '@/types';
 import { sounds } from '@/lib/sound';
+import { applyItemDiscount, sanitizeDiscount } from '@/lib/itemDiscount';
+import { SlashedCatalog } from '@/components/PriceDisplay';
 import confetti from 'canvas-confetti';
 
 interface DishBuilderProps {
@@ -18,7 +20,7 @@ export const DishBuilder: React.FC<DishBuilderProps> = ({
   onClose
 }) => {
   const { addItem, setIsCartOpen } = useCartStore();
-  const { dishBuilderSettings } = useMenuStore();
+  const { dishBuilderSettings, globalMenuDiscount } = useMenuStore();
 
   const bases = dishBuilderSettings?.bases && dishBuilderSettings.bases.length > 0
     ? dishBuilderSettings.bases
@@ -92,6 +94,7 @@ export const DishBuilder: React.FC<DishBuilderProps> = ({
 
   const toppingsTotal = selectedToppings.reduce((sum, t) => sum + t.price, 0);
   const total = base.price + meat.price + toppingsTotal;
+  const saleTotal = applyItemDiscount(total, sanitizeDiscount(globalMenuDiscount));
 
   const handleAddCustomDish = () => {
     sounds.playSuccessChime();
@@ -535,11 +538,14 @@ export const DishBuilder: React.FC<DishBuilderProps> = ({
                   <span className="text-xs font-black text-slate-600">السعر الإجمالي لطاجنك:</span>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-3xl sm:text-4xl font-black text-rose-600">
-                      {total}
+                      {saleTotal}
                     </span>
                     <span className="text-sm font-black text-amber-600">
                       جنيه مصري
                     </span>
+                    {saleTotal < total && (
+                      <SlashedCatalog value={total} suffix="ج.م" tone="onLight" />
+                    )}
                   </div>
                 </div>
 

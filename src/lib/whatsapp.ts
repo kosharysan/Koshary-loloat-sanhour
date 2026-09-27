@@ -59,6 +59,9 @@ export function generateWhatsAppMessage({
       const isCustomDish = Boolean(item.customDishDetails);
       const itemIcon = isCustomDish ? '🍲' : '🍽️';
       let itemBlock = `${RLM}${itemIcon} *${idx + 1}. ${item.name}* (الكمية: ${item.quantity}) ⬅️ *${item.price * item.quantity} ج.م*`;
+      if (item.originalPrice && item.originalPrice > item.price) {
+        itemBlock += ` ~(كان ${item.originalPrice * item.quantity} ج.م)~`;
+      }
       
       const customDetails = item.customDishDetails;
       if (customDetails) {

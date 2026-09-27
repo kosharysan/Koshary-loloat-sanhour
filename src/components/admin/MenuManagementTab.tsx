@@ -55,7 +55,9 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useMenuStore, defaultKosharyCustomOptions } from '@/lib/menuStore';
-import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings } from '@/types';
+import { DiscountControl } from '@/components/admin/DiscountControl';
+import { getStorefrontPricing, formatDiscountLabel } from '@/lib/itemDiscount';
+import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, ItemDiscount } from '@/types';
 import { ImageSelectorModal } from '@/components/admin/ImageSelectorModal';
 import { officialMediaLibrary } from '@/data/restaurantMedia';
 
@@ -96,6 +98,9 @@ export const MenuManagementTab: React.FC = () => {
     resetToDefault,
     syncWithServer,
     saveToServer,
+    globalMenuDiscount,
+    setGlobalMenuDiscount,
+    clearAllMenuDiscounts,
     isServerSyncing,
     serverSyncError,
     lastServerSyncTime
@@ -460,7 +465,7 @@ export const MenuManagementTab: React.FC = () => {
   const [editItemName, setEditItemName] = useState<string>('');
   const [editItemCategoryId, setEditItemCategoryId] = useState<string>('');
   const [editItemPrice, setEditItemPrice] = useState<string>('');
-  const [editItemOriginalPrice, setEditItemOriginalPrice] = useState<string>('');
+  const [editItemDiscount, setEditItemDiscount] = useState<ItemDiscount | undefined>(undefined);
   const [editItemDescription, setEditItemDescription] = useState<string>('');
   const [editItemImageUrl, setEditItemImageUrl] = useState<string>('/menu/koshary-box.jpg');
   const [editItemIsAvailable, setEditItemIsAvailable] = useState<boolean>(true);
@@ -470,6 +475,7 @@ export const MenuManagementTab: React.FC = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [discountFilter, setDiscountFilter] = useState<'all' | 'discounted'>('all');
   const [editingPhotoItem, setEditingPhotoItem] = useState<MenuItem | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState<string | null>(null);
 
@@ -478,13 +484,21 @@ export const MenuManagementTab: React.FC = () => {
     return [...categories].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
   }, [categories]);
 
-  // Filter items based on category and search query
+  const discountedItemsCount = useMemo(
+    () => items.filter((item) => getStorefrontPricing(item, categories, globalMenuDiscount).hasDiscount).length,
+    [items, categories, globalMenuDiscount]
+  );
+
+  // Filter items based on category, discount, and search query
   const filteredItems = useMemo(() => {
     const categoryOrderMap = new Map(categories.map((c) => [c.id, c.displayOrder || 0]));
 
     return items
       .filter((item) => {
         if (selectedCategory !== 'all' && item.categoryId !== selectedCategory) {
+          return false;
+        }
+        if (discountFilter === 'discounted' && !getStorefrontPricing(item, categories, globalMenuDiscount).hasDiscount) {
           return false;
         }
         if (searchQuery.trim()) {
@@ -506,7 +520,7 @@ export const MenuManagementTab: React.FC = () => {
         // Then sort by item displayOrder
         return (a.displayOrder || 0) - (b.displayOrder || 0);
       });
-  }, [items, categories, selectedCategory, searchQuery]);
+  }, [items, categories, selectedCategory, searchQuery, discountFilter, globalMenuDiscount]);
 
   // Start Edit Mode
   const handleStartEditMode = () => {
@@ -808,7 +822,7 @@ export const MenuManagementTab: React.FC = () => {
     setEditItemName(item.name);
     setEditItemCategoryId(item.categoryId);
     setEditItemPrice(item.price.toString());
-    setEditItemOriginalPrice(item.originalPrice ? item.originalPrice.toString() : '');
+    setEditItemDiscount(item.discount?.isEnabled ? item.discount : undefined);
     setEditItemDescription(item.description || '');
     setEditItemImageUrl(item.imageUrl || '/menu/koshary-box.jpg');
     setEditItemIsAvailable(item.isAvailable);
@@ -834,7 +848,7 @@ export const MenuManagementTab: React.FC = () => {
       name: editItemName.trim(),
       categoryId: editItemCategoryId,
       price: priceNum,
-      originalPrice: editItemOriginalPrice ? parseFloat(editItemOriginalPrice) : undefined,
+      discount: editItemDiscount,
       description: editItemDescription.trim(),
       imageUrl: editItemImageUrl,
       isAvailable: editItemIsAvailable,
@@ -1157,6 +1171,27 @@ export const MenuManagementTab: React.FC = () => {
               </button>
             </div>
 
+            <div className="space-y-2.5">
+              <DiscountControl
+                label="خصم على كل الأصناف والأقسام"
+                hint="يتطبق على كل المنيو. لو صنف أو قسم له خصم خاص، الخصم الخاص هو اللي يشتغل."
+                value={globalMenuDiscount || undefined}
+                onChange={(next) => setGlobalMenuDiscount(next || null)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!confirm('هتشيل كل الخصومات: العام، الأقسام، وكل صنف لوحده. الأسعار ترجع للأساسي. متأكد؟')) return;
+                  clearAllMenuDiscounts();
+                  setShowSuccessToast('تم إلغاء كل الخصومات من المنيو ✓');
+                  setTimeout(() => setShowSuccessToast(null), 3000);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-600/20 border border-slate-700 hover:border-rose-500/50 text-slate-200 hover:text-rose-200 text-xs font-black transition cursor-pointer"
+              >
+                إلغاء كل الخصومات من جميع الأصناف والأقسام
+              </button>
+            </div>
+
             {/* Existing Categories Panel (Visible when clicking "الأقسام الموجودة") */}
             {isExistingCategoriesOpen && (
               <div className="pt-3 border-t border-slate-800/70 space-y-3 animate-in fade-in duration-200">
@@ -1246,6 +1281,16 @@ export const MenuManagementTab: React.FC = () => {
                               )}
                             </div>
                           </div>
+
+                          <DiscountControl
+                            label={`خصم على كل أصناف «${cat.name}»`}
+                            hint="مبلغ أو نسبة على كل صنف في القسم. خصم الصنف الواحد يلغي ده."
+                            value={cat.discount}
+                            onChange={(next) => {
+                              updateCategory(cat.id, { discount: next });
+                              saveToServer();
+                            }}
+                          />
 
                           {/* Bottom Section: Controls */}
                           <div className="flex flex-col gap-2 pt-2 border-t border-slate-900">
@@ -1442,6 +1487,21 @@ export const MenuManagementTab: React.FC = () => {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setDiscountFilter((prev) => (prev === 'discounted' ? 'all' : 'discounted'))}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                  discountFilter === 'discounted'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <BadgePercent className="w-3.5 h-3.5" />
+                <span>عليها خصم</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${discountFilter === 'discounted' ? 'bg-white/25 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  {discountedItemsCount}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -1450,6 +1510,10 @@ export const MenuManagementTab: React.FC = () => {
             {filteredItems.map((item) => {
               const currentDraftPrice = draftPrices[item.id] !== undefined ? draftPrices[item.id] : item.price;
               const isPriceModified = isEditMode && currentDraftPrice !== item.price;
+              const pricing = getStorefrontPricing(item, categories, globalMenuDiscount);
+              const discountBadge = formatDiscountLabel(pricing.discount) || (pricing.hasDiscount ? 'خصم' : '');
+              const discountSource =
+                pricing.source === 'item' ? 'خصم الصنف' : pricing.source === 'category' ? 'خصم القسم' : pricing.source === 'global' ? 'خصم الكل' : 'خصم';
 
               return (
                 <div
@@ -1457,11 +1521,20 @@ export const MenuManagementTab: React.FC = () => {
                   className={`p-4 rounded-3xl border transition-all flex flex-col justify-between space-y-4 shadow-md relative ${
                     isPriceModified
                       ? 'bg-slate-900 border-amber-500/70 shadow-amber-500/10 ring-1 ring-amber-500/30'
+                      : pricing.hasDiscount
+                      ? 'bg-slate-900/90 border-emerald-500/50 hover:border-emerald-400/70 ring-1 ring-emerald-500/25'
                       : item.isAvailable
                       ? 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
                       : 'bg-slate-950/90 border-red-950/40 opacity-70'
                   }`}
                 >
+                  {pricing.hasDiscount && (
+                    <div className="absolute -top-2 left-4 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-md border border-emerald-300/40">
+                      <BadgePercent className="w-3 h-3" />
+                      <span>{discountBadge}</span>
+                      <span className="opacity-80 font-bold">· {discountSource}</span>
+                    </div>
+                  )}
                   <div className="flex items-start gap-3.5">
                     <div className="relative w-20 h-20 rounded-2xl overflow-hidden bg-slate-950 shrink-0 border border-slate-800">
                       <Image
@@ -1471,6 +1544,11 @@ export const MenuManagementTab: React.FC = () => {
                         unoptimized={Boolean(item.imageUrl && item.imageUrl.startsWith('data:'))}
                         className="object-cover"
                       />
+                      {pricing.hasDiscount && (
+                        <div className="absolute inset-x-0 bottom-0 bg-emerald-700/90 text-[9px] font-black text-white text-center py-0.5">
+                          {discountBadge}
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1 flex-1 min-w-0">
@@ -1575,8 +1653,13 @@ export const MenuManagementTab: React.FC = () => {
                       ) : (
                         <div className="flex items-center gap-1.5 bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800">
                           <span className="text-xs font-bold text-slate-400">السعر:</span>
-                          <span className="text-sm font-black text-amber-400">{item.price}</span>
+                          <span className="text-sm font-black text-amber-400">{pricing.sale}</span>
                           <span className="text-[11px] font-black text-rose-400">ج.م</span>
+                          {pricing.hasDiscount && (
+                            <span className="slash-out-price text-[10px] text-slate-300 font-bold">
+                              {pricing.catalog}
+                            </span>
+                          )}
                         </div>
                       )}
 
@@ -2187,9 +2270,20 @@ export const MenuManagementTab: React.FC = () => {
                       <div className="p-3 rounded-2xl bg-black/30 border border-white/10 flex items-center justify-between px-4">
                         <span className="text-xs font-bold text-rose-200">السعر المعروض:</span>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-black text-white">
-                            {heroPreviewDish?.price || 0}
-                          </span>
+                          {heroPreviewDish ? (
+                            <>
+                              <span className="text-2xl font-black text-white">
+                                {getStorefrontPricing(heroPreviewDish, categories, globalMenuDiscount).sale}
+                              </span>
+                              {getStorefrontPricing(heroPreviewDish, categories, globalMenuDiscount).hasDiscount && (
+                                <span className="text-xs line-through text-white/50 font-bold">
+                                  {getStorefrontPricing(heroPreviewDish, categories, globalMenuDiscount).catalog}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-2xl font-black text-white">0</span>
+                          )}
                           <span className="text-xs font-black text-amber-300">
                             ج.م
                           </span>
@@ -2700,6 +2794,21 @@ export const MenuManagementTab: React.FC = () => {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setDiscountFilter((prev) => (prev === 'discounted' ? 'all' : 'discounted'))}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                  discountFilter === 'discounted'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <BadgePercent className="w-3.5 h-3.5" />
+                <span>عليها خصم</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${discountFilter === 'discounted' ? 'bg-white/25 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  {discountedItemsCount}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -2707,11 +2816,17 @@ export const MenuManagementTab: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {filteredItems.map((item) => {
               const isOfficial = officialMediaLibrary.some((m) => m.url === item.imageUrl);
+              const pricing = getStorefrontPricing(item, categories, globalMenuDiscount);
+              const discountBadge = formatDiscountLabel(pricing.discount) || (pricing.hasDiscount ? 'خصم' : '');
 
               return (
                 <div
                   key={item.id}
-                  className="group bg-slate-900/90 rounded-3xl p-4 border border-slate-800 shadow-md hover:border-slate-700 transition-all flex flex-col justify-between"
+                  className={`group bg-slate-900/90 rounded-3xl p-4 border shadow-md transition-all flex flex-col justify-between ${
+                    pricing.hasDiscount
+                      ? 'border-emerald-500/50 hover:border-emerald-400/70 ring-1 ring-emerald-500/20'
+                      : 'border-slate-800 hover:border-slate-700'
+                  }`}
                 >
                   <div>
                     <div className="relative w-full h-44 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 mb-3.5">
@@ -2722,6 +2837,13 @@ export const MenuManagementTab: React.FC = () => {
                         unoptimized={Boolean(item.imageUrl && item.imageUrl.startsWith('data:'))}
                         className="object-cover transform group-hover:scale-105 group-hover:rotate-0.5 transition-transform duration-500"
                       />
+
+                      {pricing.hasDiscount && (
+                        <div className="absolute bottom-2 right-2 z-10 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-sm flex items-center gap-1">
+                          <BadgePercent className="w-3 h-3" />
+                          {discountBadge}
+                        </div>
+                      )}
 
                       <div className="absolute top-2 left-2 z-10">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950/80 text-amber-400 border border-slate-800 backdrop-blur-xs shadow-xs font-mono">
@@ -3771,7 +3893,7 @@ export const MenuManagementTab: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-300 font-bold mb-1.5">
                     السعر (ج.م) <span className="text-rose-500">*</span>
@@ -3784,20 +3906,6 @@ export const MenuManagementTab: React.FC = () => {
                     value={editItemPrice}
                     onChange={(e) => setEditItemPrice(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500 bg-slate-800 text-white font-black"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-bold mb-1.5">
-                    قبل الخصم <span className="text-slate-500 font-normal">(اختياري)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.5"
-                    value={editItemOriginalPrice}
-                    onChange={(e) => setEditItemOriginalPrice(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500 bg-slate-800 text-white"
                   />
                 </div>
 
@@ -3817,6 +3925,14 @@ export const MenuManagementTab: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <DiscountControl
+                label="خصم خاص على هذا الصنف"
+                hint="يلغي خصم القسم والخصم العام لهذا الصنف فقط."
+                samplePrice={Number(editItemPrice) || 100}
+                value={editItemDiscount}
+                onChange={setEditItemDiscount}
+              />
 
               <div>
                 <label className="block text-slate-300 font-bold mb-1.5">

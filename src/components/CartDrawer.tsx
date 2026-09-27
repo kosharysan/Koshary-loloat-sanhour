@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import {
   X,
@@ -32,8 +32,24 @@ import { deliveryZones, restaurantInfo, smartUpsellItems } from '@/data/mockData
 import { generateWhatsAppMessage, openWhatsAppChat } from '@/lib/whatsapp';
 import { getInstapayOpenLink } from '@/lib/contactLinks';
 import { saveOrderToSupabase, warmupSupabase } from '@/lib/supabase';
+import { getStorefrontPricing } from '@/lib/itemDiscount';
+import { SlashedCatalog } from '@/components/PriceDisplay';
 import { sounds } from '@/lib/sound';
 import { OrderType, PaymentMethod, CartItem } from '@/types';
+
+type CustomerField = 'name' | 'phone' | 'address';
+
+function getEgyptianPhoneDigits(phone: string) {
+  return String(phone || '').replace(/[^\d]/g, '');
+}
+
+function isValidCustomerPhone(phone: string) {
+  const digits = getEgyptianPhoneDigits(phone);
+  if (digits.length === 11 && digits.startsWith('01')) return true;
+  if (digits.length === 12 && digits.startsWith('201')) return true;
+  if (digits.length === 13 && digits.startsWith('2001')) return true;
+  return false;
+}
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -81,6 +97,7 @@ export const CartDrawer: React.FC = () => {
     storeScheduleSettings = defaultStoreScheduleSettings,
     dishBuilderSettings,
     syncWithServer,
+    globalMenuDiscount,
   } = useMenuStore();
   const activeKosharyPresets = (kosharyCustomOptions && kosharyCustomOptions.length > 0)
     ? kosharyCustomOptions
@@ -113,12 +130,24 @@ export const CartDrawer: React.FC = () => {
     }
   }, [isCouponsEnabled, appliedCoupon, removeCoupon]);
 
+  useEffect(() => {
+    if (orderType !== 'delivery') {
+      setFieldErrors((prev) => {
+        if (!prev.address) return prev;
+        const next = { ...prev };
+        delete next.address;
+        return next;
+      });
+    }
+  }, [orderType]);
+
   // Pre-warm Supabase connection silently when cart is opened so the checkout request is instantaneous
   useEffect(() => {
     if (isCartOpen) {
       warmupSupabase();
     } else {
       setIsSendBtnMoved(false);
+      setFieldErrors({});
     }
   }, [isCartOpen]);
 
@@ -185,9 +214,44 @@ export const CartDrawer: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderNotice, setOrderNotice] = useState<{ title: string; message: string } | null>(null);
   const [priceRefreshNotice, setPriceRefreshNotice] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<CustomerField, string>>>({});
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
 
   const showOrderNotice = (title: string, message: string) => {
     setOrderNotice({ title, message });
+  };
+
+  const clearFieldError = (field: CustomerField) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const revealCustomerField = (field: CustomerField) => {
+    const el =
+      field === 'name' ? nameInputRef.current
+      : field === 'phone' ? phoneInputRef.current
+      : addressInputRef.current;
+    const scrollContainer = document.getElementById('cart-drawer-scroll-container');
+    if (el && scrollContainer) {
+      const elRect = el.getBoundingClientRect();
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const nextTop = scrollContainer.scrollTop + (elRect.top - containerRect.top) - 28;
+      scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+    } else {
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    window.setTimeout(() => el?.focus(), 220);
+  };
+
+  const showCustomerFieldError = (field: CustomerField, message: string) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+    revealCustomerField(field);
   };
 
   if (!isCartOpen) return null;
@@ -248,19 +312,25 @@ export const CartDrawer: React.FC = () => {
   const handleConfirmOrder = async () => {
     if (items.length === 0) return;
 
-    // Basic validation
-    if (!customer.name.trim()) {
-      showOrderNotice('الاسم مطلوب', 'اكتب الاسم الكريم في السلة عشان نقدر نسجّل الطلب.');
+    // التحقق من بيانات العميل داخل نفس المربع، بدون رسالة فوق الشاشة
+    const trimmedName = customer.name.trim();
+    if (trimmedName.length < 2) {
+      showCustomerFieldError('name', 'اكتب الاسم الكريم هنا (حرفين على الأقل).');
       return;
     }
     if (!customer.phone.trim()) {
-      showOrderNotice('رقم الهاتف مطلوب', 'اكتب رقم الموبايل عشان المطعم يقدر يتواصل معاك ويأكد التوصيل.');
+      showCustomerFieldError('phone', 'اكتب رقم الموبايل هنا عشان المطعم يقدر يتواصل معاك.');
+      return;
+    }
+    if (!isValidCustomerPhone(customer.phone)) {
+      showCustomerFieldError('phone', 'الرقم غلط. اكتب رقم مصري صحيح زي 010xxxxxxxx');
       return;
     }
     if (orderType === 'delivery' && !customer.address.trim()) {
-      showOrderNotice('العنوان مطلوب', 'للتوصيل لازم تكتب العنوان بالتفصيل: الشارع وعلامة مميزة.');
+      showCustomerFieldError('address', 'للتوصيل اكتب العنوان هنا بالتفصيل: الشارع وعلامة مميزة.');
       return;
     }
+    setFieldErrors({});
 
     // التحقق من حالة المطعم وإشعار العميل إذا كان مغلقاً
     if (!currentStoreStatus.isOpen) {
@@ -471,12 +541,23 @@ export const CartDrawer: React.FC = () => {
       }
       console.error('Order creation error:', err);
       const raw = typeof err?.message === 'string' ? err.message.trim() : '';
-      showOrderNotice(
-        'تعذر إرسال الطلب',
-        raw && raw !== 'Failed to fetch' && !raw.toLowerCase().includes('network')
-          ? raw
-          : 'حصل خطأ أثناء إرسال الطلب. تأكد من الإنترنت وحاول مرة تانية. لو تكررت الرسالة، كلم المطعم على واتساب.'
-      );
+      const looksLikePhoneError = /موبايل|هاتف|رقم/.test(raw);
+      const looksLikeNameError = /الاسم/.test(raw);
+      const looksLikeAddressError = /العنوان/.test(raw);
+      if (looksLikePhoneError) {
+        showCustomerFieldError('phone', raw);
+      } else if (looksLikeNameError) {
+        showCustomerFieldError('name', raw);
+      } else if (looksLikeAddressError) {
+        showCustomerFieldError('address', raw);
+      } else {
+        showOrderNotice(
+          'تعذر إرسال الطلب',
+          raw && raw !== 'Failed to fetch' && !raw.toLowerCase().includes('network')
+            ? raw
+            : 'حصل خطأ أثناء إرسال الطلب. تأكد من الإنترنت وحاول مرة تانية. لو تكررت الرسالة، كلم المطعم على واتساب.'
+        );
+      }
       setIsSubmitting(false);
     }
   };
@@ -713,7 +794,14 @@ export const CartDrawer: React.FC = () => {
                             )}
                           </div>
                           <div className="text-xs font-black text-red-600">
-                            {item.unavailable ? 'اتشال من المنيو' : `${item.price * item.quantity} ج.م`}
+                            {item.unavailable ? 'اتشال من المنيو' : (
+                              <span className="inline-flex items-baseline gap-1">
+                                <span>{item.price * item.quantity} ج.م</span>
+                                {item.originalPrice && item.originalPrice > item.price && (
+                                  <SlashedCatalog value={item.originalPrice * item.quantity} suffix="ج.م" tone="onLight" />
+                                )}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -1017,7 +1105,9 @@ export const CartDrawer: React.FC = () => {
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-0.5 custom-scrollbar">
-                  {displayedUpsellItems.map((upsell) => (
+                  {displayedUpsellItems.map((upsell) => {
+                    const upsellPricing = getStorefrontPricing(upsell, categories, globalMenuDiscount);
+                    return (
                     <button
                       key={upsell.id}
                       type="button"
@@ -1031,15 +1121,19 @@ export const CartDrawer: React.FC = () => {
                         <div className="text-xs font-bold text-slate-900 group-hover:text-red-600 truncate">
                           + {upsell.name}
                         </div>
-                        <div className="text-xs font-black text-red-600">
-                          {upsell.price} ج.م
+                        <div className="text-xs font-black text-red-600 inline-flex items-baseline gap-1">
+                          <span>{upsellPricing.sale} ج.م</span>
+                          {upsellPricing.hasDiscount && (
+                            <SlashedCatalog value={upsellPricing.catalog} tone="onLight" />
+                          )}
                         </div>
                       </div>
                       <span className="w-7 h-7 rounded-xl bg-red-50 group-hover:bg-red-600 text-red-600 group-hover:text-white flex items-center justify-center text-xs font-black transition shrink-0">
                         +
                       </span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1136,38 +1230,93 @@ export const CartDrawer: React.FC = () => {
                 </label>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="relative">
-                    <User className="absolute right-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={customer.name}
-                      onChange={(e) => setCustomer({ name: e.target.value })}
-                      placeholder="الاسم الكريم *"
-                      className="w-full pr-10 pl-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-red-500 shadow-xs"
-                    />
+                  <div>
+                    <div className="relative">
+                      <User className={`absolute right-3.5 top-3.5 w-4 h-4 ${fieldErrors.name ? 'text-rose-500' : 'text-slate-400'}`} />
+                      <input
+                        ref={nameInputRef}
+                        id="cart-customer-name"
+                        type="text"
+                        value={customer.name}
+                        onChange={(e) => {
+                          clearFieldError('name');
+                          setCustomer({ name: e.target.value });
+                        }}
+                        placeholder="الاسم الكريم *"
+                        aria-invalid={Boolean(fieldErrors.name)}
+                        aria-describedby={fieldErrors.name ? 'cart-customer-name-error' : undefined}
+                        className={`w-full pr-10 pl-3 py-2.5 rounded-xl bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none shadow-xs ${
+                          fieldErrors.name
+                            ? 'border-2 border-rose-500 focus:border-rose-600'
+                            : 'border border-slate-200 focus:border-red-500'
+                        }`}
+                      />
+                    </div>
+                    {fieldErrors.name && (
+                      <p id="cart-customer-name-error" className="mt-1.5 px-1 text-[11px] font-bold text-rose-700 leading-snug">
+                        {fieldErrors.name}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="relative">
-                    <Phone className="absolute right-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={customer.phone}
-                      onChange={(e) => setCustomer({ phone: e.target.value })}
-                      placeholder="رقم الموبايل *"
-                      className="w-full pr-10 pl-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-red-500 shadow-xs"
-                    />
+                  <div>
+                    <div className="relative">
+                      <Phone className={`absolute right-3.5 top-3.5 w-4 h-4 ${fieldErrors.phone ? 'text-rose-500' : 'text-slate-400'}`} />
+                      <input
+                        ref={phoneInputRef}
+                        id="cart-customer-phone"
+                        type="tel"
+                        inputMode="tel"
+                        value={customer.phone}
+                        onChange={(e) => {
+                          clearFieldError('phone');
+                          setCustomer({ phone: e.target.value });
+                        }}
+                        placeholder="رقم الموبايل *"
+                        aria-invalid={Boolean(fieldErrors.phone)}
+                        aria-describedby={fieldErrors.phone ? 'cart-customer-phone-error' : undefined}
+                        className={`w-full pr-10 pl-3 py-2.5 rounded-xl bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none shadow-xs ${
+                          fieldErrors.phone
+                            ? 'border-2 border-rose-500 focus:border-rose-600'
+                            : 'border border-slate-200 focus:border-red-500'
+                        }`}
+                      />
+                    </div>
+                    {fieldErrors.phone && (
+                      <p id="cart-customer-phone-error" className="mt-1.5 px-1 text-[11px] font-bold text-rose-700 leading-snug">
+                        {fieldErrors.phone}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {orderType === 'delivery' && (
                   <>
-                    <input
-                      type="text"
-                      value={customer.address}
-                      onChange={(e) => setCustomer({ address: e.target.value })}
-                      placeholder="العنوان بالتفصيل (اسم الشارع / علامة مميزة) *"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-red-500 shadow-xs"
-                    />
+                    <div>
+                      <input
+                        ref={addressInputRef}
+                        id="cart-customer-address"
+                        type="text"
+                        value={customer.address}
+                        onChange={(e) => {
+                          clearFieldError('address');
+                          setCustomer({ address: e.target.value });
+                        }}
+                        placeholder="العنوان بالتفصيل (اسم الشارع / علامة مميزة) *"
+                        aria-invalid={Boolean(fieldErrors.address)}
+                        aria-describedby={fieldErrors.address ? 'cart-customer-address-error' : undefined}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none shadow-xs ${
+                          fieldErrors.address
+                            ? 'border-2 border-rose-500 focus:border-rose-600'
+                            : 'border border-slate-200 focus:border-red-500'
+                        }`}
+                      />
+                      {fieldErrors.address && (
+                        <p id="cart-customer-address-error" className="mt-1.5 px-1 text-[11px] font-bold text-rose-700 leading-snug">
+                          {fieldErrors.address}
+                        </p>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={customer.buildingFloorNotes || ''}

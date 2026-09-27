@@ -7,6 +7,8 @@ import { MenuItem } from '@/types';
 import { useCartStore } from '@/lib/store';
 import { sounds } from '@/lib/sound';
 import { useFlyToCart } from '@/context/FlyAnimationContext';
+import { PriceDisplay, useStorefrontPricing } from '@/components/PriceDisplay';
+import { formatDiscountLabel } from '@/lib/itemDiscount';
 
 interface ProductCardProps {
   item: MenuItem;
@@ -28,6 +30,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const totalQuantityInCart = cartItemsForThis.reduce((sum, i) => sum + i.quantity, 0);
 
   const hasSizes = Boolean(item.sizes && item.sizes.length > 0);
+  const pricing = useStorefrontPricing(item);
 
   const handleAddClick = () => {
     sounds.playAddChime();
@@ -132,25 +135,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {/* Discount badge */}
-        {item.originalPrice && item.originalPrice > item.price && (
+        {pricing.hasDiscount && (
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3 px-2 py-0.5 rounded-full text-[9px] sm:text-[11px] font-black bg-emerald-600 text-white shadow-sm">
-            خصم {Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)}%
+            {formatDiscountLabel(pricing.discount) || `خصم ${Math.max(1, Math.round(((pricing.catalog - pricing.sale) / pricing.catalog) * 100))}%`}
           </div>
         )}
 
         {/* Bottom price tag inside image */}
-        <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex items-baseline gap-1 bg-black/70 backdrop-blur-md px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg sm:rounded-xl border border-white/20 shadow-md">
-          <span className="text-base sm:text-xl font-black text-white">
-            {item.price}
-          </span>
-          <span className="text-[10px] sm:text-xs font-bold text-amber-300">
-            ج.م
-          </span>
-          {item.originalPrice && (
-            <span className="text-[10px] sm:text-xs line-through text-gray-300 mr-0.5">
-              {item.originalPrice} ج.م
-            </span>
-          )}
+        <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex items-baseline gap-1 bg-black/75 backdrop-blur-md px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl border border-white/20 shadow-md">
+          <PriceDisplay item={item} />
         </div>
 
       </div>
@@ -160,6 +153,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <h3 className="text-sm sm:text-lg font-black text-slate-900 group-hover:text-rose-600 transition-colors line-clamp-1 sm:line-clamp-none">
           {item.name}
         </h3>
+        <div className="flex items-baseline gap-2 flex-wrap">
+          {pricing.hasDiscount && (
+            <span className="slash-out-price text-xs sm:text-sm text-slate-500 font-semibold">
+              {pricing.catalog} ج.م
+            </span>
+          )}
+          <span className={`text-sm sm:text-lg font-black ${pricing.hasDiscount ? 'text-emerald-600' : 'text-rose-700'}`}>
+            {pricing.sale} ج.م
+          </span>
+          {pricing.hasDiscount && (
+            <span className="text-[10px] sm:text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+              {formatDiscountLabel(pricing.discount) || 'عرض'}
+            </span>
+          )}
+        </div>
         <p className="text-[11px] sm:text-sm text-slate-500 line-clamp-2 leading-relaxed font-normal">
           {item.description}
         </p>

@@ -1,4 +1,10 @@
 import type { Coupon, CustomDishDetails, DeliveryZone, MenuItem } from '@/types';
+import {
+  applyItemDiscount,
+  catalogMenuUnitPrice,
+  money,
+  resolveItemDiscount,
+} from '@/lib/itemDiscount';
 
 export type IncomingCartLine = {
   menuItemId?: string;
@@ -21,22 +27,15 @@ export type PricedOrder = {
 const MAX_LINES = 200;
 const MAX_QTY = 2000;
 
-function money(value: number): number {
-  return Math.max(0, Math.round(Number(value) || 0));
-}
-
 function findMenuItem(items: MenuItem[], id: string): MenuItem | undefined {
   return items.find((item) => item.id === id);
 }
 
-function linePriceFromMenu(item: MenuItem, selectedSize?: string): number | null {
-  if (item.isAvailable === false) return null;
-  if (selectedSize && Array.isArray(item.sizes) && item.sizes.length > 0) {
-    const size = item.sizes.find((entry) => entry.name === selectedSize);
-    if (!size) return null;
-    return money(size.price);
-  }
-  return money(item.price);
+function linePriceFromMenu(item: MenuItem, selectedSize: string | undefined, settings: Record<string, any>): number | null {
+  const catalog = catalogMenuUnitPrice(item, selectedSize);
+  if (catalog === null) return null;
+  const { discount } = resolveItemDiscount(item, settings.categories, settings.globalMenuDiscount);
+  return applyItemDiscount(catalog, discount);
 }
 
 function priceCustomDish(
@@ -61,10 +60,10 @@ function priceCustomDish(
   return money(base.price) + money(meat.price) + toppingsTotal;
 }
 
-function extraPriceFromMenu(name: string, items: MenuItem[]): number | null {
+function extraPriceFromMenu(name: string, items: MenuItem[], settings: Record<string, any>): number | null {
   const match = items.find((item) => item.name === name && item.isAvailable !== false);
   if (!match) return null;
-  return money(match.price);
+  return linePriceFromMenu(match, undefined, settings);
 }
 
 export function resolveCartLineUnitPrice(
@@ -78,11 +77,12 @@ export function resolveCartLineUnitPrice(
   if (isCustom) {
     const customPrice = priceCustomDish(line.customDishDetails, settings);
     if (customPrice === null) return { ok: false, error: 'تفاصيل الطاجن المبتكر اتغيرت. امسحه من السلة وابنِه من جديد.' };
-    unit = customPrice;
+    const { discount } = resolveItemDiscount(undefined, settings.categories, settings.globalMenuDiscount, { customDish: true });
+    unit = applyItemDiscount(customPrice, discount);
   } else {
     const menuItem = findMenuItem(menuItems, String(line.menuItemId || ''));
     if (!menuItem) return { ok: false, error: 'أحد الأصناف في السلة لم يعد موجودًا في المنيو. امسحه وأضف بديلًا.' };
-    const menuPrice = linePriceFromMenu(menuItem, line.selectedSize);
+    const menuPrice = linePriceFromMenu(menuItem, line.selectedSize, settings);
     if (menuPrice === null) return { ok: false, error: `الصنف «${menuItem.name}» غير متاح حاليًا. امسحه من السلة.` };
     unit = menuPrice;
   }
@@ -91,7 +91,7 @@ export function resolveCartLineUnitPrice(
     for (const extra of line.extras) {
       const extraName = String(extra?.name || '').trim();
       if (!extraName) return { ok: false, error: 'إضافة في السلة غير صحيحة. امسح الصنف وأضفه من جديد.' };
-      const extraPrice = extraPriceFromMenu(extraName, menuItems);
+      const extraPrice = extraPriceFromMenu(extraName, menuItems, settings);
       if (extraPrice === null) return { ok: false, error: `الإضافة «${extraName}» لم تعد متاحة. امسحها من السلة.` };
       unit += extraPrice;
     }

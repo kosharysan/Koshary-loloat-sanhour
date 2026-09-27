@@ -4,6 +4,7 @@ import { CartItem, MenuItem, OrderType, PaymentMethod, CustomerInfo, CustomDishD
 import { deliveryZones } from '@/data/mockData';
 import { useMenuStore } from './menuStore';
 import { resolveCartLineUnitPrice } from './orderPricing';
+import { catalogMenuUnitPrice, money } from './itemDiscount';
 
 interface CartStore {
   items: CartItem[];
@@ -53,9 +54,23 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (item, quantity = 1, selectedSize, notes, itemNotes, customDishDetails) => {
         const currentItems = get().items;
-        const itemPrice = selectedSize && item.sizes
-          ? item.sizes.find(s => s.name === selectedSize)?.price || item.price
-          : item.price;
+        const menu = useMenuStore.getState();
+        const settings = {
+          items: menu.items,
+          categories: menu.categories,
+          globalMenuDiscount: menu.globalMenuDiscount,
+          dishBuilderSettings: menu.dishBuilderSettings,
+        };
+        const priced = resolveCartLineUnitPrice({
+          menuItemId: item.id,
+          quantity,
+          selectedSize,
+          customDishDetails,
+        }, settings);
+        const catalog = customDishDetails
+          ? money(item.price)
+          : (catalogMenuUnitPrice(item, selectedSize) ?? money(item.price));
+        const itemPrice = priced.ok ? priced.price : catalog;
 
         const existingIndex = currentItems.findIndex(
           i => i.menuItemId === item.id && i.selectedSize === selectedSize && i.notes === notes
@@ -67,6 +82,7 @@ export const useCartStore = create<CartStore>()(
             ...updated[existingIndex],
             quantity: updated[existingIndex].quantity + quantity,
             price: itemPrice,
+            originalPrice: catalog > itemPrice ? catalog : undefined,
             unavailable: false,
           };
           set({ items: updated });
@@ -77,6 +93,7 @@ export const useCartStore = create<CartStore>()(
             categoryId: item.categoryId,
             name: selectedSize ? `${item.name} (${selectedSize})` : item.name,
             price: itemPrice,
+            originalPrice: catalog > itemPrice ? catalog : undefined,
             quantity,
             imageUrl: item.imageUrl,
             selectedSize,
@@ -248,6 +265,8 @@ export const useCartStore = create<CartStore>()(
         const menu = useMenuStore.getState();
         const settings = {
           items: menu.items,
+          categories: menu.categories,
+          globalMenuDiscount: menu.globalMenuDiscount,
           dishBuilderSettings: menu.dishBuilderSettings,
         };
         let pricesChanged = false;
@@ -269,12 +288,17 @@ export const useCartStore = create<CartStore>()(
           const nextName = menuItem
             ? (item.selectedSize ? `${menuItem.name} (${item.selectedSize})` : menuItem.name)
             : item.name;
-          if (item.price !== priced.price || item.unavailable || item.name !== nextName) {
+          const catalog = menuItem
+            ? (catalogMenuUnitPrice(menuItem, item.selectedSize) ?? priced.price)
+            : (item.originalPrice || priced.price);
+          const nextOriginal = catalog > priced.price ? catalog : undefined;
+          if (item.price !== priced.price || item.unavailable || item.name !== nextName || item.originalPrice !== nextOriginal) {
             pricesChanged = true;
           }
           return {
             ...item,
             price: priced.price,
+            originalPrice: nextOriginal,
             name: nextName,
             imageUrl: menuItem?.imageUrl || item.imageUrl,
             unavailable: false,

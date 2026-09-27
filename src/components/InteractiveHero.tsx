@@ -6,6 +6,8 @@ import { Sparkles, Flame, Star, ShoppingBag, ArrowLeft, ShieldCheck, Heart, Uten
 import { menuItems, restaurantInfo } from '@/data/mockData';
 import { useCartStore } from '@/lib/store';
 import { useMenuStore } from '@/lib/menuStore';
+import { getStorefrontPricing } from '@/lib/itemDiscount';
+import { SlashedCatalog } from '@/components/PriceDisplay';
 import { sounds } from '@/lib/sound';
 import { useFlyToCart } from '@/context/FlyAnimationContext';
 
@@ -21,7 +23,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
   isDishBuilderOpen = false,
 }) => {
   const { addItem, setIsCartOpen } = useCartStore();
-  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings, isGlobeMenuOpen, isHeroFeaturedCardEnabled, isHeroMenuButtonEnabled } = useMenuStore();
+  const { items, heroFeaturedItemId, heroFeaturedItemIds, heroBadgeText, dishBuilderSettings, isGlobeMenuOpen, isHeroFeaturedCardEnabled, isHeroMenuButtonEnabled, categories, globalMenuDiscount } = useMenuStore();
 
   // Filter out any dishes that are disabled / unavailable
   const availableItems = items.filter(i => i.isAvailable !== false);
@@ -70,10 +72,13 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
     setIsConfirmModalOpen(true);
   };
 
-  const modalCurrentPrice = confirmSelectedSize && activeDish.sizes
-    ? activeDish.sizes.find(s => s.name === confirmSelectedSize)?.price || activeDish.price
-    : activeDish.price;
-
+  const heroPricing = activeDish
+    ? getStorefrontPricing(activeDish, categories, globalMenuDiscount)
+    : { catalog: 0, sale: 0, hasDiscount: false };
+  const modalPricing = activeDish
+    ? getStorefrontPricing(activeDish, categories, globalMenuDiscount, confirmSelectedSize || undefined)
+    : { catalog: 0, sale: 0, hasDiscount: false };
+  const modalCurrentPrice = modalPricing.sale;
   const modalTotalPrice = modalCurrentPrice * confirmQuantity;
 
   const handleConfirmAddToCart = () => {
@@ -393,9 +398,12 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
               <div className="p-4 rounded-2xl bg-black/25 backdrop-blur-md border border-white/20 shadow-sm flex items-center justify-between">
                 <div>
                   <span className="text-xs text-rose-200 block font-bold">السعر الملوكي:</span>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl font-black text-white drop-shadow-xs">
-                      {activeDish.price}
+                  <div className="flex items-baseline gap-2">
+                    {heroPricing.hasDiscount && (
+                      <SlashedCatalog value={heroPricing.catalog} suffix="ج.م" />
+                    )}
+                    <span className="text-3xl font-black tracking-tight text-white drop-shadow-xs">
+                      {heroPricing.sale}
                     </span>
                     <span className="text-sm font-black text-amber-300">
                       جنيه مصري
@@ -514,6 +522,7 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     {activeDish.sizes.map((s) => {
                       const isSelected = confirmSelectedSize === s.name;
+                      const sizePricing = getStorefrontPricing(activeDish, categories, globalMenuDiscount, s.name);
                       return (
                         <button
                           key={s.name}
@@ -526,7 +535,12 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
                           }`}
                         >
                           <span>{s.name}</span>
-                          <span className="text-rose-600 font-black">{s.price} ج.م</span>
+                          <span className="text-rose-600 font-black inline-flex items-baseline gap-1">
+                            {sizePricing.sale} ج.م
+                            {sizePricing.hasDiscount && (
+                              <SlashedCatalog value={sizePricing.catalog} tone="onLight" />
+                            )}
+                          </span>
                         </button>
                       );
                     })}
@@ -571,7 +585,12 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
               <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-red-500/10 border-2 border-amber-400/50 space-y-2">
                 <div className="flex items-center justify-between text-xs text-slate-600 font-bold">
                   <span>سعر الطبق الواحد ({confirmSelectedSize || 'الحجم الأساسي'}):</span>
-                  <span className="font-black text-slate-800">{modalCurrentPrice} جنيه</span>
+                  <span className="font-black text-slate-800 inline-flex items-baseline gap-1">
+                    {modalCurrentPrice} جنيه
+                    {modalPricing.hasDiscount && (
+                      <SlashedCatalog value={modalPricing.catalog} tone="onLight" />
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-slate-600 font-bold">
                   <span>الكمية المحددة:</span>
@@ -583,6 +602,9 @@ export const InteractiveHero: React.FC<InteractiveHeroProps> = ({
                   </span>
                   <div className="flex items-baseline gap-1 text-rose-700">
                     <span className="text-2xl font-black">{modalTotalPrice}</span>
+                    {modalPricing.hasDiscount && (
+                      <SlashedCatalog value={modalPricing.catalog * confirmQuantity} tone="onLight" />
+                    )}
                     <span className="text-xs font-black">جنيه مصري</span>
                   </div>
                 </div>

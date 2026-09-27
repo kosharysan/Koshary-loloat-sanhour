@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, Coupon, CartIncentiveSettings, DeliveryZone, StoreScheduleSettings, StoreStatusResult, WhatsAppNotificationSettings, RestaurantSocialLink } from '@/types';
+import { MenuItem, Category, MarketingSubFilter, DishBuilderOption, DishBuilderSettings, Coupon, CartIncentiveSettings, DeliveryZone, StoreScheduleSettings, StoreStatusResult, WhatsAppNotificationSettings, RestaurantSocialLink, ItemDiscount } from '@/types';
 import { menuItems as defaultMenuItems, categories as defaultCategories, restaurantInfo, deliveryZones as defaultDeliveryZones } from '@/data/mockData';
 import { fetchRestaurantSettingsFromDb, saveRestaurantSettingsToDb } from '@/lib/supabase';
+import { sanitizeDiscount } from '@/lib/itemDiscount';
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate } from '@/lib/whatsapp';
 import { normalizeInstapayLink } from '@/lib/contactLinks';
 
@@ -216,6 +217,9 @@ interface MenuStore {
   isHeroMenuButtonEnabled: boolean;
   setIsHeroMenuButtonEnabled: (enabled: boolean) => void;
   toggleHeroMenuButtonEnabled: () => void;
+  globalMenuDiscount: ItemDiscount | null;
+  setGlobalMenuDiscount: (discount: ItemDiscount | null | undefined) => void;
+  clearAllMenuDiscounts: () => void;
   dishBuilderSettings: DishBuilderSettings;
   kosharyCustomOptions: string[];
   socialLinks: RestaurantSocialLink[];
@@ -345,6 +349,25 @@ export const useMenuStore = create<MenuStore>()(
       },
       toggleHeroMenuButtonEnabled: () => {
         set((state) => ({ isHeroMenuButtonEnabled: !state.isHeroMenuButtonEnabled }));
+        get().saveToServer();
+      },
+      globalMenuDiscount: null,
+      setGlobalMenuDiscount: (discount) => {
+        set({ globalMenuDiscount: sanitizeDiscount(discount) });
+        get().saveToServer();
+      },
+      clearAllMenuDiscounts: () => {
+        set({
+          globalMenuDiscount: null,
+          categories: get().categories.map((category) => {
+            const { discount: _removed, ...rest } = category;
+            return rest;
+          }),
+          items: get().items.map((item) => {
+            const { discount: _removed, originalPrice: _oldPromo, ...rest } = item;
+            return rest;
+          }),
+        });
         get().saveToServer();
       },
       dishBuilderSettings: defaultDishBuilderSettings,
@@ -782,6 +805,9 @@ export const useMenuStore = create<MenuStore>()(
               isHeroMenuButtonEnabled: typeof remoteData.isHeroMenuButtonEnabled === 'boolean'
                 ? remoteData.isHeroMenuButtonEnabled
                 : (typeof get().isHeroMenuButtonEnabled === 'boolean' ? get().isHeroMenuButtonEnabled : true),
+              globalMenuDiscount: remoteData.globalMenuDiscount !== undefined
+                ? sanitizeDiscount(remoteData.globalMenuDiscount)
+                : get().globalMenuDiscount,
               isWalletPaymentEnabled: typeof remoteData.isWalletPaymentEnabled === 'boolean' ? remoteData.isWalletPaymentEnabled : get().isWalletPaymentEnabled,
               isInstapayPaymentEnabled: typeof remoteData.isInstapayPaymentEnabled === 'boolean' ? remoteData.isInstapayPaymentEnabled : get().isInstapayPaymentEnabled,
               walletPhoneNumber: remoteData.walletPhoneNumber || get().walletPhoneNumber,
@@ -837,6 +863,7 @@ export const useMenuStore = create<MenuStore>()(
             heroBadgeText: get().heroBadgeText,
             isHeroFeaturedCardEnabled: typeof get().isHeroFeaturedCardEnabled === 'boolean' ? get().isHeroFeaturedCardEnabled : true,
             isHeroMenuButtonEnabled: typeof get().isHeroMenuButtonEnabled === 'boolean' ? get().isHeroMenuButtonEnabled : true,
+            globalMenuDiscount: get().globalMenuDiscount,
             isWalletPaymentEnabled: get().isWalletPaymentEnabled,
             isInstapayPaymentEnabled: get().isInstapayPaymentEnabled,
             walletPhoneNumber: get().walletPhoneNumber,
@@ -1013,6 +1040,7 @@ export const useMenuStore = create<MenuStore>()(
         isHeroMenuButtonEnabled: typeof persistedState?.isHeroMenuButtonEnabled === 'boolean'
           ? persistedState.isHeroMenuButtonEnabled
           : true,
+        globalMenuDiscount: sanitizeDiscount(persistedState?.globalMenuDiscount),
         dishBuilderSettings: (persistedState && persistedState.dishBuilderSettings)
           ? {
               ...defaultDishBuilderSettings,

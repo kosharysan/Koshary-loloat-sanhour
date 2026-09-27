@@ -7,6 +7,9 @@ import { MenuItem } from '@/types';
 import { useCartStore } from '@/lib/store';
 import { sounds } from '@/lib/sound';
 import { useFlyToCart } from '@/context/FlyAnimationContext';
+import { useMenuStore } from '@/lib/menuStore';
+import { getStorefrontPricing } from '@/lib/itemDiscount';
+import { SlashedCatalog } from '@/components/PriceDisplay';
 
 interface ItemModalProps {
   item: MenuItem | null;
@@ -20,6 +23,8 @@ export const ItemModal: React.FC<ItemModalProps> = ({ item, onClose }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [notes, setNotes] = useState<string>('');
+  const categories = useMenuStore((state) => state.categories);
+  const globalMenuDiscount = useMenuStore((state) => state.globalMenuDiscount);
 
   useEffect(() => {
     if (item && item.sizes && item.sizes.length > 0) {
@@ -33,9 +38,9 @@ export const ItemModal: React.FC<ItemModalProps> = ({ item, onClose }) => {
 
   if (!item) return null;
 
-  const currentPrice = selectedSize && item.sizes
-    ? item.sizes.find(s => s.name === selectedSize)?.price || item.price
-    : item.price;
+  const pricing = getStorefrontPricing(item, categories, globalMenuDiscount, selectedSize || undefined);
+  const currentPrice = pricing.sale;
+  const catalogPrice = pricing.catalog;
 
   const totalPrice = currentPrice * quantity;
 
@@ -105,6 +110,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({ item, onClose }) => {
               <div className="grid grid-cols-2 gap-2.5">
                 {item.sizes.map((s) => {
                   const isSelected = selectedSize === s.name;
+                  const sizePricing = getStorefrontPricing(item, categories, globalMenuDiscount, s.name);
                   return (
                     <button
                       key={s.name}
@@ -117,7 +123,12 @@ export const ItemModal: React.FC<ItemModalProps> = ({ item, onClose }) => {
                       }`}
                     >
                       <span>{s.name}</span>
-                      <span className="text-red-600 font-black">{s.price} ج.م</span>
+                      <span className="text-red-600 font-black inline-flex items-baseline gap-1">
+                        {sizePricing.sale} ج.م
+                        {sizePricing.hasDiscount && (
+                          <SlashedCatalog value={sizePricing.catalog} tone="onLight" />
+                        )}
+                      </span>
                     </button>
                   );
                 })}
@@ -188,8 +199,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({ item, onClose }) => {
               <ShoppingBag className="w-4 h-4" />
               أضف للطلب
             </span>
-            <span className="font-black text-white bg-black/20 px-2.5 py-0.5 rounded-lg text-sm">
+            <span className="font-black text-white bg-black/20 px-2.5 py-0.5 rounded-lg text-sm inline-flex items-baseline gap-1">
               {totalPrice} ج.م
+              {pricing.hasDiscount && (
+                <SlashedCatalog value={catalogPrice * quantity} />
+              )}
             </span>
           </button>
         </div>

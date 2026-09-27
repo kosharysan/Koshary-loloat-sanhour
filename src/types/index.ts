@@ -1,3 +1,11 @@
+export type ItemDiscountType = 'percent' | 'amount';
+
+export interface ItemDiscount {
+  isEnabled: boolean;
+  type: ItemDiscountType;
+  value: number;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -7,6 +15,7 @@ export interface Category {
   displayOrder: number;
   isKoshary?: boolean;
   isExtras?: boolean;
+  discount?: ItemDiscount;
 }
 
 export interface MenuItem {
@@ -34,6 +43,7 @@ export interface MenuItem {
       price: number;
     }[];
   }[];
+  discount?: ItemDiscount;
 }
 
 export interface DeliveryZone {
@@ -70,6 +80,7 @@ export interface CartItem {
     price: number;
   }[];
   unavailable?: boolean;
+  originalPrice?: number;
 }
 
 export type OrderType = 'delivery' | 'pickup';
