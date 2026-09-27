@@ -58,7 +58,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
   const availableItems = items.filter(i => i.isAvailable !== false);
 
   return (
-    <div className="sticky top-[69px] z-30 w-full py-3 luxury-glass-nav">
+    <div id="category-nav-bar" className="sticky top-[69px] z-30 w-full py-3 luxury-glass-nav">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
           

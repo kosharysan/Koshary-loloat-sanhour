@@ -1,17 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Sparkles, 
   ArrowLeft, 
   ArrowRight, 
   X, 
-  Check, 
-  HelpCircle, 
-  ShoppingBag, 
-  Utensils, 
-  Send,
-  Lightbulb
+  Check
 } from 'lucide-react';
 import { sounds } from '@/lib/sound';
 import { useCartStore } from '@/lib/store';
@@ -22,7 +16,6 @@ export interface TourStep {
   title: string;
   badge: string;
   description: string;
-  hint?: string;
   preferredPosition?: 'bottom' | 'top' | 'auto';
   onEnter?: () => void;
   onLeave?: () => void;
@@ -37,13 +30,14 @@ interface OnboardingTourProps {
 const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'hero-menu-btn',
-    badge: 'الخطوة 1 من 5',
-    title: 'تصفح قائمة الطعام والمنيو 🍲',
-    description: 'ابدأ بالضغط هنا للانتقال مباشرة إلى المنيو الكامل، وتصفح جميع العلب، الطواجن الفخار، والإضافات والمشروبات مع الأسعار.',
-    hint: 'انقر على التالي أو اضغط على الزر للنزول للمنيو',
+    badge: '1/5',
+    title: 'قائمة الطعام 🍲',
+    description: 'تصفح كل الأصناف والأسعار',
     preferredPosition: 'bottom',
     onEnter: () => {
-      const el = document.getElementById('hero-menu-btn') || document.getElementById('full-menu');
+      const el = document.getElementById('hero-menu-btn') || 
+                 document.getElementById('category-nav-bar') || 
+                 document.getElementById('full-menu');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -51,10 +45,9 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'tour-first-product-card',
-    badge: 'الخطوة 2 من 5',
-    title: 'اختيار وتخصيص وجبتك 🍽️',
-    description: 'اضغط على زر (+) في أي طبق لإضافته للسلة فوراً، وبإمكانك اختيار المقاس وكتابة أي تعليمات خاصة للشيف (مثل صلصة برة أو تقلية زيادة).',
-    hint: 'يمكنك أيضاً تصميم طاجنك الخاص بمكوناتك المفضلة',
+    badge: '2/5',
+    title: 'اختر وجبتك 🍽️',
+    description: 'اضغط (+) لإضافة الطبق للسلة',
     preferredPosition: 'top',
     onEnter: () => {
       const el = document.getElementById('tour-first-product-card');
@@ -65,10 +58,9 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'floating-navbar-cart-btn',
-    badge: 'الخطوة 3 من 5',
-    title: 'سلة الطلبات ومراجعة الحساب 🛒',
-    description: 'هنا تتجمع أكلاتك اللذيذة! اضغط على السلة في أي وقت لمعاينة محتويات طلبك، حساب الإجمالي، وتطبيق كوبونات الخصم.',
-    hint: 'السلة تظهر لك إجمالي الحساب لحظياً',
+    badge: '3/5',
+    title: 'سلة الطلبات 🛒',
+    description: 'اضغط لمعاينة طلبك وحساب الإجمالي',
     preferredPosition: 'bottom',
     onEnter: () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -76,11 +68,10 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'tour-customer-info-section',
-    badge: 'الخطوة 4 من 5',
-    title: 'تسجيل بياناتك (الاسم والموبايل والعنوان) ✍️',
-    description: 'سجّل اسمك الكريم ورقم الموبايل، وحدد عنوانك بالتفصيل ومنطقة التوصيل. النظام يحفظ بياناتك تلقائياً لراحتك في كل مرة تطلب فيها!',
-    hint: 'تُحفظ بياناتك بأمان على جهازك لسرعة طلبك القادم بدون إعادة كتابتها',
-    preferredPosition: 'top',
+    badge: '4/5',
+    title: 'بيانات التوصيل ✍️',
+    description: 'اكتب اسمك ورقمك وعنوانك',
+    preferredPosition: 'bottom',
     onEnter: () => {
       useCartStore.getState().setIsCartOpen(true);
       if (useCartStore.getState().items.length === 0) {
@@ -90,28 +81,29 @@ const TOUR_STEPS: TourStep[] = [
         }
       }
       setTimeout(() => {
+        const scrollContainer = document.getElementById('cart-drawer-scroll-container');
         const el = document.getElementById('tour-customer-info-section');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (scrollContainer && el) {
+          scrollContainer.scrollTo({ top: Math.max(0, el.offsetTop - 30), behavior: 'smooth' });
         }
-      }, 350);
+      }, 60);
     },
   },
   {
     targetId: 'tour-cart-checkout-btn',
-    badge: 'الخطوة 5 من 5 والأخيرة',
-    title: 'إرسال وتأكيد الطلب عبر واتساب 🚀',
-    description: 'اختر طريقة الدفع (كاش، فودافون كاش، إنستاباي)، واضغط هنا لتجهيز فاتورتك المنسقة وإرسالها فوراً للمطعم على واتساب للتجهيز الساخن!',
-    hint: 'طلبك يذهب مباشرة لإدارة المطعم للتنفيذ الفوري',
+    badge: '5/5',
+    title: 'إرسال الطلب 🚀',
+    description: 'أكّد طلبك عبر واتساب فوراً',
     preferredPosition: 'top',
     onEnter: () => {
       useCartStore.getState().setIsCartOpen(true);
       setTimeout(() => {
+        const scrollContainer = document.getElementById('cart-drawer-scroll-container');
         const el = document.getElementById('tour-cart-checkout-btn');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (scrollContainer && el) {
+          scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
         }
-      }, 350);
+      }, 60);
     },
     onLeave: () => {
       useCartStore.getState().setIsCartOpen(false);
@@ -130,7 +122,30 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
   const currentStep = TOUR_STEPS[currentStepIndex];
 
-  // Update target rectangle on resize/scroll/step change
+  // 1. Lock background page scroll while tour is active
+  useEffect(() => {
+    if (isOpen) {
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalDocOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.documentElement.style.overflow = originalDocOverflow;
+      };
+    }
+  }, [isOpen]);
+
+  // 2. Resolve target element safely with fallback for hidden buttons
+  const getTargetElement = useCallback((targetId: string) => {
+    let el = document.getElementById(targetId);
+    if (!el && targetId === 'hero-menu-btn') {
+      el = document.getElementById('category-nav-bar') || document.getElementById('full-menu');
+    }
+    return el;
+  }, []);
+
+  // 3. Update target bounding rectangle
   const updateTargetRect = useCallback(() => {
     if (!isOpen) {
       setTargetRect(null);
@@ -141,10 +156,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       setTargetRect(null);
       return;
     }
-    let el = document.getElementById(step.targetId);
-    if (!el && step.targetId === 'hero-menu-btn') {
-      el = document.getElementById('full-menu');
-    }
+    const el = getTargetElement(step.targetId);
     if (el) {
       const rect = el.getBoundingClientRect();
       setTargetRect(prev => {
@@ -162,7 +174,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
     } else {
       setTargetRect(null);
     }
-  }, [isOpen, currentStepIndex]);
+  }, [isOpen, currentStepIndex, getTargetElement]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -179,15 +191,13 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
     handleResize();
     window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', updateTargetRect, { passive: true });
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', updateTargetRect);
     };
   }, [isOpen, updateTargetRect]);
 
-  // Handle step enter/leave
+  // 4. Handle step transitions with rapid zero-lag re-measurement
   useEffect(() => {
     if (!isOpen) return;
 
@@ -195,12 +205,13 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       currentStep.onEnter();
     }
 
-    const timer = setTimeout(() => {
-      updateTargetRect();
-    }, 350);
+    // Fast initial check then quick settle check
+    const timer1 = setTimeout(() => updateTargetRect(), 80);
+    const timer2 = setTimeout(() => updateTargetRect(), 220);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       if (currentStep?.onLeave) {
         currentStep.onLeave();
       }
@@ -243,32 +254,50 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
   if (!isOpen) return null;
 
-  // Calculate tooltip placement relative to targetRect
-  const padding = 8;
-  const tooltipWidth = Math.min(360, (windowSize.width || 360) - 32);
+  // 5. Smart Viewport Clamping & Concise Card Placement
+  const screenWidth = windowSize.width || (typeof window !== 'undefined' ? window.innerWidth : 360);
+  const screenHeight = windowSize.height || (typeof window !== 'undefined' ? window.innerHeight : 600);
+  const tooltipWidth = Math.min(310, screenWidth - 24);
+  const estimatedHeight = 135;
 
   let tooltipTop = 100;
-  let tooltipLeft = ((windowSize.width || 360) - tooltipWidth) / 2;
+  let tooltipLeft = (screenWidth - tooltipWidth) / 2;
   let arrowPlacement: 'top' | 'bottom' = 'top';
 
   if (targetRect) {
-    const spaceBelow = (windowSize.height || 600) - targetRect.bottom;
     const spaceAbove = targetRect.top;
+    const spaceBelow = screenHeight - targetRect.bottom;
 
-    if (currentStep.preferredPosition === 'bottom' || spaceBelow > 260) {
-      tooltipTop = targetRect.bottom + 20;
+    // Determine whether to place tooltip above or below target
+    if (currentStep.preferredPosition === 'bottom' && spaceBelow >= estimatedHeight + 20) {
+      tooltipTop = targetRect.bottom + 14;
       arrowPlacement = 'top'; // Arrow points UP towards target
-    } else if (spaceAbove > 260) {
-      tooltipTop = Math.max(20, targetRect.top - 250);
+    } else if (currentStep.preferredPosition === 'top' && spaceAbove >= estimatedHeight + 20) {
+      tooltipTop = targetRect.top - estimatedHeight - 14;
       arrowPlacement = 'bottom'; // Arrow points DOWN towards target
+    } else if (spaceBelow >= estimatedHeight + 20) {
+      tooltipTop = targetRect.bottom + 14;
+      arrowPlacement = 'top';
+    } else if (spaceAbove >= estimatedHeight + 20) {
+      tooltipTop = targetRect.top - estimatedHeight - 14;
+      arrowPlacement = 'bottom';
     } else {
-      tooltipTop = Math.max(20, Math.min(targetRect.bottom + 16, (windowSize.height || 600) - 280));
+      // If tight, place where there is more room and strictly clamp inside screen
+      tooltipTop = spaceBelow > spaceAbove 
+        ? targetRect.bottom + 10 
+        : targetRect.top - estimatedHeight - 10;
+      arrowPlacement = spaceBelow > spaceAbove ? 'top' : 'bottom';
     }
 
-    // Keep tooltip horizontally aligned near target, clamped within screen
+    // STRICT CLAMP: Tooltip will NEVER overflow top or bottom edges of viewport
+    tooltipTop = Math.max(12, Math.min(tooltipTop, screenHeight - estimatedHeight - 12));
+
+    // Align horizontally with target center, clamped within screen margins
     const targetCenterX = targetRect.left + targetRect.width / 2;
-    tooltipLeft = Math.max(16, Math.min(targetCenterX - tooltipWidth / 2, (windowSize.width || 360) - tooltipWidth - 16));
+    tooltipLeft = Math.max(12, Math.min(targetCenterX - tooltipWidth / 2, screenWidth - tooltipWidth - 12));
   }
+
+  const padding = 6;
 
   return (
     <div className="fixed inset-0 z-[99999] pointer-events-auto select-none transition-all duration-300">
@@ -281,59 +310,70 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
             left: `${Math.max(0, targetRect.left - padding)}px`,
             width: `${targetRect.width + padding * 2}px`,
             height: `${targetRect.height + padding * 2}px`,
-            borderRadius: '24px',
-            boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.78), 0 0 40px 10px rgba(245, 158, 11, 0.5)',
+            borderRadius: '20px',
+            boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.82), 0 0 35px 8px rgba(245, 158, 11, 0.55)',
           }}
-          className="fixed pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ring-4 ring-amber-400 ring-offset-2 ring-offset-transparent animate-pulse"
+          className="fixed pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ring-3 ring-amber-400 ring-offset-2 ring-offset-transparent animate-pulse"
         />
       ) : (
-        <div className="fixed inset-0 bg-slate-950/78 backdrop-blur-xs transition-opacity duration-300" />
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity duration-300" />
       )}
 
       {/* 2. Interactive Spotlight Click Blocker/Passer */}
       <div 
         className="fixed inset-0"
         onClick={(e) => {
-          // If user clicked the dark overlay, proceed to next step
           if (e.target === e.currentTarget) {
             handleNext();
           }
         }}
       />
 
-      {/* 3. Floating Animated Pointer Arrow */}
+      {/* 3. Luxury Custom SVG Glowing Arrow Pointer */}
       {targetRect && (
         <div
           style={{
-            left: `${Math.max(24, Math.min(targetRect.left + targetRect.width / 2 - 18, (windowSize.width || 360) - 48))}px`,
+            left: `${Math.max(16, Math.min(targetRect.left + targetRect.width / 2 - 16, screenWidth - 44))}px`,
             top: arrowPlacement === 'top' 
-              ? `${Math.max(10, targetRect.bottom + 2)}px`
-              : `${Math.max(10, targetRect.top - 28)}px`,
+              ? `${Math.max(6, targetRect.bottom + 2)}px`
+              : `${Math.max(6, targetRect.top - 36)}px`,
           }}
-          className={`fixed z-[100001] pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`fixed z-[100001] pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             arrowPlacement === 'top' ? 'animate-bounce' : 'animate-bounce-short'
           }`}
         >
-          <div className="w-9 h-9 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.8)] border-2 border-white font-black text-sm">
-            {arrowPlacement === 'top' ? '⬆️' : '⬇️'}
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 via-amber-300 to-amber-400 text-slate-950 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.9)] border-2 border-white">
+            <svg 
+              className="w-4 h-4 fill-none stroke-slate-950" 
+              viewBox="0 0 24 24" 
+              strokeWidth="3.2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              {arrowPlacement === 'top' ? (
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              ) : (
+                <path d="M12 5v14M19 12l-7 7-7-7" />
+              )}
+            </svg>
           </div>
         </div>
       )}
 
-      {/* 4. Luxury Floating Guidance Tooltip Card */}
+      {/* 4. Luxury Concise Guidance Card (مختصر مفيد بدون حشو) */}
       <div
         style={{
           top: `${tooltipTop}px`,
           left: `${tooltipLeft}px`,
           width: `${tooltipWidth}px`,
         }}
-        className="fixed z-[100000] rounded-3xl bg-white/98 backdrop-blur-2xl border-2 border-rose-300 ring-4 ring-amber-400/40 shadow-[0_25px_60px_-10px_rgba(225,29,72,0.28)] p-5 text-slate-900 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] animate-scaleUp"
+        className="fixed z-[100000] rounded-2xl bg-white/98 backdrop-blur-2xl border border-rose-200 ring-4 ring-amber-400/40 shadow-[0_20px_45px_-10px_rgba(225,29,72,0.3)] p-3.5 sm:p-4 text-slate-900 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] animate-scaleUp"
       >
         {/* Card Header with Step Counter and Close */}
-        <div className="flex items-center justify-between pb-3 border-b border-rose-100 mb-3.5">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping"></span>
-            <span className="text-xs font-black text-rose-700 bg-rose-50 border border-rose-200/90 px-3 py-1 rounded-full shadow-2xs">
+        <div className="flex items-center justify-between pb-2 border-b border-rose-100 mb-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+            <span className="text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
               {currentStep.badge}
             </span>
           </div>
@@ -341,42 +381,35 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
           <button
             type="button"
             onClick={handleDismiss}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 flex items-center justify-center transition border border-slate-200/80 cursor-pointer"
+            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 flex items-center justify-center transition border border-slate-200/80 cursor-pointer"
             title="تخطي الجولة"
             aria-label="تخطي الجولة"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Card Content */}
-        <div className="space-y-2 mb-4">
-          <h3 className="text-base sm:text-lg font-black text-slate-950 leading-snug">
+        {/* Card Content - مختصر مفيد كلمتين ثلاثة */}
+        <div className="space-y-0.5 mb-3">
+          <h3 className="text-sm sm:text-base font-black text-slate-950 leading-tight">
             {currentStep.title}
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600 font-bold leading-relaxed">
+          <p className="text-xs font-bold text-slate-600 leading-snug">
             {currentStep.description}
           </p>
-
-          {currentStep.hint && (
-            <div className="p-2.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-[11px] text-amber-950 font-black flex items-center gap-2 mt-2.5 shadow-2xs">
-              <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>{currentStep.hint}</span>
-            </div>
-          )}
         </div>
 
         {/* Step Progress Dots */}
-        <div className="flex items-center justify-center gap-1.5 mb-4">
+        <div className="flex items-center justify-center gap-1 mb-2.5">
           {TOUR_STEPS.map((_, idx) => (
             <span
               key={idx}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
+              className={`h-1 rounded-full transition-all duration-300 ${
                 idx === currentStepIndex
-                  ? 'w-7 bg-gradient-to-r from-red-600 to-amber-500'
+                  ? 'w-5 bg-gradient-to-r from-red-600 to-amber-500'
                   : idx < currentStepIndex
-                  ? 'w-2 bg-emerald-500'
-                  : 'w-2 bg-slate-200'
+                  ? 'w-1.5 bg-emerald-500'
+                  : 'w-1.5 bg-slate-200'
               }`}
             />
           ))}
@@ -388,9 +421,9 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
             <button
               type="button"
               onClick={handlePrev}
-              className="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200"
+              className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200 shrink-0"
             >
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3 h-3" />
               <span>السابق</span>
             </button>
           )}
@@ -398,17 +431,17 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
           <button
             type="button"
             onClick={handleNext}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 via-red-600 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white text-xs sm:text-sm font-black shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+            className="flex-1 py-1.5 px-3 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white text-xs font-black shadow-md shadow-rose-600/25 transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
           >
             {currentStepIndex === TOUR_STEPS.length - 1 ? (
               <>
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>فهمت ذلك! ابدأ الطلب 🚀</span>
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                <span>ابدأ الطلب 🚀</span>
               </>
             ) : (
               <>
-                <span>الخطوة التالية</span>
-                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>التالي</span>
+                <ArrowLeft className="w-3 h-3" />
               </>
             )}
           </button>

@@ -530,7 +530,7 @@ export const CartDrawer: React.FC = () => {
         </div>
 
         {/* Drawer Scrollable Content */}
-        <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-6 space-y-6">
+        <div id="cart-drawer-scroll-container" className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-6 space-y-6">
           
           {/* تنبيه حالة المطعم إذا كان مغلقاً أو في إجازة */}
           {!currentStoreStatus.isOpen && (
