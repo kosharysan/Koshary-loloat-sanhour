@@ -235,73 +235,80 @@ export default function Home() {
         ) : activeCategory === 'all' && !searchQuery.trim() && activeFilter === 'all' ? (
           /* في حالة اختيار "الكل" وبدون بحث: عرض كل قسم وبينه فاصل أنيق وشيك جداً */
           <div className="space-y-12 sm:space-y-16">
-            {[...categories]
-              .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-              .map((category, index) => {
-                const categoryItems = filteredItems.filter((item) => item.categoryId === category.id);
-                if (categoryItems.length === 0) return null;
+            {(() => {
+              let firstCardAssigned = false;
+              return [...categories]
+                .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+                .map((category) => {
+                  const categoryItems = filteredItems.filter((item) => item.categoryId === category.id);
+                  if (categoryItems.length === 0) return null;
 
-                return (
-                  <div key={category.id} className="space-y-5">
-                    {/* الفاصل الشيك وتصميم عنوان القسم */}
-                    <div className="relative flex items-center justify-between gap-3 pt-2">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-9 h-9 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white flex items-center justify-center shadow-md shadow-rose-500/20 text-sm">
-                          {category.icon === 'Crown' ? <Crown className="w-4 h-4" /> :
-                           category.icon === 'Flame' ? <Flame className="w-4 h-4" /> :
-                           category.icon === 'Sandwich' ? <Sandwich className="w-4 h-4" /> :
-                           category.icon === 'PlusCircle' ? <PlusCircle className="w-4 h-4" /> :
-                           category.icon === 'Sparkles' ? <Sparkles className="w-4 h-4" /> :
-                           <Utensils className="w-4 h-4" />}
-                        </span>
-                        <div>
-                          <h3 className="text-base sm:text-lg lg:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                            <span>{category.name}</span>
-                            <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/80">
-                              {categoryItems.length}
-                            </span>
-                          </h3>
-                          {category.description && (
-                            <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
-                              {category.description}
-                            </p>
-                          )}
+                  return (
+                    <div key={category.id} className="space-y-5">
+                      {/* الفاصل الشيك وتصميم عنوان القسم */}
+                      <div className="relative flex items-center justify-between gap-3 pt-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-9 h-9 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white flex items-center justify-center shadow-md shadow-rose-500/20 text-sm">
+                            {category.icon === 'Crown' ? <Crown className="w-4 h-4" /> :
+                             category.icon === 'Flame' ? <Flame className="w-4 h-4" /> :
+                             category.icon === 'Sandwich' ? <Sandwich className="w-4 h-4" /> :
+                             category.icon === 'PlusCircle' ? <PlusCircle className="w-4 h-4" /> :
+                             category.icon === 'Sparkles' ? <Sparkles className="w-4 h-4" /> :
+                             <Utensils className="w-4 h-4" />}
+                          </span>
+                          <div>
+                            <h3 className="text-base sm:text-lg lg:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                              <span>{category.name}</span>
+                              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/80">
+                                {categoryItems.length}
+                              </span>
+                            </h3>
+                            {category.description && (
+                              <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
+                                {category.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
+
+                        {/* الخط الفاصل الزخرفي الفاخر بتصميم متدرج */}
+                        <div className="flex-1 h-[2px] bg-gradient-to-l from-rose-300/80 via-amber-300/60 to-transparent mx-2 hidden sm:block rounded-full"></div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveCategory(category.id);
+                            const el = document.getElementById('full-menu');
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }}
+                          className="text-[11px] sm:text-xs font-black text-rose-700 hover:text-red-700 hover:bg-rose-100/60 px-2.5 py-1 rounded-xl transition shrink-0 flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>عرض القسم فقط</span>
+                          <span className="text-xs">←</span>
+                        </button>
                       </div>
 
-                      {/* الخط الفاصل الزخرفي الفاخر بتصميم متدرج */}
-                      <div className="flex-1 h-[2px] bg-gradient-to-l from-rose-300/80 via-amber-300/60 to-transparent mx-2 hidden sm:block rounded-full"></div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveCategory(category.id);
-                          const el = document.getElementById('full-menu');
-                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                        className="text-[11px] sm:text-xs font-black text-rose-700 hover:text-red-700 hover:bg-rose-100/60 px-2.5 py-1 rounded-xl transition shrink-0 flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>عرض القسم فقط</span>
-                        <span className="text-xs">←</span>
-                      </button>
+                      {/* شبكة أصناف هذا القسم */}
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                        {[...categoryItems]
+                          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+                          .map((item) => {
+                            const isFirstCard = !firstCardAssigned;
+                            if (isFirstCard) firstCardAssigned = true;
+                            return (
+                              <ProductCard
+                                key={item.id}
+                                id={isFirstCard ? 'tour-first-product-card' : undefined}
+                                item={item}
+                                onOpenCustomizer={(itemToCustomize) => setCustomizingItem(itemToCustomize)}
+                              />
+                            );
+                          })}
+                      </div>
                     </div>
-
-                    {/* شبكة أصناف هذا القسم */}
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                      {[...categoryItems]
-                        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-                        .map((item, itemIdx) => (
-                        <ProductCard
-                          key={item.id}
-                          id={index === 0 && itemIdx === 0 ? 'tour-first-product-card' : undefined}
-                          item={item}
-                          onOpenCustomizer={(itemToCustomize) => setCustomizingItem(itemToCustomize)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+            })()}
           </div>
         ) : (
           /* في حالة اختيار قسم معين أو عند إجراء بحث / فلترة: عرض شبكة الأصناف المباشرة */

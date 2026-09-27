@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -13,10 +13,9 @@ import { useMenuStore } from '@/lib/menuStore';
 
 export interface TourStep {
   targetId: string;
-  title: string;
   badge: string;
+  title: string;
   description: string;
-  preferredPosition?: 'bottom' | 'top' | 'auto';
   onEnter?: () => void;
   onLeave?: () => void;
 }
@@ -33,11 +32,9 @@ const TOUR_STEPS: TourStep[] = [
     badge: '1/5',
     title: 'قائمة الطعام 🍲',
     description: 'تصفح كل الأصناف والأسعار',
-    preferredPosition: 'bottom',
     onEnter: () => {
       const el = document.getElementById('hero-menu-btn') || 
-                 document.getElementById('category-nav-bar') || 
-                 document.getElementById('full-menu');
+                 document.getElementById('category-nav-bar');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -48,7 +45,6 @@ const TOUR_STEPS: TourStep[] = [
     badge: '2/5',
     title: 'اختر وجبتك 🍽️',
     description: 'اضغط (+) لإضافة الطبق للسلة',
-    preferredPosition: 'top',
     onEnter: () => {
       const el = document.getElementById('tour-first-product-card');
       if (el) {
@@ -61,7 +57,6 @@ const TOUR_STEPS: TourStep[] = [
     badge: '3/5',
     title: 'سلة الطلبات 🛒',
     description: 'اضغط لمعاينة طلبك وحساب الإجمالي',
-    preferredPosition: 'bottom',
     onEnter: () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
@@ -71,7 +66,6 @@ const TOUR_STEPS: TourStep[] = [
     badge: '4/5',
     title: 'بيانات التوصيل ✍️',
     description: 'اكتب اسمك ورقمك وعنوانك',
-    preferredPosition: 'bottom',
     onEnter: () => {
       useCartStore.getState().setIsCartOpen(true);
       if (useCartStore.getState().items.length === 0) {
@@ -86,7 +80,7 @@ const TOUR_STEPS: TourStep[] = [
         if (scrollContainer && el) {
           scrollContainer.scrollTo({ top: Math.max(0, el.offsetTop - 30), behavior: 'smooth' });
         }
-      }, 60);
+      }, 50);
     },
   },
   {
@@ -94,7 +88,6 @@ const TOUR_STEPS: TourStep[] = [
     badge: '5/5',
     title: 'إرسال الطلب 🚀',
     description: 'أكّد طلبك عبر واتساب فوراً',
-    preferredPosition: 'top',
     onEnter: () => {
       useCartStore.getState().setIsCartOpen(true);
       setTimeout(() => {
@@ -103,7 +96,7 @@ const TOUR_STEPS: TourStep[] = [
         if (scrollContainer && el) {
           scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
         }
-      }, 60);
+      }, 50);
     },
     onLeave: () => {
       useCartStore.getState().setIsCartOpen(false);
@@ -122,30 +115,16 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
   const currentStep = TOUR_STEPS[currentStepIndex];
 
-  // 1. Lock background page scroll while tour is active
-  useEffect(() => {
-    if (isOpen) {
-      const originalBodyOverflow = document.body.style.overflow;
-      const originalDocOverflow = document.documentElement.style.overflow;
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalBodyOverflow;
-        document.documentElement.style.overflow = originalDocOverflow;
-      };
-    }
-  }, [isOpen]);
-
-  // 2. Resolve target element safely with fallback for hidden buttons
+  // 1. Resolve target element safely with fallback for hidden menu button
   const getTargetElement = useCallback((targetId: string) => {
     let el = document.getElementById(targetId);
     if (!el && targetId === 'hero-menu-btn') {
-      el = document.getElementById('category-nav-bar') || document.getElementById('full-menu');
+      el = document.getElementById('category-nav-bar');
     }
     return el;
   }, []);
 
-  // 3. Update target bounding rectangle
+  // 2. Measure target bounding rectangle accurately
   const updateTargetRect = useCallback(() => {
     if (!isOpen) {
       setTargetRect(null);
@@ -162,10 +141,10 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       setTargetRect(prev => {
         if (
           prev &&
-          Math.round(prev.top) === Math.round(rect.top) &&
-          Math.round(prev.left) === Math.round(rect.left) &&
-          Math.round(prev.width) === Math.round(rect.width) &&
-          Math.round(prev.height) === Math.round(rect.height)
+          Math.abs(prev.top - rect.top) < 0.5 &&
+          Math.abs(prev.left - rect.left) < 0.5 &&
+          Math.abs(prev.width - rect.width) < 0.5 &&
+          Math.abs(prev.height - rect.height) < 0.5
         ) {
           return prev;
         }
@@ -176,28 +155,29 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
     }
   }, [isOpen, currentStepIndex, getTargetElement]);
 
+  // 3. Global Captured Scroll and Resize Listeners (catches both window and drawer scroll)
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleResize = () => {
-      setWindowSize(prev => {
-        if (prev.width === window.innerWidth && prev.height === window.innerHeight) {
-          return prev;
-        }
-        return { width: window.innerWidth, height: window.innerHeight };
-      });
+    const handleUpdate = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
       updateTargetRect();
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
+    handleUpdate();
+
+    // capture: true intercepts scrolling in internal scrollable containers (like CartDrawer)
+    window.addEventListener('scroll', updateTargetRect, { capture: true, passive: true });
+    window.addEventListener('resize', handleUpdate, { passive: true });
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', updateTargetRect, { capture: true });
+      window.removeEventListener('resize', handleUpdate);
     };
   }, [isOpen, updateTargetRect]);
 
-  // 4. Handle step transitions with rapid zero-lag re-measurement
+  // 4. Continuous Real-time RAF Tracking Loop during step transitions
+  // Ensures spotlight moves WITH smooth-scroll and drawer animations frame-by-frame
   useEffect(() => {
     if (!isOpen) return;
 
@@ -205,13 +185,21 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       currentStep.onEnter();
     }
 
-    // Fast initial check then quick settle check
-    const timer1 = setTimeout(() => updateTargetRect(), 80);
-    const timer2 = setTimeout(() => updateTargetRect(), 220);
+    let animFrameId: number;
+    const startTime = performance.now();
+    const duration = 850;
+
+    const loop = (now: number) => {
+      updateTargetRect();
+      if (now - startTime < duration) {
+        animFrameId = requestAnimationFrame(loop);
+      }
+    };
+
+    animFrameId = requestAnimationFrame(loop);
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      cancelAnimationFrame(animFrameId);
       if (currentStep?.onLeave) {
         currentStep.onLeave();
       }
@@ -257,42 +245,26 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
   // 5. Smart Viewport Clamping & Concise Card Placement
   const screenWidth = windowSize.width || (typeof window !== 'undefined' ? window.innerWidth : 360);
   const screenHeight = windowSize.height || (typeof window !== 'undefined' ? window.innerHeight : 600);
-  const tooltipWidth = Math.min(310, screenWidth - 24);
-  const estimatedHeight = 135;
+  const tooltipWidth = Math.min(290, screenWidth - 24);
+  const cardHeight = 125; // Compact 2-3 words card
 
-  let tooltipTop = 100;
+  let tooltipTop = 80;
   let tooltipLeft = (screenWidth - tooltipWidth) / 2;
   let arrowPlacement: 'top' | 'bottom' = 'top';
 
   if (targetRect) {
-    const spaceAbove = targetRect.top;
-    const spaceBelow = screenHeight - targetRect.bottom;
-
-    // Determine whether to place tooltip above or below target
-    if (currentStep.preferredPosition === 'bottom' && spaceBelow >= estimatedHeight + 20) {
-      tooltipTop = targetRect.bottom + 14;
-      arrowPlacement = 'top'; // Arrow points UP towards target
-    } else if (currentStep.preferredPosition === 'top' && spaceAbove >= estimatedHeight + 20) {
-      tooltipTop = targetRect.top - estimatedHeight - 14;
-      arrowPlacement = 'bottom'; // Arrow points DOWN towards target
-    } else if (spaceBelow >= estimatedHeight + 20) {
-      tooltipTop = targetRect.bottom + 14;
-      arrowPlacement = 'top';
-    } else if (spaceAbove >= estimatedHeight + 20) {
-      tooltipTop = targetRect.top - estimatedHeight - 14;
-      arrowPlacement = 'bottom';
+    // If target is in lower half of screen, place card ABOVE target
+    if (targetRect.top > screenHeight * 0.42) {
+      tooltipTop = targetRect.top - cardHeight - 16;
+      arrowPlacement = 'bottom'; // Arrow below card, pointing down at target
     } else {
-      // If tight, place where there is more room and strictly clamp inside screen
-      tooltipTop = spaceBelow > spaceAbove 
-        ? targetRect.bottom + 10 
-        : targetRect.top - estimatedHeight - 10;
-      arrowPlacement = spaceBelow > spaceAbove ? 'top' : 'bottom';
+      tooltipTop = targetRect.bottom + 16;
+      arrowPlacement = 'top'; // Arrow above card, pointing up at target
     }
 
-    // STRICT CLAMP: Tooltip will NEVER overflow top or bottom edges of viewport
-    tooltipTop = Math.max(12, Math.min(tooltipTop, screenHeight - estimatedHeight - 12));
+    // STRICT CLAMP: Never let tooltip overflow top or bottom of viewport
+    tooltipTop = Math.max(12, Math.min(tooltipTop, screenHeight - cardHeight - 12));
 
-    // Align horizontally with target center, clamped within screen margins
     const targetCenterX = targetRect.left + targetRect.width / 2;
     tooltipLeft = Math.max(12, Math.min(targetCenterX - tooltipWidth / 2, screenWidth - tooltipWidth - 12));
   }
@@ -306,22 +278,27 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       {targetRect ? (
         <div
           style={{
-            top: `${Math.max(0, targetRect.top - padding)}px`,
-            left: `${Math.max(0, targetRect.left - padding)}px`,
+            top: `${targetRect.top - padding}px`,
+            left: `${targetRect.left - padding}px`,
             width: `${targetRect.width + padding * 2}px`,
             height: `${targetRect.height + padding * 2}px`,
             borderRadius: '20px',
             boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.82), 0 0 35px 8px rgba(245, 158, 11, 0.55)',
           }}
-          className="fixed pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ring-3 ring-amber-400 ring-offset-2 ring-offset-transparent animate-pulse"
+          className="fixed pointer-events-none transition-[top,left,width,height] duration-150 ease-out ring-3 ring-amber-400 ring-offset-2 ring-offset-transparent animate-pulse"
         />
       ) : (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity duration-300" />
       )}
 
-      {/* 2. Interactive Spotlight Click Blocker/Passer */}
+      {/* 2. Interactive Spotlight Click & Drag Blocker on Backdrop */}
       <div 
         className="fixed inset-0"
+        onTouchMove={(e) => {
+          if (e.target === e.currentTarget) {
+            e.preventDefault();
+          }
+        }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
             handleNext();
@@ -338,7 +315,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
               ? `${Math.max(6, targetRect.bottom + 2)}px`
               : `${Math.max(6, targetRect.top - 36)}px`,
           }}
-          className={`fixed z-[100001] pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`fixed z-[100001] pointer-events-none transition-all duration-150 ease-out ${
             arrowPlacement === 'top' ? 'animate-bounce' : 'animate-bounce-short'
           }`}
         >
@@ -367,7 +344,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
           left: `${tooltipLeft}px`,
           width: `${tooltipWidth}px`,
         }}
-        className="fixed z-[100000] rounded-2xl bg-white/98 backdrop-blur-2xl border border-rose-200 ring-4 ring-amber-400/40 shadow-[0_20px_45px_-10px_rgba(225,29,72,0.3)] p-3.5 sm:p-4 text-slate-900 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] animate-scaleUp"
+        className="fixed z-[100000] rounded-2xl bg-white/98 backdrop-blur-2xl border border-rose-200 ring-4 ring-amber-400/40 shadow-[0_20px_45px_-10px_rgba(225,29,72,0.3)] p-3.5 sm:p-4 text-slate-900 transition-all duration-200 ease-out animate-scaleUp"
       >
         {/* Card Header with Step Counter and Close */}
         <div className="flex items-center justify-between pb-2 border-b border-rose-100 mb-2.5">
