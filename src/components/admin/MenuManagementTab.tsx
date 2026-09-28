@@ -3545,7 +3545,7 @@ export const MenuManagementTab: React.FC = () => {
                   أو اختر صورة سريعة من صور المطعم الجاهزة:
                 </p>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {officialMediaLibrary.slice(0, 10).map((media) => (
+                  {officialMediaLibrary.map((media) => (
                     <button
                       key={media.id}
                       type="button"
@@ -3974,7 +3974,7 @@ export const MenuManagementTab: React.FC = () => {
                   أو اختر بنقرة واحدة من مكتبة صور المطعم الرسمية:
                 </p>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {officialMediaLibrary.slice(0, 10).map((media) => (
+                  {officialMediaLibrary.map((media) => (
                     <button
                       key={media.id}
                       type="button"
