@@ -85,13 +85,6 @@ export const Footer: React.FC = () => {
             <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" />
           </div>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-onboarding-tour'))}
-              className="text-amber-800 hover:text-amber-900 transition flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200/90 font-bold text-[11px] cursor-pointer"
-            >
-              <span>💡 شرح خطوات الطلب</span>
-            </button>
             <a
               href="/admin"
               title="بوابة إدارة المطعم"

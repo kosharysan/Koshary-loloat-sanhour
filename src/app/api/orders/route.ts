@@ -2,24 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getClientIp, requireSession } from '@/lib/auth';
 import { priceIncomingOrder, type IncomingCartLine } from '@/lib/orderPricing';
 import { adminGetSettings, adminSaveSettings, getServiceSupabase } from '@/lib/supabaseAdmin';
+import { hitRateLimit } from '@/lib/rateLimit';
 
 const MAX_ORDERS_PER_IP = 8;
 const MAX_ORDERS_PER_PHONE = 5;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
-
-const orderAttempts = new Map<string, { count: number; resetAt: number }>();
-
-function hitRateLimit(key: string, max: number): boolean {
-  const now = Date.now();
-  const current = orderAttempts.get(key);
-  if (!current || current.resetAt <= now) {
-    orderAttempts.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return false;
-  }
-  if (current.count >= max) return true;
-  current.count += 1;
-  return false;
-}
 
 function normalizePhone(input: string): string {
   return String(input || '').replace(/[^\d]/g, '');
@@ -34,11 +21,22 @@ function isValidCustomerPhone(phone: string): boolean {
 
 async function incrementCouponUsage(code: string | null) {
   if (!code) return;
+  const supabase = getServiceSupabase();
+  if (supabase) {
+    const { data, error } = await supabase.rpc('increment_coupon_usage', { p_code: code });
+    if (!error && data && typeof data === 'object' && (data as { ok?: boolean }).ok) {
+      return;
+    }
+  }
+
   const settings = await adminGetSettings();
   if (!settings || !Array.isArray(settings.coupons)) return;
   const coupons = settings.coupons.map((c: any) => {
     if (String(c.code || '').toUpperCase() === code) {
-      return { ...c, usedCount: (c.usedCount || 0) + 1 };
+      const used = c.usedCount || 0;
+      const maxUses = typeof c.maxUses === 'number' ? c.maxUses : 0;
+      if (maxUses > 0 && used >= maxUses) return c;
+      return { ...c, usedCount: used + 1 };
     }
     return c;
   });
@@ -89,7 +87,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-    if (hitRateLimit(`ip:${ip}`, MAX_ORDERS_PER_IP)) {
+    if (await hitRateLimit(`orders:ip:${ip}`, MAX_ORDERS_PER_IP, RATE_WINDOW_MS)) {
       return NextResponse.json(
         { success: false, error: 'طلبت أكثر من مرة في وقت قصير. انتظر ربع ساعة ثم أعد المحاولة.' },
         { status: 429 }
@@ -112,7 +110,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (hitRateLimit(`phone:${customerPhone}`, MAX_ORDERS_PER_PHONE)) {
+    if (await hitRateLimit(`orders:phone:${customerPhone}`, MAX_ORDERS_PER_PHONE, RATE_WINDOW_MS)) {
       return NextResponse.json(
         { success: false, error: 'نفس الرقم ده طلب أكثر من مرة في وقت قصير. انتظر ربع ساعة ثم أعد المحاولة.' },
         { status: 429 }

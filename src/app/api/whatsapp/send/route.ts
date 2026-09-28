@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
-import { getWhatsAppGatewayCredentials } from '@/lib/supabaseAdmin';
+import { getServiceSupabase, getWhatsAppGatewayCredentials } from '@/lib/supabaseAdmin';
+import { phonesMatch } from '@/lib/whatsapp';
+
+async function verifyOrderCustomerPhone(orderId: string, phone: string): Promise<boolean> {
+  const supabase = getServiceSupabase();
+  if (!supabase) return false;
+  const { data, error } = await supabase
+    .from('orders')
+    .select('customer_phone')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (error || !data?.customer_phone) return false;
+  return phonesMatch(String(data.customer_phone), phone);
+}
 
 export async function POST(req: NextRequest) {
   const session = requireSession(req, ['admin', 'monitor']);
@@ -9,9 +22,34 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { phone, text } = body;
+    const orderId = body.orderId ? String(body.orderId).trim() : '';
 
     if (!phone || !text) {
       return NextResponse.json({ success: false, error: 'رقم الهاتف أو نص الرسالة مفقود' }, { status: 400 });
+    }
+
+    if (session.role === 'monitor') {
+      if (!orderId) {
+        return NextResponse.json(
+          { success: false, error: 'لا يمكن إرسال رسالة بدون ربطها بطلب عميل' },
+          { status: 403 }
+        );
+      }
+      const allowed = await verifyOrderCustomerPhone(orderId, String(phone));
+      if (!allowed) {
+        return NextResponse.json(
+          { success: false, error: 'رقم الواتساب لا يطابق عميل هذا الطلب' },
+          { status: 403 }
+        );
+      }
+    } else if (orderId) {
+      const allowed = await verifyOrderCustomerPhone(orderId, String(phone));
+      if (!allowed) {
+        return NextResponse.json(
+          { success: false, error: 'رقم الواتساب لا يطابق عميل هذا الطلب' },
+          { status: 403 }
+        );
+      }
     }
 
     const override =

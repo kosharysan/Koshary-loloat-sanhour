@@ -71,6 +71,7 @@ import { useMenuStore, defaultKosharyCustomOptions, defaultCartIncentiveSettings
 import { defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, formatWhatsAppNotification, openWhatsAppChat, sendWhatsAppMessageApi } from '@/lib/whatsapp';
 import { isGenericInstapayHomepage, normalizeInstapayLink } from '@/lib/contactLinks';
 import { SocialPlatformIcon } from '@/components/SocialPlatformIcon';
+import { displayNameFromOrderLine, isCustomDishOrderLine } from '@/lib/parseOrderItemLine';
 
 // استخراج تفاصيل الأصناف وملاحظات العميل من النص المنظم للطلب
 function parseOrderDetails(specialNotes?: string) {
@@ -123,7 +124,7 @@ function parseItemLine(itemStr: string) {
     nameAndDetails = nameAndDetails.replace(/[×xX]\s*\d+/, '').trim();
   }
 
-  const isCustom = nameAndDetails.includes('طاجن') || detailsStr.includes('الأساس:') || detailsStr.includes('أساس:') || detailsStr.includes('البروتين:') || detailsStr.includes('بروتين:');
+  const isCustom = isCustomDishOrderLine(nameAndDetails, detailsStr);
 
   let size: string | undefined = undefined;
   let proteinFromTitle: string | undefined = undefined;
@@ -140,7 +141,7 @@ function parseItemLine(itemStr: string) {
     nameAndDetails = nameAndDetails.replace(/\([^)]+\)/g, '').trim();
   }
 
-  const name = isCustom ? 'طاجن مبتكر خاص' : nameAndDetails.trim();
+  const name = displayNameFromOrderLine(nameAndDetails, detailsStr);
 
   let base: string | undefined = undefined;
   let without: string | undefined = undefined;
@@ -1412,7 +1413,7 @@ export default function AdminPortal() {
 
       if (msg) {
         if (sendMode === 'auto') {
-          sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken);
+          sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken, String(orderId));
         } else {
           openWhatsAppChat(targetOrder.customer_phone, msg);
         }

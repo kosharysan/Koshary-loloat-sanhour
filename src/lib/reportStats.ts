@@ -1,3 +1,5 @@
+import { displayNameFromOrderLine } from '@/lib/parseOrderItemLine';
+
 export type ReportTimeFilter = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom';
 
 export type ReportCustomerLimit = 'all' | '50' | '100' | '200';
@@ -145,19 +147,27 @@ function parseItemSale(itemStr: string): { name: string; quantity: number; price
     quantity = Number(qtyMatch[1]) || 1;
     nameAndDetails = nameAndDetails.replace(/[×xX]\s*\d+/, '').trim();
   }
-  const isCustom =
-    nameAndDetails.includes('طاجن') ||
+  nameAndDetails = nameAndDetails.replace(/\([^)]+\)/g, '').trim();
+  return {
+    name: displayNameFromOrderLine(nameAndDetails, detailsStr) || 'صنف',
+    quantity,
+    price,
+  };
+}
+
+/*طاجن') ||
     detailsStr.includes('الأساس:') ||
     detailsStr.includes('أساس:') ||
     detailsStr.includes('البروتين:') ||
     detailsStr.includes('بروتين:');
   nameAndDetails = nameAndDetails.replace(/\([^)]+\)/g, '').trim();
   return {
-    name: isCustom ? 'طاجن مبتكر خاص' : nameAndDetails.trim() || 'صنف',
+    name: displayNameFromOrderLine(nameAndDetails, detailsStr) || 'صنف',
     quantity,
     price,
   };
 }
+*/
 
 function extractOrderSales(order: any): { name: string; quantity: number; price: number }[] {
   const itemsList = Array.isArray(order.items) && order.items.length > 0

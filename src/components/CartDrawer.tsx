@@ -392,7 +392,6 @@ export const CartDrawer: React.FC = () => {
       // Generate clean summary of ordered items for kitchen / monitor display
       const itemsLines = liveItems.map((item) => {
         let text = `${item.name} × ${item.quantity}`;
-        if (item.selectedSize) text += ` (${item.selectedSize})`;
         const details: string[] = [];
 
         // تفاصيل الطاجن المبتكر الخاص بالترتيب الدقيق المطلوب:

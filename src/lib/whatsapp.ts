@@ -207,6 +207,13 @@ export function getWhatsAppMeLink(phone: string) {
   return `https://wa.me/${normalizeWhatsAppPhone(phone)}`;
 }
 
+export function phonesMatch(a: string, b: string): boolean {
+  const left = normalizeWhatsAppPhone(a);
+  const right = normalizeWhatsAppPhone(b);
+  if (!left || !right) return false;
+  return left === right;
+}
+
 export function openWhatsAppChat(phone: string, text: string, targetWindow?: Window | null) {
   const cleanPhone = normalizeWhatsAppPhone(phone);
   const encoded = encodeURIComponent(text);
@@ -249,14 +256,15 @@ export async function sendWhatsAppMessageApi(
   phone: string,
   text: string,
   instanceId: string,
-  apiToken: string
+  apiToken: string,
+  orderId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch('/api/whatsapp/send', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, text, instanceId, apiToken }),
+      body: JSON.stringify({ phone, text, instanceId, apiToken, orderId }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.success) {

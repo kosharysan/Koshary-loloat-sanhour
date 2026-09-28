@@ -109,23 +109,56 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const newClosedShift = body.newClosedShift;
     const newShiftStartTime = String(body.newShiftStartTime || '');
-    const newShiftNumber = Number(body.newShiftNumber) || 1;
-    const newArchivedOrderIds = Array.isArray(body.newArchivedOrderIds) ? body.newArchivedOrderIds : [];
 
-    if (!newClosedShift || !newClosedShift.id) {
+    if (!newClosedShift || typeof newClosedShift !== 'object' || !newClosedShift.id) {
       return NextResponse.json({ success: false, error: 'بيانات الوردية غير صالحة' }, { status: 400 });
     }
 
+    const shiftId = String(newClosedShift.id);
+    if (!/^shift-\d+-\d+$/.test(shiftId)) {
+      return NextResponse.json({ success: false, error: 'معرف الوردية غير صالح' }, { status: 400 });
+    }
+
+    const orderIds = Array.isArray(newClosedShift.orderIds)
+      ? [...new Set(newClosedShift.orderIds.map((id: unknown) => String(id || '').trim()).filter(Boolean))].slice(0, 5000)
+      : [];
+    if (orderIds.length === 0) {
+      return NextResponse.json({ success: false, error: 'الوردية فارغة ولا يمكن تقفيلها' }, { status: 400 });
+    }
+
     const settings = (await adminGetSettings()) || {};
-    const cloudShifts = settings.closedShifts || [];
-    const updatedShifts = [newClosedShift, ...cloudShifts.filter((s: any) => s.id !== newClosedShift.id)];
+    const cloudShifts = Array.isArray(settings.closedShifts) ? settings.closedShifts : [];
+    if (cloudShifts.some((s: any) => String(s.id) === shiftId)) {
+      return NextResponse.json({ success: false, error: 'الوردية دي اتقفلت قبل كده' }, { status: 409 });
+    }
+
+    const currentShiftNumber = Number(settings.currentShiftNumber) || (cloudShifts.length + 1);
+    const nextShiftNumber = currentShiftNumber + 1;
+    const existingArchived: string[] = Array.isArray(settings.archivedOrderIds)
+      ? settings.archivedOrderIds.map(String)
+      : [];
+    const archivedOrderIds = [...new Set([...existingArchived, ...orderIds])];
+
+    const sanitizedShift = {
+      ...newClosedShift,
+      id: shiftId,
+      orderIds,
+      shiftNumber: Number(newClosedShift.shiftNumber) || currentShiftNumber,
+      openedAt: String(newClosedShift.openedAt || newShiftStartTime || new Date().toISOString()),
+      closedAt: String(newClosedShift.closedAt || new Date().toISOString()),
+      closedBy: String(newClosedShift.closedBy || '').slice(0, 80),
+      summary: newClosedShift.summary && typeof newClosedShift.summary === 'object' ? newClosedShift.summary : {},
+      orders: Array.isArray(newClosedShift.orders) ? newClosedShift.orders.slice(0, orderIds.length) : [],
+    };
+
+    const updatedShifts = [sanitizedShift, ...cloudShifts];
 
     const res = await adminSaveSettings({
       ...settings,
       closedShifts: updatedShifts,
-      currentShiftStartTime: newShiftStartTime,
-      currentShiftNumber: newShiftNumber,
-      archivedOrderIds: newArchivedOrderIds,
+      currentShiftStartTime: newShiftStartTime || new Date().toISOString(),
+      currentShiftNumber: nextShiftNumber,
+      archivedOrderIds,
     });
 
     if (!res.success) {

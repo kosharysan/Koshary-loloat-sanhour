@@ -6,10 +6,11 @@ import {
   verifyPassword,
 } from '@/lib/auth';
 import { getMonitorPassword } from '@/lib/supabaseAdmin';
+import { clearRateLimit, hitRateLimit } from '@/lib/rateLimit';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
-const loginAttempts = new Map<string, { attempts: number; lockedUntil: number }>();
+const LOCKOUT_MS = LOCKOUT_MINUTES * 60 * 1000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,18 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ip = getClientIp(req);
-    const now = Date.now();
-    const currentStatus = loginAttempts.get(ip);
-    if (currentStatus && currentStatus.lockedUntil > now) {
-      const remainingMinutes = Math.ceil((currentStatus.lockedUntil - now) / (60 * 1000));
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'تم قفل الدخول مؤقتا بسبب محاولات متكررة. يرجى المحاولة بعد ' + remainingMinutes + ' دقيقة.',
-        },
-        { status: 429 }
-      );
-    }
+    const limitKey = `monitor-login:${ip}`;
 
     const { password } = await req.json();
     if (!password || typeof password !== 'string') {
@@ -43,8 +33,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (await hitRateLimit(limitKey, MAX_ATTEMPTS, LOCKOUT_MS)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'تم قفل الدخول مؤقتا بسبب محاولات متكررة. يرجى المحاولة بعد ' + LOCKOUT_MINUTES + ' دقيقة.',
+        },
+        { status: 429 }
+      );
+    }
+
     if (verifyPassword(password.trim(), monitorPassword)) {
-      loginAttempts.delete(ip);
+      await clearRateLimit(limitKey);
       const response = NextResponse.json({
         success: true,
         message: 'تم تسجيل الدخول بنجاح',
@@ -52,21 +52,10 @@ export async function POST(req: NextRequest) {
       return attachSessionCookie(response, 'monitor');
     }
 
-    const attempts = (currentStatus?.attempts || 0) + 1;
-    let lockedUntil = 0;
-    if (attempts >= MAX_ATTEMPTS) {
-      lockedUntil = now + LOCKOUT_MINUTES * 60 * 1000;
-    }
-    loginAttempts.set(ip, { attempts, lockedUntil });
-
-    const remainingAttempts = Math.max(0, MAX_ATTEMPTS - attempts);
     return NextResponse.json(
       {
         success: false,
-        message:
-          remainingAttempts > 0
-            ? 'كلمة المرور غير صحيحة. متبقي ' + remainingAttempts + ' محاولات.'
-            : 'تم قفل الدخول لمدة ' + LOCKOUT_MINUTES + ' دقيقة بسبب تجاوز الحد الأقصى للمحاولات.',
+        message: 'كلمة المرور غير صحيحة.',
       },
       { status: 401 }
     );

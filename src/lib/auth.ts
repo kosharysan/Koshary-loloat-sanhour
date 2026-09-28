@@ -15,10 +15,11 @@ const TOKEN_HOURS = 12;
 
 function getSessionSecret(): string {
   const explicit = process.env.ADMIN_SESSION_SECRET?.trim();
-  if (explicit) return explicit;
+  if (explicit && explicit.length >= 16) return explicit;
+  if (process.env.NODE_ENV === 'production') return '';
   const adminPassword = process.env.ADMIN_PASSWORD?.trim();
   if (adminPassword) {
-    return createHmac('sha256', 'loloat-sanhour-session-v1').update(adminPassword).digest('hex');
+    return createHmac('sha256', 'loloat-sanhour-session-v1-dev-only').update(adminPassword).digest('hex');
   }
   return '';
 }
@@ -112,11 +113,17 @@ export function clearSessionCookie(response: NextResponse, role: SessionRole): N
 }
 
 export function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0]?.trim() || 'unknown';
+  const vercel = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim();
+  if (vercel) return vercel;
+  const cf = req.headers.get('cf-connecting-ip')?.trim();
+  if (cf) return cf;
+  const real = req.headers.get('x-real-ip')?.trim();
+  if (real) return real;
+  if (process.env.NODE_ENV === 'production') {
+    const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+    if (forwarded) return forwarded;
   }
-  return req.headers.get('x-real-ip')?.trim() || 'unknown';
+  return 'unknown';
 }
 
 export function getAdminPassword(): string {

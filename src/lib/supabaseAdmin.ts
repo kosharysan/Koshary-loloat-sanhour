@@ -1,92 +1,9 @@
-import https from 'node:https';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { extractSecretsFromSettings, pickPublicSettings, stripSecretsFromSettings, type ExtractedSecrets } from '@/lib/publicSettings';
 
 function getSupabaseUrl(): string {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
   return rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
-}
-
-function createSupabaseServerFetch() {
-  let allowedHost = '';
-  try {
-    allowedHost = new URL(getSupabaseUrl()).host;
-  } catch {
-    allowedHost = '';
-  }
-
-  const agent = new https.Agent({ rejectUnauthorized: false });
-
-  return (input: RequestInfo | URL, init?: RequestInit) => {
-    const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const parsed = new URL(href);
-
-    if (!allowedHost || parsed.host !== allowedHost) {
-      return fetch(input, init);
-    }
-
-    return new Promise<Response>((resolve, reject) => {
-      const method = (init?.method || 'GET').toUpperCase();
-      const headers: Record<string, string> = {};
-      const incoming = init?.headers;
-      if (incoming instanceof Headers) {
-        incoming.forEach((value, key) => {
-          headers[key] = value;
-        });
-      } else if (Array.isArray(incoming)) {
-        incoming.forEach(([key, value]) => {
-          headers[key] = value;
-        });
-      } else if (incoming) {
-        Object.assign(headers, incoming);
-      }
-
-      const request = https.request(
-        {
-          protocol: parsed.protocol,
-          hostname: parsed.hostname,
-          port: parsed.port || 443,
-          path: `${parsed.pathname}${parsed.search}`,
-          method,
-          headers,
-          agent,
-        },
-        (response) => {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-          response.on('end', () => {
-            const body = Buffer.concat(chunks);
-            const responseHeaders = new Headers();
-            Object.entries(response.headers).forEach(([key, value]) => {
-              if (Array.isArray(value)) responseHeaders.set(key, value.join(','));
-              else if (typeof value === 'string') responseHeaders.set(key, value);
-            });
-            resolve(new Response(body, {
-              status: response.statusCode || 500,
-              headers: responseHeaders,
-            }));
-          });
-        }
-      );
-
-      request.setTimeout(8000, () => {
-        request.destroy();
-        reject(new Error('انتهت مهلة الاتصال بقاعدة البيانات'));
-      });
-      request.on('error', reject);
-
-      if (init?.body && method !== 'GET' && method !== 'HEAD') {
-        if (typeof init.body === 'string' || Buffer.isBuffer(init.body)) {
-          request.write(init.body);
-        } else if (init.body instanceof Uint8Array) {
-          request.write(Buffer.from(init.body));
-        } else {
-          request.write(String(init.body));
-        }
-      }
-      request.end();
-    });
-  };
 }
 
 let cachedServiceClient: SupabaseClient | null = null;
@@ -98,7 +15,6 @@ export function getServiceSupabase(): SupabaseClient | null {
   if (!url || !key) return null;
   cachedServiceClient = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { fetch: createSupabaseServerFetch() as typeof fetch },
   });
   return cachedServiceClient;
 }

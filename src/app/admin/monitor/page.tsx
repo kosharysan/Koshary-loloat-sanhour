@@ -45,6 +45,7 @@ import {
   Check
 } from 'lucide-react';
 import { fetchOrdersFromDatabase, updateOrderStatusInDb, isSupabaseConfigured, supabase, fetchShiftsData, closeShiftInDatabase } from '@/lib/supabase';
+import { displayNameFromOrderLine, isCustomDishOrderLine } from '@/lib/parseOrderItemLine';
 import { useMenuStore } from '@/lib/menuStore';
 import { sounds } from '@/lib/sound';
 import { openWhatsAppChat, formatWhatsAppNotification, defaultConfirmNotificationTemplate, defaultCancelNotificationTemplate, sendWhatsAppMessageApi } from '@/lib/whatsapp';
@@ -272,7 +273,7 @@ export default function OrderMonitorPage() {
         if (sendMode === 'auto') {
           // الوضع التلقائي المباشر في الخلفية عبر API
           whatsAppOutcome = 'auto_success';
-          sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken)
+          sendWhatsAppMessageApi(targetOrder.customer_phone, msg, instanceId, apiToken, String(orderId))
             .then(res => {
               if (!res.success) {
                 console.warn('[Auto WhatsApp Failed]:', res.error);
@@ -589,7 +590,7 @@ export default function OrderMonitorPage() {
       nameAndDetails = nameAndDetails.replace(/[×xX]\s*\d+/, '').trim();
     }
 
-    const isCustom = nameAndDetails.includes('طاجن') || detailsStr.includes('الأساس:') || detailsStr.includes('أساس:') || detailsStr.includes('البروتين:') || detailsStr.includes('بروتين:');
+    const isCustom = isCustomDishOrderLine(nameAndDetails, detailsStr);
 
     // 4. Extract size or protein from parentheses
     let size: string | undefined = undefined;
@@ -608,7 +609,7 @@ export default function OrderMonitorPage() {
       nameAndDetails = nameAndDetails.replace(/\([^)]+\)/g, '').trim();
     }
 
-    const name = isCustom ? 'طاجن مبتكر خاص' : nameAndDetails.trim();
+    const name = displayNameFromOrderLine(nameAndDetails, detailsStr);
 
     // 5. Parse details segments
     let base: string | undefined = undefined;
@@ -1859,7 +1860,7 @@ export default function OrderMonitorPage() {
                                                 <button
                                                   type="button"
                                                   onClick={() => setSelectedItemNote({
-                                                    title: `طاجن مبتكر خاص (الكمية: ${itemInfo.quantity})`,
+                                                    title: `${itemInfo.name} (الكمية: ${itemInfo.quantity})`,
                                                     without: itemInfo.without,
                                                     notes: itemInfo.notes
                                                   })}
