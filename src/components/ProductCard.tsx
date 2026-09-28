@@ -159,11 +159,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {pricing.catalog} ج.م
             </span>
           )}
-          <span className={`text-sm sm:text-lg font-black ${pricing.hasDiscount ? 'text-emerald-600' : 'text-rose-700'}`}>
+          <span className={`text-sm sm:text-lg font-black ${pricing.hasDiscount ? 'text-amber-600' : 'text-rose-700'}`}>
             {pricing.sale} ج.م
           </span>
           {pricing.hasDiscount && (
-            <span className="text-[10px] sm:text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] sm:text-[11px] font-black text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
               {formatDiscountLabel(pricing.discount) || 'عرض'}
             </span>
           )}

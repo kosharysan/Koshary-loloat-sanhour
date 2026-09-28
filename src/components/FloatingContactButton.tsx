@@ -89,7 +89,12 @@ export const FloatingContactButton: React.FC<FloatingContactButtonProps> = ({
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault();
     sounds.playAddChime();
-    setIsPinned((prev) => !prev);
+    if (isOpen) {
+      setIsPinned(false);
+      setIsHovered(false);
+    } else {
+      setIsPinned(true);
+    }
   };
 
   return (
